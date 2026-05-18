@@ -1,0 +1,92 @@
+import { createPortal } from "react-dom";
+import { X } from "lucide-react";
+
+type CatalogFilterOverlayProps = {
+  open: boolean;
+  onClose: () => void;
+  onApply: () => void;
+  onReset: () => void;
+  children: React.ReactNode;
+};
+
+export default function CatalogFilterOverlay({
+  open,
+  onClose,
+  onApply,
+  onReset,
+  children,
+}: CatalogFilterOverlayProps) {
+  if (!open) return null;
+
+  const header = (
+    <div className="flex shrink-0 items-center justify-between border-b border-ns-border px-5 py-4">
+      <span className="text-base font-semibold text-ns-text">Фильтры</span>
+      <button
+        type="button"
+        onClick={onClose}
+        className="ns-icon-btn ns-touch-target flex items-center justify-center rounded-[12px]"
+        aria-label="Закрыть"
+      >
+        <X size={22} strokeWidth={1.5} />
+      </button>
+    </div>
+  );
+
+  const footer = (
+    <div className="flex shrink-0 gap-2 border-t border-ns-border bg-ns-bg-secondary p-4">
+      <button type="button" onClick={onReset} className="ns-btn ns-btn-secondary flex-1">
+        Сбросить
+      </button>
+      <button type="button" onClick={onApply} className="ns-btn ns-btn-primary flex-1">
+        Применить
+      </button>
+    </div>
+  );
+
+  return createPortal(
+    <>
+      <div className="fixed inset-0 z-[200] flex flex-col justify-end md:hidden">
+        <button
+          type="button"
+          className="absolute inset-0 bg-black/60"
+          onClick={onClose}
+          aria-label="Закрыть фильтры"
+        />
+        <div
+          className="relative flex max-h-[min(92dvh,720px)] flex-col rounded-t-[20px] border-t border-ns-border bg-ns-bg-secondary shadow-[0_-8px_40px_rgba(0,0,0,0.2)]"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Фильтры каталога"
+        >
+          {header}
+          <div className="scrollbar-none min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4">
+            {children}
+          </div>
+          {footer}
+        </div>
+      </div>
+
+      <div className="fixed inset-0 z-[200] hidden md:block lg:hidden">
+        <button
+          type="button"
+          className="absolute inset-0 bg-black/60 backdrop-blur-[2px]"
+          onClick={onClose}
+          aria-label="Закрыть фильтры"
+        />
+        <aside
+          className="absolute right-0 top-0 flex h-full w-[min(100%,22rem)] flex-col border-l border-ns-border bg-ns-bg-secondary shadow-2xl"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Фильтры каталога"
+        >
+          {header}
+          <div className="scrollbar-none min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4">
+            {children}
+          </div>
+          {footer}
+        </aside>
+      </div>
+    </>,
+    document.body,
+  );
+}

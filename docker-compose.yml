@@ -1,0 +1,38 @@
+name: network-shop
+
+services:
+  mysql:
+    image: mariadb:11.4
+    container_name: network_shop_db
+    restart: always
+    environment:
+      MARIADB_ROOT_PASSWORD: root
+      MYSQL_DATABASE: network_shop
+      MYSQL_USER: shopuser
+      MYSQL_PASSWORD: shoppassword
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test:
+        ["CMD", "mariadb-admin", "ping", "-h", "127.0.0.1", "-uroot", "-proot"]
+      interval: 10s
+      timeout: 20s
+      retries: 10
+
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: network_shop_pma
+    restart: always
+    environment:
+      PMA_HOST: mysql
+      PMA_USER: shopuser
+      PMA_PASSWORD: shoppassword
+    ports:
+      - "8081:80"
+    depends_on:
+      - mysql
+
+volumes:
+  mysql_data:

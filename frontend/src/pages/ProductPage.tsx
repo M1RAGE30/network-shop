@@ -1,0 +1,387 @@
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import api from "../lib/api";
+import { formatPrice } from "../lib/format";
+import { ShoppingCart, Heart, Star, Minus, Plus, Package } from "lucide-react";
+import { useAuthStore } from "../store/authStore";
+import { isCustomer } from "../lib/roles";
+import { useState } from "react";
+import { pluralizeReviews } from "../lib/pluralize";
+import MediaImage from "../components/MediaImage";
+
+export default function ProductPage() {
+  const { slug } = useParams<{ slug: string }>();
+  const { user } = useAuthStore();
+  const qc = useQueryClient();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [rating, setRating] = useState(5);
+  const [comment, setComment] = useState("");
+
+  const { data: product, isLoading } = useQuery({
+    queryKey: ["product", slug],
+    queryFn: () => api.get(`/products/${slug}`).then((r) => r.data),
+  });
+
+  const canShop = isCustomer(user);
+
+  const { data: cartItems = [] } = useQuery({
+    queryKey: ["cart"],
+    queryFn: () => api.get("/cart").then((r) => r.data),
+    enabled: canShop,
+  });
+
+  const { data: favorites = [] } = useQuery({
+    queryKey: ["favorites"],
+    queryFn: () => api.get("/favorites").then((r) => r.data),
+    enabled: canShop,
+  });
+
+  const cartItem = product
+    ? (cartItems as any[]).find((i) => i.productId === product.id)
+    : null;
+  const isFavorite = product
+    ? (favorites as any[]).some((f) => f.productId === product.id)
+    : false;
+
+  const addToCartMutation = useMutation({
+    mutationFn: () => api.post("/cart", { productId: product.id, quantity: 1 }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["cart"] }),
+  });
+
+  const updateCartMutation = useMutation({
+    mutationFn: (quantity: number) =>
+      quantity === 0
+        ? api.delete(`/cart/${product.id}`)
+        : api.put(`/cart/${product.id}`, { quantity }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["cart"] }),
+  });
+
+  const toggleFavoriteMutation = useMutation({
+    mutationFn: () =>
+      isFavorite
+        ? api.delete(`/favorites/${product.id}`)
+        : api.post(`/favorites/${product.id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["favorites"] }),
+  });
+
+  const addReview = useMutation({
+    mutationFn: () =>
+      api.post(`/reviews/product/${product.id}`, { rating, comment }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["product", slug] });
+      setComment("");
+    },
+  });
+
+  if (isLoading) {
+    return (
+      <div className="max-w-6xl mx-auto">
+        <div className="grid md:grid-cols-2 gap-8">
+          <div className="bg-ns-input rounded-3xl aspect-square animate-pulse" />
+          <div className="space-y-6">
+            <div className="h-4 bg-ns-input w-1/3 rounded animate-pulse" />
+            <div className="h-10 bg-ns-input w-2/3 rounded animate-pulse" />
+            <div className="h-12 bg-ns-input w-1/4 rounded animate-pulse" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!product)
+    return (
+      <p className="text-ns-muted py-20 text-center text-lg">
+        Товар не найден
+      </p>
+    );
+
+  const avgRating = product.reviews.length
+    ? (
+        product.reviews.reduce((s: number, r: any) => s + r.rating, 0) /
+        product.reviews.length
+      ).toFixed(1)
+    : null;
+
+  const activeTab = location.hash === "#reviews" ? "reviews" : "specs";
+
+  return (
+    <div className="max-w-[1280px] mx-auto space-y-7 sm:space-y-9 px-3 sm:px-4 lg:px-6 py-6 sm:py-8">
+      <section className="aurora-panel rounded-[2.25rem] p-5 sm:p-7 lg:p-10">
+        <div className="grid lg:grid-cols-[minmax(220px,400px)_minmax(0,1fr)] gap-7 lg:gap-12 items-center">
+          <div className="relative flex min-h-[250px] sm:min-h-[320px] lg:min-h-[390px] items-center justify-center overflow-hidden rounded-[1.5rem] bg-ns-elevated">
+            {product.imageUrl ? (
+              <MediaImage
+                src={product.imageUrl}
+                alt={product.name}
+                className="relative z-10 h-full w-full max-h-[400px] rounded-[1.5rem] object-cover object-center"
+              />
+            ) : (
+              <div className="relative z-10 flex h-56 w-56 items-center justify-center rounded-[2rem] ns-chip">
+                <Package
+                  size={88}
+                  strokeWidth={1.1}
+                  className="text-ns-muted"
+                />
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-col justify-center space-y-5 lg:pl-2">
+          <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-ns-text-secondary mb-3">
+              {product.brand.name} / {product.category.name}
+            </p>
+              <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl font-semibold text-ns-text leading-tight tracking-tight mb-4">
+              {product.name}
+            </h1>
+          </div>
+
+          {avgRating && (
+            <div className="flex items-center gap-2">
+              <div className="flex gap-0.5">
+                {[1, 2, 3, 4, 5].map((s) => (
+                  <Star
+                    key={s}
+                    size={16}
+                    strokeWidth={1.5}
+                    className={
+                      Number(avgRating) >= s
+                        ? "ns-star"
+                        : "text-ns-muted"
+                    }
+                  />
+                ))}
+              </div>
+              <span className="text-sm text-ns-text-secondary">
+                {avgRating} · {pluralizeReviews(product.reviews.length)}
+              </span>
+            </div>
+          )}
+
+          <div className="py-2">
+            <p className="aurora-text text-4xl sm:text-5xl font-semibold">
+              {formatPrice(product.price)}
+            </p>
+          </div>
+
+          {product.description && (
+            <p className="max-w-2xl text-base text-ns-text-secondary leading-relaxed">
+              {product.description}
+            </p>
+          )}
+
+          <div className="flex flex-col sm:flex-row gap-3 pt-3 sm:pt-4">
+            {canShop && cartItem ? (
+              <div className="flex items-center gap-3 sm:gap-4 flex-1">
+                <button
+                  onClick={() =>
+                    updateCartMutation.mutate(cartItem.quantity - 1)
+                  }
+                  className="w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center rounded-full ns-chip ns-chip--round hover:bg-ns-hover transition-colors text-ns-text"
+                >
+                  <Minus
+                    size={16}
+                    strokeWidth={1.5}
+                    className="sm:w-[18px] sm:h-[18px]"
+                  />
+                </button>
+                <span className="text-lg sm:text-xl font-semibold w-8 sm:w-10 text-center text-ns-text">
+                  {cartItem.quantity}
+                </span>
+                <button
+                  onClick={() =>
+                    updateCartMutation.mutate(cartItem.quantity + 1)
+                  }
+                  className="w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center rounded-full ns-chip ns-chip--round hover:bg-ns-hover transition-colors text-ns-text"
+                >
+                  <Plus
+                    size={16}
+                    strokeWidth={1.5}
+                    className="sm:w-[18px] sm:h-[18px]"
+                  />
+                </button>
+                <span className="text-xs sm:text-sm text-ns-text-secondary">
+                  в корзине
+                </span>
+              </div>
+            ) : canShop ? (
+              <button
+                onClick={() => addToCartMutation.mutate()}
+                className="aurora-button flex-1 flex items-center justify-center gap-2 text-sm font-medium transition-transform hover:scale-[1.01] active:scale-[0.99]"
+              >
+                <ShoppingCart
+                  size={18}
+                  strokeWidth={1.5}
+                  className="sm:w-5 sm:h-5"
+                />{" "}
+                Купить
+              </button>
+            ) : !user ? (
+              <Link
+                to="/login"
+                className="aurora-button flex-1 flex items-center justify-center gap-2 text-sm font-medium transition-transform hover:scale-[1.01] active:scale-[0.99]"
+              >
+                Войти, чтобы купить
+              </Link>
+            ) : null}
+
+            {canShop && (
+              <button
+                onClick={() => toggleFavoriteMutation.mutate()}
+                className={`ns-btn flex h-10 w-10 sm:h-11 sm:w-11 shrink-0 items-center justify-center p-0 transition-colors ${
+                  isFavorite
+                    ? "ns-btn-primary"
+                    : "ns-btn-secondary"
+                }`}
+              >
+                <Heart
+                  size={18}
+                  strokeWidth={1.5}
+                  className={`sm:w-5 sm:h-5 ${isFavorite ? "fill-white" : ""}`}
+                />
+              </button>
+            )}
+          </div>
+        </div>
+        </div>
+      </section>
+
+      <nav className="flex flex-wrap items-center gap-3" aria-label="Разделы товара">
+        <button
+          type="button"
+          onClick={() => navigate({ hash: "" }, { replace: true })}
+          className={`ns-tab-btn ${activeTab === "specs" ? "ns-tab-btn--active" : ""}`}
+        >
+          Характеристики
+        </button>
+        <button
+          type="button"
+          onClick={() => navigate({ hash: "reviews" }, { replace: true })}
+          className={`ns-tab-btn ${activeTab === "reviews" ? "ns-tab-btn--active" : ""}`}
+        >
+          Отзывы
+        </button>
+      </nav>
+
+      {activeTab === "reviews" && (
+        <section className="rounded-[2rem] px-1 sm:px-2">
+        <h2 className="text-xl sm:text-2xl font-semibold text-ns-text mb-6 sm:mb-8">
+          Отзывы{" "}
+          {product.reviews.length > 0 && (
+            <span className="text-ns-muted font-normal text-base sm:text-lg">
+              ({product.reviews.length})
+            </span>
+          )}
+        </h2>
+
+        {canShop && (
+          <div className="mb-8 ns-chip rounded-2xl p-5 sm:p-6">
+            <p className="text-sm font-semibold text-ns-text mb-4">
+              Оставить отзыв
+            </p>
+            <div className="flex gap-1 mb-4">
+              {[1, 2, 3, 4, 5].map((s) => (
+                <button key={s} onClick={() => setRating(s)}>
+                  <Star
+                    size={28}
+                    strokeWidth={1.5}
+                    className={
+                      s <= rating
+                        ? "ns-star"
+                        : "text-ns-muted"
+                    }
+                  />
+                </button>
+              ))}
+            </div>
+            <textarea
+              rows={4}
+              placeholder="Расскажите о товаре..."
+              className="w-full rounded-2xl px-4 py-3 text-sm resize-none ns-chip text-ns-text placeholder:text-ns-muted  focus:outline-none transition-all"
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+            />
+            <button
+              onClick={() => addReview.mutate()}
+              disabled={!comment.trim() || addReview.isPending}
+              className="aurora-button mt-4 px-6 text-sm font-medium transition-transform hover:scale-[1.01] disabled:opacity-30"
+            >
+              Опубликовать
+            </button>
+          </div>
+        )}
+
+        {product.reviews.length === 0 ? (
+          <p className="text-sm text-ns-muted">
+            Отзывов пока нет. Будьте первым.
+          </p>
+        ) : (
+          <div className="space-y-4">
+            {product.reviews.map((r: any) => (
+              <div
+                key={r.id}
+                className="ns-chip rounded-2xl p-5 sm:p-6"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <span className="font-semibold text-ns-text">
+                    {r.user.name}
+                  </span>
+                  <div className="flex gap-0.5">
+                    {[1, 2, 3, 4, 5].map((s) => (
+                      <Star
+                        key={s}
+                        size={14}
+                        strokeWidth={1.5}
+                        className={
+                          r.rating >= s
+                            ? "ns-star"
+                            : "text-ns-muted"
+                        }
+                      />
+                    ))}
+                  </div>
+                </div>
+                {r.comment && (
+                  <p className="text-sm text-ns-muted leading-relaxed">
+                    {r.comment}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+        </section>
+      )}
+
+      {activeTab === "specs" && product.specs && (
+        <section className="rounded-[2rem] px-1 sm:px-2">
+          <h2 className="text-xl sm:text-2xl font-semibold text-ns-text mb-6 sm:mb-8">
+            Характеристики
+          </h2>
+          <div className="grid grid-cols-1 gap-3">
+            {Object.entries(product.specs as Record<string, string>).map(
+              ([k, v], index) => (
+                <div
+                  key={k}
+                  className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4 p-4 rounded-2xl ${
+                    index % 2 === 0
+                      ? "ns-chip"
+                      : "bg-ns-hover"
+                  }`}
+                >
+                  <span className="text-sm font-medium text-ns-muted">
+                    {k}
+                  </span>
+                  <span className="text-sm font-semibold text-ns-text sm:text-right">
+                    {v}
+                  </span>
+                </div>
+              ),
+            )}
+          </div>
+        </section>
+      )}
+    </div>
+  );
+}
