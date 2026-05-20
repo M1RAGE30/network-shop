@@ -26,6 +26,7 @@ import { useThemeStore } from "../store/themeStore";
 import { getPageTitle } from "../lib/pageTitles";
 import { useBodyScrollLock } from "../lib/useBodyScrollLock";
 import Logo from "./Logo";
+import BuilderNavMenu from "./BuilderNavMenu";
 
 export default function Navbar() {
   const { user } = useAuthStore();
@@ -35,6 +36,8 @@ export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [builderOpen, setBuilderOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [menuMounted, setMenuMounted] = useState(false);
+  const [menuVisible, setMenuVisible] = useState(false);
   const builderRef = useRef<HTMLDivElement>(null);
 
   const isHome = location.pathname === "/";
@@ -65,6 +68,23 @@ export default function Navbar() {
     setMenuOpen(false);
   }, [location.pathname]);
 
+  useEffect(() => {
+    if (menuOpen) {
+      setMenuMounted(true);
+      const id = requestAnimationFrame(() => {
+        requestAnimationFrame(() => setMenuVisible(true));
+      });
+      return () => cancelAnimationFrame(id);
+    }
+    setMenuVisible(false);
+  }, [menuOpen]);
+
+  const closeMenu = () => setMenuOpen(false);
+
+  const onMenuTransitionEnd = () => {
+    if (!menuOpen) setMenuMounted(false);
+  };
+
   const navSurface =
     isHome && !scrolled ? "ns-nav--home" : "ns-nav--scrolled";
 
@@ -76,35 +96,14 @@ export default function Navbar() {
 
   const builderDropdown = (
     <div className="ns-dropdown ns-card-static absolute top-full left-1/2 z-50 mt-3 min-w-[240px] -translate-x-1/2 p-2">
-      <Link
-        to="/builder/network"
-        onClick={() => setBuilderOpen(false)}
-        className="flex gap-3 rounded-[14px] px-3 py-3 hover:bg-ns-hover transition-colors"
-      >
-        <Network size={20} className="text-ns-muted shrink-0 mt-0.5" strokeWidth={1.5} />
-        <span>
-          <span className="block text-sm font-medium text-ns-text">Конструктор сети</span>
-          <span className="block text-xs text-ns-muted">Топология и подбор оборудования</span>
-        </span>
-      </Link>
-      <Link
-        to="/builder/wifi"
-        onClick={() => setBuilderOpen(false)}
-        className="flex gap-3 rounded-[14px] px-3 py-3 hover:bg-ns-hover transition-colors"
-      >
-        <Wifi size={20} className="text-ns-muted shrink-0 mt-0.5" strokeWidth={1.5} />
-        <span>
-          <span className="block text-sm font-medium text-ns-text">Конструктор Wi‑Fi</span>
-          <span className="block text-xs text-ns-muted">Тепловая карта покрытия</span>
-        </span>
-      </Link>
+      <BuilderNavMenu onNavigate={() => setBuilderOpen(false)} />
     </div>
   );
 
   const menuLink = (to: string, label: string, Icon: LucideIcon) => (
     <Link
       to={to}
-      onClick={() => setMenuOpen(false)}
+      onClick={closeMenu}
       className="flex items-center gap-3 rounded-[14px] px-4 py-3.5 text-base font-medium text-ns-text hover:bg-ns-hover transition-colors"
     >
       <Icon size={20} className="text-ns-muted shrink-0" strokeWidth={1.5} />
@@ -246,18 +245,25 @@ export default function Navbar() {
         </button>
       </header>
 
-      {menuOpen && (
+      {menuMounted && (
         <>
           <button
             type="button"
-            className="ns-overlay-backdrop fixed inset-0 bg-black/60 lg:hidden"
+            className={`ns-overlay-backdrop fixed inset-0 z-[95] bg-black/60 transition-opacity duration-300 lg:hidden ${
+              menuVisible ? "opacity-100" : "opacity-0"
+            }`}
             aria-label="Закрыть меню"
-            onClick={() => setMenuOpen(false)}
+            onClick={closeMenu}
           />
-          <aside className="ns-overlay-panel ns-menu-panel ns-menu-panel--open fixed inset-y-0 left-0 flex w-[min(88vw,20rem)] flex-col border-r border-ns-border bg-ns-bg-secondary shadow-[4px_0_24px_rgba(0,0,0,0.12)] md:max-w-[22rem]">
+          <aside
+            onTransitionEnd={onMenuTransitionEnd}
+            className={`ns-overlay-panel ns-menu-panel fixed inset-y-0 right-0 z-[96] flex w-[min(88vw,20rem)] flex-col border-l border-ns-border bg-ns-bg md:max-w-[22rem] ${
+              menuVisible ? "ns-menu-panel--open" : ""
+            }`}
+          >
             <div className="flex items-center justify-between px-5 py-4 border-b border-ns-border">
               <span className="font-semibold text-ns-text">Меню</span>
-              <button type="button" onClick={() => setMenuOpen(false)} className={iconBtn} aria-label="Закрыть">
+              <button type="button" onClick={closeMenu} className={iconBtn} aria-label="Закрыть">
                 <X size={22} strokeWidth={1.5} />
               </button>
             </div>
@@ -278,7 +284,7 @@ export default function Navbar() {
                 <button
                   type="button"
                   onClick={() => {
-                    setMenuOpen(false);
+                    closeMenu();
                     openAdminPanel();
                   }}
                   className="flex w-full items-center gap-3 rounded-[14px] px-4 py-3.5 text-left text-base font-medium text-ns-text transition-colors hover:bg-ns-hover"
@@ -298,7 +304,7 @@ export default function Navbar() {
               {!user && (
                 <Link
                   to="/register"
-                  onClick={() => setMenuOpen(false)}
+                  onClick={closeMenu}
                   className="ns-btn ns-btn-primary w-full mt-4"
                 >
                   Регистрация

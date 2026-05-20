@@ -140,7 +140,7 @@ export default function CartDrawer({ open, onClose }: CartDrawerProps) {
                         <MediaImage
                           src={item.product.imageUrl}
                           alt={item.product.name}
-                          className="w-full h-full object-contain p-2"
+                          className="w-full h-full object-cover"
                         />
                       ) : (
                         <Package

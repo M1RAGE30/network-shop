@@ -4,6 +4,6 @@ export const themeCanvasColors = (dark: boolean) => ({
   label: dark ? "#a1a1aa" : "#71717a",
   accent: dark ? "#fafafa" : "#09090b",
   accentFg: dark ? "#09090b" : "#ffffff",
-  success: "#16a34a",
+  success: dark ? "#d4d4d8" : "#16a34a",
   router: dark ? "#fafafa" : "#09090b",
 });

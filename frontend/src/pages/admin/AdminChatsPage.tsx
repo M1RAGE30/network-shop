@@ -34,6 +34,8 @@ export default function AdminChatsPage() {
   const [input, setInput] = useState("");
   const [localUnread, setLocalUnread] = useState<Record<number, number>>({});
   const [showChat, setShowChat] = useState(false);
+  const activeRoomRef = useRef<number | null>(null);
+  const showChatRef = useRef(false);
 
   const { data: rooms = [] } = useQuery<RoomPreview[]>({
     queryKey: ["admin-chats"],
@@ -63,8 +65,27 @@ export default function AdminChatsPage() {
   }, [rooms.length, roomIdParam]);
 
   useEffect(() => {
+    activeRoomRef.current = activeRoomId;
+  }, [activeRoomId]);
+
+  useEffect(() => {
+    showChatRef.current = showChat;
+  }, [showChat]);
+
+  useEffect(() => {
     const socket = getSocket();
     const onAdminNotify = ({ roomId }: { roomId: number }) => {
+      const isActiveRoomOpen =
+        showChatRef.current && activeRoomRef.current === roomId;
+      if (isActiveRoomOpen) {
+        socket.emit("mark_read", { roomId });
+        api
+          .get("/admin/chats/unread")
+          .then((r) => setUnread(r.data.count))
+          .catch(() => {});
+        qc.invalidateQueries({ queryKey: ["admin-chats"] });
+        return;
+      }
       setLocalUnread((prev) => ({
         ...prev,
         [roomId]: (prev[roomId] ?? 0) + 1,
@@ -74,7 +95,7 @@ export default function AdminChatsPage() {
     return () => {
       socket.off("admin_notify", onAdminNotify);
     };
-  }, []);
+  }, [qc, setUnread]);
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => api.delete(`/admin/chats/${id}`),
@@ -141,20 +162,22 @@ export default function AdminChatsPage() {
   };
 
   return (
-    <div className="flex min-h-0 flex-1 gap-0 md:gap-3">
+    <div className="flex min-h-0 flex-1 gap-3">
       <div
-        className={`${showChat ? "hidden md:flex" : "flex"} ns-card-static w-full md:w-72 md:shrink-0 flex-col overflow-hidden border-r border-ns-border md:rounded-none`}
+        className={`${showChat ? "hidden md:flex" : "flex"} ns-card-static w-full md:w-80 md:shrink-0 flex-col overflow-hidden rounded-2xl border border-ns-border`}
       >
-        <div className="px-5 py-4 ns-table-head">
+        <div className="px-5 py-4 border-b border-ns-border">
           <p className="text-sm font-semibold text-ns-text">
             {pluralizeDialogs(rooms.length)}
           </p>
+          <p className="text-xs text-ns-muted mt-1">Диалоги с покупателями</p>
         </div>
         <div className="flex-1 overflow-y-auto">
           {rooms.length === 0 && (
-            <p className="text-sm text-ns-muted text-center mt-8 px-4">
-              Нет диалогов
-            </p>
+            <div className="mx-4 mt-5 rounded-xl border border-dashed border-ns-border px-4 py-6 text-center">
+              <p className="text-sm text-ns-text-secondary">Нет активных диалогов</p>
+              <p className="text-xs text-ns-muted mt-1">Новые сообщения появятся здесь</p>
+            </div>
           )}
           {rooms.map((room) => {
             const last = room.messages?.[0];
@@ -163,7 +186,7 @@ export default function AdminChatsPage() {
               <div
                 key={room.id}
                 onClick={() => handleOpenRoom(room.id)}
-                className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors group ${isActive ? "bg-white/48 dark:bg-white/12" : "ns-row-hover"}`}
+                className={`flex items-center gap-3 px-4 py-3.5 cursor-pointer transition-colors group border-b border-ns-border/70 ${isActive ? "bg-ns-hover" : "hover:bg-ns-hover/70"}`}
               >
                 <div className="flex-1 min-w-0">
                   <p
@@ -216,9 +239,7 @@ export default function AdminChatsPage() {
         </div>
       </div>
 
-      <div
-        className={`${showChat ? "flex" : "hidden md:flex"} flex min-h-0 flex-1 flex-col overflow-hidden bg-ns-bg`}
-      >
+      <div className={`${showChat ? "flex" : "hidden md:flex"} flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-ns-border bg-ns-bg-secondary`}>
         {!activeRoom ? (
           <div className="flex-1 flex flex-col items-center justify-center gap-3">
             <MessageCircle
@@ -232,7 +253,7 @@ export default function AdminChatsPage() {
           </div>
         ) : (
           <>
-            <div className="px-5 py-4 ns-table-head flex items-center gap-3">
+            <div className="px-5 py-4 border-b border-ns-border flex items-center gap-3">
               <button
                 onClick={() => {
                   setShowChat(false);
@@ -260,7 +281,7 @@ export default function AdminChatsPage() {
                       {isAdmin ? "🛡️ Вы" : msg.user.name}
                     </span>
                     <div
-                      className={`px-5 py-3 text-sm break-words whitespace-pre-wrap rounded-3xl max-w-[75%] ${
+                      className={`px-4 py-2.5 text-sm break-words whitespace-pre-wrap rounded-2xl max-w-[78%] ${
                         isAdmin
                           ? "bg-ns-accent text-ns-accent-fg"
                           : "ns-chip text-ns-text"
@@ -279,7 +300,7 @@ export default function AdminChatsPage() {
               })}
             </div>
 
-            <div className="px-4 py-4 ns-table-head flex gap-2">
+            <div className="px-4 py-4 border-t border-ns-border flex gap-2">
               <input
                 type="text"
                 placeholder="Ответить..."

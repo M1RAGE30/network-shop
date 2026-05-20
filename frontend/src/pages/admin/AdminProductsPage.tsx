@@ -7,6 +7,7 @@ import { pluralizeProducts } from "../../lib/pluralize";
 import ConfirmDialog from "../../components/ConfirmDialog";
 import MediaImage from "../../components/MediaImage";
 import { inputCls, selectCls, labelCls, textareaCls } from "../../lib/uiClasses";
+import { categoryDisplayName } from "../../lib/categoryName";
 
 interface ProductForm {
   name: string;
@@ -50,12 +51,19 @@ export default function AdminProductsPage() {
   const [form, setForm] = useState<ProductForm>(emptyForm);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
 
   const { data: productsData } = useQuery({
-    queryKey: ["admin-products", searchQuery],
+    queryKey: ["admin-products", searchQuery, categoryFilter],
     queryFn: () =>
       api
-        .get("/products", { params: { limit: 100, search: searchQuery } })
+        .get("/products", {
+          params: {
+            limit: 100,
+            search: searchQuery,
+            ...(categoryFilter ? { category: categoryFilter } : {}),
+          },
+        })
         .then((r) => r.data),
   });
   const { data: categories = [] } = useQuery({
@@ -151,8 +159,9 @@ export default function AdminProductsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3 justify-between">
-        <div className="relative flex-1 sm:flex-initial sm:w-80">
+      <div className="flex flex-wrap items-center gap-3 justify-between">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative flex-1 sm:flex-initial sm:w-80">
           <svg
             className="absolute left-4 top-1/2 -translate-y-1/2 text-ns-muted"
             width="16"
@@ -180,6 +189,32 @@ export default function AdminProductsPage() {
               <X size={14} strokeWidth={2} />
             </button>
           )}
+          </div>
+          <div className="relative w-full sm:w-64">
+            <select
+              className={`${selectCls} rounded-full text-sm`}
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+            >
+              <option value="">Все категории</option>
+              {categories.map((c: any) => (
+                <option key={c.id} value={c.slug}>
+                  {categoryDisplayName(c.name)}
+                </option>
+              ))}
+            </select>
+            <svg
+              className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-ns-muted"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path d="m6 9 6 6 6-6" />
+            </svg>
+          </div>
         </div>
         <button
           onClick={() => {
@@ -227,7 +262,7 @@ export default function AdminProductsPage() {
                   <option value="">Выберите...</option>
                   {categories.map((c: any) => (
                     <option key={c.id} value={c.id}>
-                      {c.name}
+                      {categoryDisplayName(c.name)}
                     </option>
                   ))}
                 </select>
@@ -322,7 +357,7 @@ export default function AdminProductsPage() {
               <MediaImage
                 src={form.imageUrl}
                 alt="Предпросмотр"
-                className="mt-3 h-20 object-contain rounded-xl bg-ns-hover p-2"
+                className="mt-3 h-20 w-full object-cover rounded-xl bg-ns-hover"
               />
             )}
           </div>
@@ -380,7 +415,7 @@ export default function AdminProductsPage() {
                             <MediaImage
                               src={p.imageUrl}
                               alt=""
-                              className="w-full h-full object-contain p-2"
+                              className="w-full h-full object-cover"
                             />
                           ) : (
                             <span className="text-ns-muted text-lg">
@@ -399,7 +434,7 @@ export default function AdminProductsPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 text-ns-muted">
-                      {p.category?.name}
+                      {categoryDisplayName(p.category?.name)}
                     </td>
                     <td className="px-6 py-4 text-right font-semibold text-ns-text">
                       {formatPrice(p.price)}
@@ -448,7 +483,7 @@ export default function AdminProductsPage() {
                     <MediaImage
                       src={p.imageUrl}
                       alt=""
-                      className="w-full h-full object-contain p-2"
+                      className="w-full h-full object-cover"
                     />
                   ) : (
                     <span className="text-ns-muted">

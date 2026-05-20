@@ -1,7 +1,7 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
-import { Calculator, ShoppingCart } from "lucide-react";
+import { Package, ShoppingCart } from "lucide-react";
 import api from "../../lib/api";
 import { formatPrice } from "../../lib/format";
 import { useAuthStore } from "../../store/authStore";
@@ -20,6 +20,7 @@ import {
 } from "../../lib/networkSelector";
 import { inputCls as fieldCls, labelCls } from "../../lib/uiClasses";
 import { themeCanvasColors } from "../../lib/themeColors";
+import { useThemeStore } from "../../store/themeStore";
 
 interface Product {
   id: number;
@@ -494,6 +495,7 @@ export default function NetworkBuilderPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { user } = useAuthStore();
+  const dark = useThemeStore((s) => s.dark);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const dragRef = useRef<DragState | null>(null);
   const initialSavedRef = useRef<SavedBuilderState | null>(readSavedBuilder());
@@ -893,12 +895,11 @@ export default function NetworkBuilderPage() {
       if (!g) return;
       const { rx, ry, roomW, roomH, ppm: pixelsPerMeter } = g;
 
-      const isDark = document.documentElement.classList.contains("dark");
-      const colors = themeCanvasColors(isDark);
+      const colors = themeCanvasColors(dark);
       const wallColor = colors.wall;
       const fillColor = colors.fill;
       const labelColor = colors.label;
-      const glow = isDark ? "250,250,250" : "9,9,11";
+      const glow = dark ? "250,250,250" : "9,9,11";
 
       ctx.fillStyle = fillColor;
       ctx.fillRect(rx, ry, roomW, roomH);
@@ -996,11 +997,11 @@ export default function NetworkBuilderPage() {
           ctx.moveTo(ax, ay);
           ctx.lineTo(bx, by);
           ctx.strokeStyle = dashed
-            ? isDark
-              ? "rgba(67,223,245,0.34)"
+            ? dark
+              ? "rgba(250,250,250,0.28)"
               : "rgba(22,119,255,0.28)"
-            : isDark
-              ? "rgba(100,255,208,0.58)"
+            : dark
+              ? "rgba(250,250,250,0.5)"
               : "rgba(22,119,255,0.48)";
           ctx.lineWidth = dashed ? 1.2 : 2.2;
           if (dashed) ctx.setLineDash([5, 6]);
@@ -1057,7 +1058,7 @@ export default function NetworkBuilderPage() {
     paint();
     window.addEventListener("resize", paint);
     return () => window.removeEventListener("resize", paint);
-  }, [numbers, scene, showCalculated, routerRadiusM]);
+  }, [numbers, scene, showCalculated, routerRadiusM, dark]);
 
   const pickDragTarget = (
     ex: number,
@@ -1152,20 +1153,21 @@ export default function NetworkBuilderPage() {
   const hasScene = scene !== null;
 
   return (
-    <div className="w-full min-w-0 mx-auto pb-10">
-      <div className="text-center mb-8">
-        <h1 className="font-display text-3xl sm:text-4xl font-semibold text-ns-text tracking-tight">
+      <div className="ns-net-builder w-full min-w-0 mx-auto pb-10">
+      <div className="text-center mb-7 sm:mb-8">
+        <h1 className="font-display text-2xl sm:text-3xl font-semibold text-ns-text tracking-tight">
           Конструктор сети
         </h1>
-        <p className="text-sm text-ns-muted mt-2">
-          Все устройства на плане сразу: перетащите как нужно, затем рассчитайте связи и комплект
+        <p className="ns-net-builder__lead mt-2">
+          План, связи и подбор оборудования в одном окне
         </p>
       </div>
 
-      <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(320px,400px)] gap-5">
-        <div className="space-y-5">
-          <div className="aurora-card rounded-2xl p-5 sm:p-6 space-y-5">
-            <div className="grid grid-cols-2 gap-4">
+      <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(300px,380px)] gap-4 lg:gap-5">
+        <div className="space-y-4">
+          <div className="aurora-card rounded-2xl p-4 sm:p-5 space-y-4">
+            <p className="ns-net-builder__section-label">Параметры</p>
+            <div className="grid grid-cols-2 gap-3 sm:gap-4">
               <div>
                 <label className={labelCls}>Длина, м</label>
                 <input
@@ -1246,7 +1248,7 @@ export default function NetworkBuilderPage() {
                 </div>
               </div>
             </div>
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2 pt-1">
               <button
                 type="button"
                 onClick={calculateLayout}
@@ -1264,92 +1266,83 @@ export default function NetworkBuilderPage() {
                 Сброс
               </button>
             </div>
-            <div className="flex flex-wrap items-center gap-3 text-xs text-ns-muted">
-              <span className="inline-flex items-center gap-1.5">
-                <Calculator size={14} strokeWidth={1.6} />
-                Площадь: <strong className="text-ns-text">{area} м²</strong>
-              </span>
+            <div className="flex flex-wrap items-center gap-2">
+              {!showCalculated && (
+                <span className="ns-net-builder__hint">
+                  После расчёта — кабели на схеме и комплект справа
+                </span>
+              )}
             </div>
           </div>
 
           <div className="aurora-card rounded-2xl p-3 sm:p-4 space-y-3">
-            <canvas
-              ref={canvasRef}
-              className={`w-full h-[280px] sm:h-[360px] rounded-xl touch-none ${hasScene ? "cursor-grab active:cursor-grabbing" : ""}`}
-              onPointerDown={onPointerDown}
-              onPointerMove={onPointerMove}
-              onPointerUp={onPointerUp}
-              onPointerCancel={onPointerUp}
-            />
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[12px] text-ns-muted px-1">
-              <span className="flex items-center gap-1.5">
-                <span className="relative flex items-center justify-center w-8 h-8 -ml-1">
-                  <span
-                    className="absolute inset-0 rounded-full"
-                    style={{
-                      background:
-                        "radial-gradient(circle, rgba(0, 102, 204, 0.25) 0%, rgba(0, 102, 204, 0) 100%)",
-                    }}
-                  />
-                  <span className="w-[18px] h-[18px] rounded-full bg-ns-accent text-ns-accent-fg flex items-center justify-center text-[10px] font-bold relative z-10">
-                    R
-                  </span>
-                </span>
-                Роутер
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="relative flex items-center justify-center w-7 h-7 -ml-1">
-                  <span
-                    className="absolute inset-0 rounded-full"
-                    style={{
-                      background:
-                        "radial-gradient(circle, rgba(0, 122, 255, 0.35) 0%, rgba(0, 122, 255, 0) 100%)",
-                    }}
-                  />
-                  <span className="w-2.5 h-2.5 rounded-full bg-ns-success relative z-10" />
-                </span>
-                Точка доступа (LAN)
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span
-                  className="text-lg leading-none select-none"
-                  role="img"
-                  aria-label="Коммутатор"
-                >
-                  {SWITCH_EMOJI}
-                </span>
-                Коммутатор
-              </span>
-              <span className="flex items-center gap-1.5">💻 Проводной ПК</span>
-              <span className="flex items-center gap-1.5">📱 Wi‑Fi</span>
-              <span className="flex items-center gap-1.5">🖨️ Периферия</span>
+            <p className="ns-net-builder__section-label mb-0">Схема</p>
+            {!showCalculated && hasScene && (
+              <p className="ns-net-builder__hint -mt-1">
+                Иконки можно перетаскивать до и после расчёта
+              </p>
+            )}
+            <div className="ns-net-builder__canvas-shell">
+              <canvas
+                ref={canvasRef}
+                className={`w-full h-[360px] sm:h-[520px] lg:h-[640px] rounded-[10px] touch-none bg-ns-elevated ${hasScene ? "cursor-grab active:cursor-grabbing" : ""}`}
+                onPointerDown={onPointerDown}
+                onPointerMove={onPointerMove}
+                onPointerUp={onPointerUp}
+                onPointerCancel={onPointerUp}
+              />
+            </div>
+            <div className="ns-net-builder__legend" aria-label="Легенда">
+              <span className="ns-net-builder__legend-item">R · роутер</span>
+              <span className="ns-net-builder__legend-item">● · точка доступа</span>
+              <span className="ns-net-builder__legend-item">{SWITCH_EMOJI} · коммутатор</span>
+              <span className="ns-net-builder__legend-item">💻 · ПК</span>
+              <span className="ns-net-builder__legend-item">📱 · Wi‑Fi</span>
+              <span className="ns-net-builder__legend-item">🖨️ · периферия</span>
             </div>
           </div>
         </div>
 
-        <div className="space-y-3">
-          <div className="aurora-card rounded-2xl p-5">
-            <p className="text-sm font-semibold text-ns-text mb-4">
-              Рекомендуемый комплект
-            </p>
+        <div className="space-y-2.5 lg:sticky lg:top-[calc(var(--ns-height-nav)+12px)] lg:self-start">
+          <div className="aurora-card rounded-2xl p-4 sm:p-5">
+            <p className="ns-net-builder__kit-title mb-3">Рекомендуемый комплект</p>
+            {!showCalculated && (
+              <div className="ns-net-builder__empty">
+                <span className="ns-net-builder__empty-icon" aria-hidden>
+                  <Package size={18} strokeWidth={1.5} />
+                </span>
+                <p className="ns-net-builder__empty-title">Подбор появится после расчёта</p>
+                <p className="ns-net-builder__empty-note">
+                  Роутер, коммутатор, точки доступа и патч-корды — с ценами
+                </p>
+              </div>
+            )}
             {showCalculated && recommendation.length === 0 && (
-              <p className="text-sm text-ns-muted">
-                Ничего не подобрано — проверьте параметры.
+              <div className="ns-net-builder__empty">
+                <p className="ns-net-builder__empty-title">Нет подходящих позиций</p>
+                <p className="ns-net-builder__empty-note">
+                  Попробуйте увеличить площадь или сменить тип помещения
+                </p>
+              </div>
+            )}
+            {showCalculated && recommendation.length > 0 && (
+              <p className="ns-net-builder__hint mb-2.5">
+                Перетаскивание на схеме обновляет комплект
               </p>
             )}
-            <div className="space-y-3">
+            <div className="space-y-2">
               {recommendation.map((item) => (
                 <Link
                   key={item.product.id}
                   to={`/catalog/${item.product.slug}`}
-                  className="flex gap-3 p-3 rounded-xl ns-chip hover:bg-ns-hover transition-colors min-w-0"
+                  className="ns-net-builder__kit-item flex gap-2.5 p-2.5 rounded-xl transition-colors min-w-0"
                 >
-                  <div className="w-12 h-12 rounded-lg ns-thumb flex items-center justify-center shrink-0 overflow-hidden">
+                  <div className="w-11 h-11 rounded-lg ns-thumb flex items-center justify-center shrink-0 overflow-hidden">
                     {item.product.imageUrl ? (
                       <MediaImage
                         src={item.product.imageUrl}
                         alt={item.product.name}
-                        className="w-full h-full object-contain p-1"
+                        className="w-full h-full object-cover"
                       />
                     ) : (
                       <span className="text-xs text-ns-muted">—</span>
@@ -1359,10 +1352,10 @@ export default function NetworkBuilderPage() {
                     <p className="text-xs font-semibold text-ns-text truncate">
                       {item.product.name}
                     </p>
-                    <p className="text-[11px] text-ns-muted mt-0.5">
+                    <p className="text-[10px] text-ns-muted mt-0.5 leading-snug line-clamp-2">
                       {item.reason}
                     </p>
-                    <div className="flex items-center justify-between mt-1.5 text-xs">
+                    <div className="flex items-center justify-between mt-1 text-[11px]">
                       <span className="text-ns-muted">
                         × {item.quantity}
                       </span>
@@ -1375,17 +1368,17 @@ export default function NetworkBuilderPage() {
               ))}
             </div>
             {recommendation.length > 0 && (
-              <div className="pt-4 mt-4 space-y-2">
+              <div className="ns-net-builder__total space-y-1.5">
                 {cableConnections.length > 0 && (
-                  <p className="text-xs text-ns-muted">
-                    Проводных соединений: {cableConnections.length}. Патч-корды подобраны по длинам линий на схеме с запасом.
+                  <p className="ns-net-builder__hint">
+                    {cableConnections.length} соединений · патч-корды по длинам на схеме
                   </p>
                 )}
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-semibold text-ns-text">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-xs font-medium text-ns-text-secondary">
                     Итого
                   </span>
-                  <span className="text-lg font-semibold text-ns-text">
+                  <span className="text-base font-semibold text-ns-text tabular-nums">
                     {formatPrice(totalPrice)}
                   </span>
                 </div>

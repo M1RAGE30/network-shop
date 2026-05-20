@@ -1,3 +1,5 @@
+import { categoryDisplayName } from "../lib/categoryName";
+
 interface Category {
   id: number;
   name: string;
@@ -32,7 +34,7 @@ export default function CatalogCategoryPicker({
         >
           {categories.map((c) => (
             <option key={c.id} value={c.slug}>
-              {c.name}
+              {categoryDisplayName(c.name)}
               {c._count?.products != null ? ` (${c._count.products})` : ""}
             </option>
           ))}
@@ -57,7 +59,9 @@ export default function CatalogCategoryPicker({
                 active ? "ns-category-rail__pill--active" : ""
               }`}
             >
-              <span className="max-w-[14rem] truncate">{c.name}</span>
+              <span className="max-w-[14rem] truncate">
+                {categoryDisplayName(c.name)}
+              </span>
               {c._count?.products != null && (
                 <span className="ns-category-rail__count">{c._count.products}</span>
               )}

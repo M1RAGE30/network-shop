@@ -2,6 +2,7 @@
   "name": "network-shop-v2-backend",
   "version": "1.0.0",
   "scripts": {
+    "postinstall": "prisma generate",
     "dev": "nodemon src/index.ts",
     "build": "npx prisma generate && tsc",
     "start": "node dist/src/index.js",

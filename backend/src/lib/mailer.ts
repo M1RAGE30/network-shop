@@ -16,11 +16,24 @@ export const sendVerificationCodeEmail = async (to: string, code: string) => {
     to,
     subject: "Код подтверждения — NetworkShop",
     html: `
-      <div style="font-family:sans-serif;max-width:480px;margin:0 auto">
-        <h2 style="color:#0066cc">Подтвердите email</h2>
-        <p>Введите код ниже на сайте NetworkShop. Код действует <strong>10 минут</strong>.</p>
-        <p style="font-size:32px;font-weight:700;letter-spacing:6px;margin:24px 0;color:#1d1d1f">${code}</p>
-        <p style="color:#6e6e73;font-size:13px">Если вы не регистрировались — проигнорируйте это письмо.</p>
+      <div style="margin:0;padding:24px;background:#09090b;font-family:Inter,Arial,sans-serif;color:#fafafa;">
+        <div style="max-width:520px;margin:0 auto;border:1px solid rgba(255,255,255,0.12);border-radius:14px;background:#0f0f12;overflow:hidden;">
+          <div style="padding:18px 20px;border-bottom:1px solid rgba(255,255,255,0.08);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#a1a1aa;">
+            NetworkShop
+          </div>
+          <div style="padding:22px 20px;">
+            <h2 style="margin:0 0 12px;font-size:22px;line-height:1.25;color:#fafafa;">Подтвердите email</h2>
+            <p style="margin:0 0 14px;font-size:14px;line-height:1.6;color:#d4d4d8;">
+              Введите код ниже на сайте. Код действует <strong style="color:#fafafa;">10 минут</strong>.
+            </p>
+            <div style="display:inline-block;margin:4px 0 14px;padding:10px 14px;border:1px solid rgba(255,255,255,0.16);border-radius:10px;background:#09090b;">
+              <span style="font-size:32px;font-weight:700;letter-spacing:6px;color:#fafafa;">${code}</span>
+            </div>
+            <p style="margin:0;font-size:12px;line-height:1.6;color:#a1a1aa;">
+              Если вы не регистрировались в NetworkShop, просто проигнорируйте это письмо.
+            </p>
+          </div>
+        </div>
       </div>
     `,
   });

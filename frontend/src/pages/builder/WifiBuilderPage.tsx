@@ -43,6 +43,12 @@ interface PlacedPoint {
 const CANVAS_W = 720;
 const CANVAS_H = 480;
 const HEATMAP_STEP = 6;
+const ZONE_STOPS = [
+  { ratio: 0.25 },
+  { ratio: 0.5 },
+  { ratio: 0.75 },
+  { ratio: 1 },
+] as const;
 
 function fetchCategoryProducts(slug: string) {
   return api
@@ -183,15 +189,17 @@ export default function WifiBuilderPage() {
         ctx.strokeStyle = colors.wall;
         ctx.lineWidth = 2;
         ctx.strokeRect(20, 20, CANVAS_W - 40, CANVAS_H - 40);
-        ctx.fillStyle = colors.label;
-        ctx.font = "13px Inter, sans-serif";
-        ctx.textAlign = "center";
-        ctx.fillText(
-          "Загрузите план помещения или просто кликайте, чтобы расставить точки",
-          CANVAS_W / 2,
-          CANVAS_H / 2,
-        );
-        ctx.textAlign = "start";
+        if (points.length === 0) {
+          ctx.fillStyle = colors.label;
+          ctx.font = "13px Inter, sans-serif";
+          ctx.textAlign = "center";
+          ctx.fillText(
+            "Загрузите план помещения или просто кликайте, чтобы расставить точки",
+            CANVAS_W / 2,
+            CANVAS_H / 2,
+          );
+          ctx.textAlign = "start";
+        }
       }
 
       if (points.length > 0) {
@@ -215,9 +223,11 @@ export default function WifiBuilderPage() {
           let heatCanvas = heatmapLayerRef.current;
           if (!heatCanvas) {
             heatCanvas = document.createElement("canvas");
+            heatmapLayerRef.current = heatCanvas;
+          }
+          if (heatCanvas.width !== CANVAS_W || heatCanvas.height !== CANVAS_H) {
             heatCanvas.width = CANVAS_W;
             heatCanvas.height = CANVAS_H;
-            heatmapLayerRef.current = heatCanvas;
           }
           const lctx = heatCanvas.getContext("2d");
           if (lctx) {
@@ -266,10 +276,12 @@ export default function WifiBuilderPage() {
             ? wifiHeatmapRadiusPx(product, isRouter, deferredTargetArea)
             : 0;
           const radiusM = product ? wifiCoverageRadiusM(product) : 0;
+          const px = p.x;
+          const py = p.y;
 
           if (radiusPx > 0) {
             ctx.beginPath();
-            ctx.arc(p.x, p.y, radiusPx, 0, Math.PI * 2);
+            ctx.arc(px, py, radiusPx, 0, Math.PI * 2);
             ctx.strokeStyle = dark
               ? "rgba(250, 250, 250, 0.35)"
               : "rgba(9, 9, 11, 0.25)";
@@ -278,19 +290,27 @@ export default function WifiBuilderPage() {
             ctx.stroke();
             ctx.setLineDash([]);
 
-            const labelX = Math.min(CANVAS_W - 28, p.x + radiusPx);
-            const labelY = p.y;
-            ctx.fillStyle = colors.label;
+            const labelFont = 11;
             ctx.font = "600 11px Inter, sans-serif";
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
-            ctx.fillText(`${radiusM} м`, labelX, labelY);
+            const metrics = ZONE_STOPS.map((zone) =>
+              Math.max(1, Math.round(radiusM * zone.ratio)),
+            );
+            const label = metrics.map((m) => `${m}м`).join(" · ");
+            const lx = clamp(px + radiusPx * 0.2, 46, CANVAS_W - 46);
+            const ly = clamp(py - radiusPx - 14, 18, CANVAS_H - 18);
+            const tw = ctx.measureText(label).width;
+            ctx.fillStyle = dark ? "rgba(9,9,11,0.72)" : "rgba(250,250,250,0.82)";
+            ctx.fillRect(lx - tw / 2 - 6, ly - labelFont / 2 - 4, tw + 12, labelFont + 8);
+            ctx.fillStyle = colors.label;
+            ctx.fillText(label, lx, ly + 0.5);
             ctx.textAlign = "start";
             ctx.textBaseline = "alphabetic";
           }
 
           ctx.beginPath();
-          ctx.arc(p.x, p.y, 12, 0, Math.PI * 2);
+          ctx.arc(px, py, 12, 0, Math.PI * 2);
           ctx.fillStyle = colors.accent;
           ctx.fill();
           ctx.strokeStyle = colors.accentFg;
@@ -300,7 +320,7 @@ export default function WifiBuilderPage() {
           ctx.font = "bold 11px Inter, sans-serif";
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";
-          ctx.fillText(String(idx + 1), p.x, p.y + 1);
+          ctx.fillText(String(idx + 1), px, py + 1);
           ctx.textAlign = "start";
           ctx.textBaseline = "alphabetic";
         });
@@ -340,8 +360,8 @@ export default function WifiBuilderPage() {
   const handleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!selectedProductId) return;
     const rect = (e.target as HTMLCanvasElement).getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * CANVAS_W;
-    const y = ((e.clientY - rect.top) / rect.height) * CANVAS_H;
+    const x = clamp(((e.clientX - rect.left) / rect.width) * CANVAS_W, 0, CANVAS_W);
+    const y = clamp(((e.clientY - rect.top) / rect.height) * CANVAS_H, 0, CANVAS_H);
     const product = allDevices.find((p) => p.id === selectedProductId);
     if (!product) return;
     setPoints((prev) => [
@@ -504,7 +524,7 @@ export default function WifiBuilderPage() {
                     <MediaImage
                       src={recommendedDevice.imageUrl}
                       alt={recommendedDevice.name}
-                      className="w-full h-full object-contain p-1"
+                      className="w-full h-full object-cover"
                     />
                   ) : (
                     <span className="text-xs text-ns-muted">—</span>
@@ -516,7 +536,7 @@ export default function WifiBuilderPage() {
                     {recommendedDevice.name}
                   </p>
                   <p className="text-ns-muted mt-1">
-                    {safeTargetArea} м² · в каталог
+                    Для площади ~{safeTargetArea} м²
                   </p>
                 </div>
               </Link>
@@ -579,7 +599,7 @@ export default function WifiBuilderPage() {
                             <MediaImage
                               src={product.imageUrl}
                               alt={product.name}
-                              className="w-full h-full object-contain p-1"
+                              className="w-full h-full object-cover"
                             />
                           ) : (
                             <span className="text-xs text-ns-muted">—</span>
@@ -587,7 +607,7 @@ export default function WifiBuilderPage() {
                         </div>
                         <div className="min-w-0 flex-1 overflow-hidden pr-1">
                           <div className="flex items-start gap-2 min-w-0">
-                            <span className="w-6 h-6 rounded-full bg-ns-accent text-ns-accent-fg text-[11px] font-semibold flex items-center justify-center shrink-0 mt-0.5">
+                            <span className="w-6 h-6 rounded-full bg-ns-accent text-ns-accent-fg text-[11px] font-semibold inline-flex items-center justify-center shrink-0 self-center">
                               {idx + 1}
                             </span>
                             <p className="text-xs font-semibold text-ns-text min-w-0 flex-1 line-clamp-2 break-words leading-snug">
@@ -664,4 +684,8 @@ function signalColor(signal: number): [number, number, number, number] {
   if (signal >= 0.45) return [255, 214, 10, alpha];
   if (signal >= 0.2) return [255, 159, 10, alpha];
   return [255, 69, 58, Math.round(alpha * 0.7)];
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, value));
 }

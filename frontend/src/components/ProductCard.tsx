@@ -100,7 +100,7 @@ export default function ProductCard({ product }: { product: Product }) {
             src={product.imageUrl}
             alt={product.name}
             loading="lazy"
-            className="h-full w-full object-contain object-center p-2 sm:p-3"
+            className="h-full w-full object-contain object-center"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-ns-muted text-4xl">

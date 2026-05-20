@@ -45,7 +45,7 @@ export default function ChatButton() {
     if (user && isOnChatPage) setUnread(0);
   }, [location.pathname, user?.id]);
 
-  if (!user || isOnChatPage) return null;
+  if (!user || isOnChatPage || user.role === "ADMIN") return null;
 
   return (
     <button

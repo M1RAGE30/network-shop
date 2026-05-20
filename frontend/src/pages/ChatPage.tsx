@@ -103,13 +103,13 @@ export default function ChatPage() {
         </h1>
       </div>
       <div
-        className="aurora-card rounded-3xl flex flex-col overflow-hidden"
+        className="aurora-card rounded-3xl flex flex-col overflow-hidden border border-ns-border"
         style={{
           height: "min(560px, calc(100dvh - 12rem))",
           minHeight: "min(500px, calc(100dvh - 10rem))",
         }}
       >
-        <div className="px-6 py-4 ns-chip flex items-center gap-3">
+        <div className="px-5 py-4 border-b border-ns-border flex items-center gap-3">
           <div
             className="w-2 h-2 rounded-full bg-ns-success"
             aria-hidden
@@ -140,7 +140,7 @@ export default function ChatPage() {
                     {isOwn ? "Вы" : isAdmin ? "Консультант" : msg.user.name}
                   </span>
                   <div
-                    className={`px-5 py-3 text-sm break-all whitespace-pre-wrap rounded-3xl ${
+                    className={`max-w-[78%] px-4 py-2.5 text-sm break-words whitespace-pre-wrap rounded-2xl ${
                       isOwn
                         ? "bg-ns-accent text-ns-accent-fg"
                         : "ns-chip text-ns-text"
@@ -160,11 +160,11 @@ export default function ChatPage() {
           })}
         </div>
 
-        <div className="px-3 sm:px-4 py-3 sm:py-4 ns-chip flex flex-row flex-wrap items-center gap-2">
+        <div className="px-4 py-4 border-t border-ns-border flex flex-row flex-wrap items-center gap-2">
           <input
             type="text"
             placeholder="Ответить..."
-            className="ns-input flex-1 min-w-[min(100%,12rem)] rounded-full px-4 sm:px-5 py-3 text-sm"
+            className="flex-1 min-w-[min(100%,12rem)] bg-ns-elevated border border-ns-border rounded-full px-4 sm:px-5 py-3 text-sm text-ns-text placeholder:text-ns-muted focus:outline-none focus:ring-2 focus:ring-ns-accent transition-all"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}

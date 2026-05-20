@@ -53,7 +53,7 @@ export default function CatalogFilterOverlay({
           aria-label="Закрыть фильтры"
         />
         <div
-          className="relative flex max-h-[min(92dvh,720px)] flex-col rounded-t-[20px] border-t border-ns-border bg-ns-bg-secondary shadow-[0_-8px_40px_rgba(0,0,0,0.2)]"
+          className="relative flex max-h-[min(92dvh,720px)] flex-col rounded-t-[20px] border-t border-ns-border bg-ns-bg-secondary"
           role="dialog"
           aria-modal="true"
           aria-label="Фильтры каталога"
@@ -74,7 +74,7 @@ export default function CatalogFilterOverlay({
           aria-label="Закрыть фильтры"
         />
         <aside
-          className="absolute right-0 top-0 flex h-full w-[min(100%,22rem)] flex-col border-l border-ns-border bg-ns-bg-secondary shadow-2xl"
+          className="absolute right-0 top-0 flex h-full w-[min(100%,22rem)] flex-col border-l border-ns-border bg-ns-bg-secondary"
           role="dialog"
           aria-modal="true"
           aria-label="Фильтры каталога"

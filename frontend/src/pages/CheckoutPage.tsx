@@ -121,7 +121,7 @@ export default function CheckoutPage() {
                       <MediaImage
                         src={item.product.imageUrl}
                         alt={item.product.name}
-                        className="w-full h-full object-contain p-2"
+                        className="w-full h-full object-cover"
                       />
                     ) : (
                       <Package
@@ -159,15 +159,15 @@ export default function CheckoutPage() {
             <p className="text-sm font-semibold mb-4">Доставка</p>
             <div className="space-y-2.5">
               <div className="flex items-center gap-2.5">
-                <div className="w-1.5 h-1.5 bg-white rounded-full" />
+                <div className="w-1.5 h-1.5 bg-ns-text rounded-full" />
                 <span className="text-sm">Курьером по Беларуси</span>
               </div>
               <div className="flex items-center gap-2.5">
-                <div className="w-1.5 h-1.5 bg-white rounded-full" />
+                <div className="w-1.5 h-1.5 bg-ns-text rounded-full" />
                 <span className="text-sm">Самовывоз из пунктов выдачи</span>
               </div>
               <div className="flex items-center gap-2.5">
-                <div className="w-1.5 h-1.5 bg-white rounded-full" />
+                <div className="w-1.5 h-1.5 bg-ns-text rounded-full" />
                 <span className="text-sm">Доставка от 1 дня</span>
               </div>
             </div>
@@ -201,7 +201,7 @@ export default function CheckoutPage() {
             <textarea
               rows={3}
               placeholder="Дополнительные пожелания..."
-              className="w-full rounded-xl px-4 py-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ns-accent bg-ns-input text-ns-text placeholder:text-ns-muted  transition-all"
+              className="w-full rounded-xl border border-ns-border px-4 py-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ns-accent bg-ns-input text-ns-text placeholder:text-ns-muted transition-all"
               value={form.comment}
               onChange={(e) =>
                 setForm((p) => ({ ...p, comment: e.target.value }))

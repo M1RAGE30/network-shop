@@ -141,9 +141,17 @@ export const login = async (req: Request, res: Response) => {
     return res.status(401).json({ message: "Неверный email или пароль" });
 
   if (!user.isEmailVerified) {
-    await setVerificationCode(user.id, normalizedEmail);
+    const hasActiveCode =
+      !!user.verifyToken &&
+      !!user.verifyTokenExpiry &&
+      user.verifyTokenExpiry > new Date();
+    if (!hasActiveCode) {
+      await setVerificationCode(user.id, normalizedEmail);
+    }
     return res.status(403).json({
-      message: "Подтвердите email. Новый код отправлен на почту.",
+      message: hasActiveCode
+        ? "Подтвердите email. Используйте код из последнего письма."
+        : "Подтвердите email. Новый код отправлен на почту.",
       code: "EMAIL_NOT_VERIFIED",
       email: normalizedEmail,
     });

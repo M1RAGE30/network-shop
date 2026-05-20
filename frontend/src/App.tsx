@@ -2,6 +2,7 @@ import { lazy, Suspense } from "react";
 import { Routes, Route } from "react-router-dom";
 import Layout from "./components/Layout";
 import ProtectedRoute from "./components/ProtectedRoute";
+import CheckoutPage from "./pages/CheckoutPage";
 
 const HomePage = lazy(() => import("./pages/HomePage"));
 const CatalogPage = lazy(() => import("./pages/CatalogPage"));
@@ -10,7 +11,6 @@ const FavoritesPage = lazy(() => import("./pages/FavoritesPage"));
 const CartPage = lazy(() => import("./pages/CartPage"));
 const OrdersPage = lazy(() => import("./pages/OrdersPage"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage"));
-const CheckoutPage = lazy(() => import("./pages/CheckoutPage"));
 const LoginPage = lazy(() => import("./pages/LoginPage"));
 const AdminBridgePage = lazy(() => import("./pages/AdminBridgePage"));
 const RegisterPage = lazy(() => import("./pages/RegisterPage"));

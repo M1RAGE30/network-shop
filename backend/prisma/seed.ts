@@ -30,7 +30,14 @@ const categoryMapping: Record<string, string> = {
   "Точки доступа, усилители сигнала": "access-points",
   "USB ethernet адаптеры": "usb-adapters",
   "Сетевые накопители": "storage",
+  "Патч-корды": "patch-cords",
+  "Патч-корды (Ethernet)": "patch-cords",
 };
+
+function normalizeCategoryName(name: string): string {
+  if (name === "Патч-корды (Ethernet)") return "Патч-корды";
+  return name;
+}
 
 function slugify(text: string): string {
   return text
@@ -88,7 +95,9 @@ async function seedFromJson(jsonPath: string) {
 
   await clearProducts();
 
-  const categoryNames = [...new Set(data.map((p) => p.category))];
+  const categoryNames = [
+    ...new Set(data.map((p) => normalizeCategoryName(p.category))),
+  ];
   for (const catName of categoryNames) {
     const slug = categoryMapping[catName] ?? slugify(catName);
     await prisma.category.create({
@@ -135,7 +144,7 @@ async function seedFromJson(jsonPath: string) {
         skipped++;
         continue;
       }
-      const category = categoriesMap.get(item.category);
+      const category = categoriesMap.get(normalizeCategoryName(item.category));
       if (!category) {
         skipped++;
         continue;

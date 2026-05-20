@@ -107,6 +107,25 @@ export default function ProductPage() {
 
   return (
     <div className="max-w-[1280px] mx-auto space-y-7 sm:space-y-9 px-3 sm:px-4 lg:px-6 py-6 sm:py-8">
+      <nav aria-label="Хлебные крошки" className="mb-2">
+        <ol className="flex flex-wrap items-center gap-1.5 text-xs text-ns-muted">
+          <li>
+            <Link to="/" className="hover:text-ns-text transition-colors">
+              Главная
+            </Link>
+          </li>
+          <li className="inline-flex items-center gap-1.5">
+            <span aria-hidden>/</span>
+            <Link to="/catalog" className="hover:text-ns-text transition-colors">
+              Каталог
+            </Link>
+          </li>
+          <li className="inline-flex items-center gap-1.5">
+            <span aria-hidden>/</span>
+            <span className="text-ns-text">{product.name}</span>
+          </li>
+        </ol>
+      </nav>
       <section className="aurora-panel rounded-[2.25rem] p-5 sm:p-7 lg:p-10">
         <div className="grid lg:grid-cols-[minmax(220px,400px)_minmax(0,1fr)] gap-7 lg:gap-12 items-center">
           <div className="relative flex min-h-[250px] sm:min-h-[320px] lg:min-h-[390px] items-center justify-center overflow-hidden rounded-[1.5rem] bg-ns-elevated">
@@ -129,9 +148,6 @@ export default function ProductPage() {
 
           <div className="flex flex-col justify-center space-y-5 lg:pl-2">
           <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-ns-text-secondary mb-3">
-              {product.brand.name} / {product.category.name}
-            </p>
               <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl font-semibold text-ns-text leading-tight tracking-tight mb-4">
               {product.name}
             </h1>
@@ -171,9 +187,9 @@ export default function ProductPage() {
             </p>
           )}
 
-          <div className="flex flex-col sm:flex-row gap-3 pt-3 sm:pt-4">
+          <div className="flex items-center gap-3 pt-3 sm:pt-4">
             {canShop && cartItem ? (
-              <div className="flex items-center gap-3 sm:gap-4 flex-1">
+              <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
                 <button
                   onClick={() =>
                     updateCartMutation.mutate(cartItem.quantity - 1)
@@ -201,14 +217,14 @@ export default function ProductPage() {
                     className="sm:w-[18px] sm:h-[18px]"
                   />
                 </button>
-                <span className="text-xs sm:text-sm text-ns-text-secondary">
+                <span className="text-xs sm:text-sm text-ns-text-secondary whitespace-nowrap">
                   в корзине
                 </span>
               </div>
             ) : canShop ? (
               <button
                 onClick={() => addToCartMutation.mutate()}
-                className="aurora-button flex-1 flex items-center justify-center gap-2 text-sm font-medium transition-transform hover:scale-[1.01] active:scale-[0.99]"
+                className="aurora-button flex-1 min-w-0 flex items-center justify-center gap-2 text-sm font-medium transition-transform hover:scale-[1.01] active:scale-[0.99]"
               >
                 <ShoppingCart
                   size={18}
@@ -220,7 +236,7 @@ export default function ProductPage() {
             ) : !user ? (
               <Link
                 to="/login"
-                className="aurora-button flex-1 flex items-center justify-center gap-2 text-sm font-medium transition-transform hover:scale-[1.01] active:scale-[0.99]"
+                className="aurora-button flex-1 min-w-0 flex items-center justify-center gap-2 text-sm font-medium transition-transform hover:scale-[1.01] active:scale-[0.99]"
               >
                 Войти, чтобы купить
               </Link>
@@ -229,16 +245,18 @@ export default function ProductPage() {
             {canShop && (
               <button
                 onClick={() => toggleFavoriteMutation.mutate()}
-                className={`ns-btn flex h-10 w-10 sm:h-11 sm:w-11 shrink-0 items-center justify-center p-0 transition-colors ${
+                className={`ns-btn flex h-11 w-11 sm:h-12 sm:w-12 shrink-0 items-center justify-center p-0 border-2 transition-all ${
                   isFavorite
-                    ? "ns-btn-primary"
-                    : "ns-btn-secondary"
+                    ? "ns-btn-primary border-ns-accent"
+                    : "border-ns-accent/45 text-ns-accent bg-ns-bg-secondary hover:bg-ns-hover hover:border-ns-accent"
                 }`}
+                aria-label={isFavorite ? "Убрать из избранного" : "Добавить в избранное"}
+                title={isFavorite ? "В избранном" : "Добавить в избранное"}
               >
                 <Heart
-                  size={18}
-                  strokeWidth={1.5}
-                  className={`sm:w-5 sm:h-5 ${isFavorite ? "fill-white" : ""}`}
+                  size={21}
+                  strokeWidth={1.8}
+                  className={`sm:w-[23px] sm:h-[23px] ${isFavorite ? "fill-white" : "fill-transparent"}`}
                 />
               </button>
             )}
