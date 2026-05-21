@@ -189,12 +189,22 @@ export function scoreAdapter(product: ProductSelectorInput): number {
   return score - Number(product.price) * 0.008;
 }
 
-export type PickBestTieBreak = "lower_price";
+export type PickBestTieBreak = "lower_price" | "prefer_performance";
+
+function performanceRank(product: ProductSelectorInput): number {
+  return (
+    getCoverageM2(product) * 2 +
+    getPortCount(product) * 5 +
+    getWifiGeneration(product) * 8 +
+    getMaxSpeedMbps(product) / 200 +
+    getBandCount(product) * 3
+  );
+}
 
 export function pickBest<T extends ProductSelectorInput>(
   products: T[],
   scorer: (p: T) => number,
-  tieBreak?: PickBestTieBreak,
+  tieBreak: PickBestTieBreak = "prefer_performance",
 ): T | null {
   if (products.length === 0) return null;
   let best = products[0];
@@ -206,13 +216,23 @@ export function pickBest<T extends ProductSelectorInput>(
     if (score > bestScore + eps) {
       best = p;
       bestScore = score;
-    } else if (tieBreak === "lower_price" && Math.abs(score - bestScore) <= eps) {
+      continue;
+    }
+    if (Math.abs(score - bestScore) > eps) continue;
+
+    if (tieBreak === "lower_price") {
       const pa = Number(p.price);
       const pb = Number(best.price);
       if (pa < pb || (pa === pb && p.id < best.id)) {
         best = p;
-        bestScore = score;
       }
+      continue;
+    }
+
+    const ra = performanceRank(p);
+    const rb = performanceRank(best);
+    if (ra > rb || (ra === rb && p.id < best.id)) {
+      best = p;
     }
   }
   return best;

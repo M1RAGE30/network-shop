@@ -42,13 +42,8 @@ interface PlacedPoint {
 
 const CANVAS_W = 720;
 const CANVAS_H = 480;
-const HEATMAP_STEP = 6;
-const ZONE_STOPS = [
-  { ratio: 0.25 },
-  { ratio: 0.5 },
-  { ratio: 0.75 },
-  { ratio: 1 },
-] as const;
+
+const ZONE_BOUNDARY_RATIOS = [0.3, 0.55, 0.8, 1] as const;
 
 function fetchCategoryProducts(slug: string) {
   return api
@@ -64,7 +59,6 @@ export default function WifiBuilderPage() {
   const { user } = useAuthStore();
   const { dark } = useThemeStore();
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const heatmapLayerRef = useRef<HTMLCanvasElement | null>(null);
 
   const [planUrl, setPlanUrl] = useState<string | null>(null);
   const [planImage, setPlanImage] = useState<HTMLImageElement | null>(null);
@@ -194,7 +188,7 @@ export default function WifiBuilderPage() {
           ctx.font = "13px Inter, sans-serif";
           ctx.textAlign = "center";
           ctx.fillText(
-            "Загрузите план помещения или просто кликайте, чтобы расставить точки",
+            "Загрузите план или укажите точки на схеме",
             CANVAS_W / 2,
             CANVAS_H / 2,
           );
@@ -220,51 +214,7 @@ export default function WifiBuilderPage() {
           );
 
         if (sources.length > 0) {
-          let heatCanvas = heatmapLayerRef.current;
-          if (!heatCanvas) {
-            heatCanvas = document.createElement("canvas");
-            heatmapLayerRef.current = heatCanvas;
-          }
-          if (heatCanvas.width !== CANVAS_W || heatCanvas.height !== CANVAS_H) {
-            heatCanvas.width = CANVAS_W;
-            heatCanvas.height = CANVAS_H;
-          }
-          const lctx = heatCanvas.getContext("2d");
-          if (lctx) {
-            lctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
-
-            const step = HEATMAP_STEP;
-            const heatmap = lctx.createImageData(CANVAS_W, CANVAS_H);
-            const data = heatmap.data;
-            for (let y = 0; y < CANVAS_H; y += step) {
-              for (let x = 0; x < CANVAS_W; x += step) {
-                let signal = 0;
-                for (let i = 0; i < sources.length; i++) {
-                  const src = sources[i];
-                  const dx = x - src.x;
-                  const dy = y - src.y;
-                  const s = Math.max(0, 1 - Math.hypot(dx, dy) * src.invRange);
-                  if (s > signal) signal = s;
-                }
-                if (signal <= 0.05) continue;
-                const [r, g, b, a] = signalColor(signal);
-                for (let oy = 0; oy < step && y + oy < CANVAS_H; oy++) {
-                  for (let ox = 0; ox < step && x + ox < CANVAS_W; ox++) {
-                    const idx = ((y + oy) * CANVAS_W + (x + ox)) * 4;
-                    data[idx] = r;
-                    data[idx + 1] = g;
-                    data[idx + 2] = b;
-                    data[idx + 3] = a;
-                  }
-                }
-              }
-            }
-            lctx.putImageData(heatmap, 0, 0);
-            ctx.save();
-            ctx.globalAlpha = 0.62;
-            ctx.drawImage(heatCanvas, 0, 0);
-            ctx.restore();
-          }
+          drawSmoothHeatmap(ctx, sources, dark);
         }
 
         points.forEach((p, idx) => {
@@ -290,21 +240,42 @@ export default function WifiBuilderPage() {
             ctx.stroke();
             ctx.setLineDash([]);
 
-            const labelFont = 11;
-            ctx.font = "600 11px Inter, sans-serif";
+            const labelFont = 10;
+            ctx.font = `600 ${labelFont}px Inter, sans-serif`;
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
-            const metrics = ZONE_STOPS.map((zone) =>
-              Math.max(1, Math.round(radiusM * zone.ratio)),
-            );
-            const label = metrics.map((m) => `${m}м`).join(" · ");
-            const lx = clamp(px + radiusPx * 0.2, 46, CANVAS_W - 46);
-            const ly = clamp(py - radiusPx - 14, 18, CANVAS_H - 18);
-            const tw = ctx.measureText(label).width;
-            ctx.fillStyle = dark ? "rgba(9,9,11,0.72)" : "rgba(250,250,250,0.82)";
-            ctx.fillRect(lx - tw / 2 - 6, ly - labelFont / 2 - 4, tw + 12, labelFont + 8);
-            ctx.fillStyle = colors.label;
-            ctx.fillText(label, lx, ly + 0.5);
+
+            ctx.beginPath();
+            ctx.moveTo(px, py);
+            ctx.lineTo(px + radiusPx, py);
+            ctx.strokeStyle = dark
+              ? "rgba(250, 250, 250, 0.2)"
+              : "rgba(9, 9, 11, 0.15)";
+            ctx.lineWidth = 1;
+            ctx.setLineDash([3, 4]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            ZONE_BOUNDARY_RATIOS.forEach((ratio) => {
+              const meters = Math.max(1, Math.round(radiusM * ratio));
+              const dist = radiusPx * ratio;
+              const lx = clamp(px + dist, 28, CANVAS_W - 28);
+              const ly = clamp(py, 14, CANVAS_H - 14);
+              const label = `${meters}м`;
+              const tw = ctx.measureText(label).width;
+              ctx.fillStyle = dark
+                ? "rgba(9,9,11,0.78)"
+                : "rgba(250,250,250,0.88)";
+              ctx.fillRect(
+                lx - tw / 2 - 4,
+                ly - labelFont / 2 - 3,
+                tw + 8,
+                labelFont + 6,
+              );
+              ctx.fillStyle = colors.label;
+              ctx.fillText(label, lx, ly);
+            });
+
             ctx.textAlign = "start";
             ctx.textBaseline = "alphabetic";
           }
@@ -418,7 +389,7 @@ export default function WifiBuilderPage() {
           Конструктор Wi-Fi покрытия
         </h1>
         <p className="text-sm text-ns-muted mt-2">
-          Загрузите план помещения и расставьте точки — увидите карту покрытия
+          План помещения, расстановка оборудования и оценка зоны покрытия
         </p>
       </div>
 
@@ -426,7 +397,7 @@ export default function WifiBuilderPage() {
         <div className="space-y-4">
           <div className="aurora-card rounded-2xl p-4 sm:p-5 space-y-4">
             <div className="flex flex-wrap items-center gap-2">
-              <label className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full ns-chip hover:bg-ns-hover text-sm font-medium text-ns-text cursor-pointer transition-colors">
+              <label className="inline-flex items-center gap-2 px-4 py-2.5 rounded-[var(--radius-btn)] ns-chip hover:bg-ns-hover text-sm font-medium text-ns-text cursor-pointer transition-colors">
                 <ImageUp size={15} strokeWidth={1.6} />
                 {uploading
                   ? "Загрузка..."
@@ -448,7 +419,7 @@ export default function WifiBuilderPage() {
                     setPlanUrl(null);
                     setPoints([]);
                   }}
-                  className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-full text-sm text-ns-muted hover:text-ns-text transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-[var(--radius-btn)] text-sm text-ns-muted hover:text-ns-text hover:bg-ns-hover transition-colors"
                 >
                   <Trash2 size={14} strokeWidth={1.6} /> Очистить план
                 </button>
@@ -457,7 +428,7 @@ export default function WifiBuilderPage() {
                 <button
                   type="button"
                   onClick={() => setPoints([])}
-                  className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-full text-sm text-ns-muted hover:text-ns-text transition-colors ml-auto"
+                  className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-[var(--radius-btn)] text-sm text-ns-muted hover:text-ns-text hover:bg-ns-hover transition-colors ml-auto"
                 >
                   <Trash2 size={14} strokeWidth={1.6} /> Сбросить точки
                 </button>
@@ -486,7 +457,7 @@ export default function WifiBuilderPage() {
                   onClick={() => setSelectedProductId(recommendedDevice.id)}
                   className="aurora-button inline-flex w-full shrink-0 items-center justify-center px-4 py-2 text-sm font-medium transition-transform hover:scale-[1.01] sm:w-auto sm:min-w-[11rem]"
                 >
-                  Выбрать оптимальное
+                  Применить рекомендацию
                 </button>
               )}
             </div>
@@ -568,7 +539,7 @@ export default function WifiBuilderPage() {
               </optgroup>
             </select>
             <p className="text-xs text-ns-muted inline-flex items-center gap-1.5">
-              <Plus size={13} strokeWidth={1.6} /> Клик по схеме — новая точка
+              <Plus size={13} strokeWidth={1.6} /> Щелчок по схеме добавляет точку доступа
             </p>
           </div>
 
@@ -578,7 +549,7 @@ export default function WifiBuilderPage() {
             </p>
             {points.length === 0 ? (
               <p className="text-sm text-ns-muted inline-flex items-center gap-1.5">
-                <Wifi size={14} strokeWidth={1.6} /> Точек ещё нет
+                <Wifi size={14} strokeWidth={1.6} /> Точки доступа не заданы
               </p>
             ) : (
               <div className="space-y-2">
@@ -605,16 +576,14 @@ export default function WifiBuilderPage() {
                             <span className="text-xs text-ns-muted">—</span>
                           )}
                         </div>
+                        <span className="ns-num-badge shrink-0 bg-ns-accent text-ns-accent-fg">
+                          {idx + 1}
+                        </span>
                         <div className="min-w-0 flex-1 overflow-hidden pr-1">
-                          <div className="flex items-start gap-2 min-w-0">
-                            <span className="w-6 h-6 rounded-full bg-ns-accent text-ns-accent-fg text-[11px] font-semibold inline-flex items-center justify-center shrink-0 self-center">
-                              {idx + 1}
-                            </span>
-                            <p className="text-xs font-semibold text-ns-text min-w-0 flex-1 line-clamp-2 break-words leading-snug">
-                              {product.name}
-                            </p>
-                          </div>
-                          <p className="text-[11px] text-ns-muted mt-1 pl-8">
+                          <p className="text-xs font-semibold text-ns-text line-clamp-2 break-words leading-snug">
+                            {product.name}
+                          </p>
+                          <p className="text-xs text-ns-muted mt-1 sm:text-sm">
                             {formatPrice(product.price)}
                           </p>
                         </div>
@@ -622,7 +591,7 @@ export default function WifiBuilderPage() {
                       <button
                         type="button"
                         onClick={() => removePoint(p.id)}
-                        className="p-1.5 rounded-full text-ns-muted hover:text-red-500 transition-colors shrink-0"
+                        className="ns-action-icon text-ns-muted hover:text-red-500 shrink-0"
                         title="Удалить"
                       >
                         <Trash2 size={14} strokeWidth={1.6} />
@@ -678,12 +647,38 @@ function Legend({ color, label }: { color: string; label: string }) {
   );
 }
 
-function signalColor(signal: number): [number, number, number, number] {
-  const alpha = 130;
-  if (signal >= 0.7) return [52, 199, 89, alpha];
-  if (signal >= 0.45) return [255, 214, 10, alpha];
-  if (signal >= 0.2) return [255, 159, 10, alpha];
-  return [255, 69, 58, Math.round(alpha * 0.7)];
+const WIFI_ZONE_ALPHA = 130 / 255;
+
+function drawSmoothHeatmap(
+  ctx: CanvasRenderingContext2D,
+  sources: { x: number; y: number; invRange: number }[],
+  dark: boolean,
+) {
+  const a = WIFI_ZONE_ALPHA;
+  const aWeak = a * 0.7;
+
+  ctx.save();
+  ctx.globalCompositeOperation = dark ? "lighter" : "source-over";
+  ctx.globalAlpha = 0.62;
+
+  for (const src of sources) {
+    const r = 1 / src.invRange;
+    const grad = ctx.createRadialGradient(src.x, src.y, 0, src.x, src.y, r);
+    grad.addColorStop(0, `rgba(52, 199, 89, ${a})`);
+    grad.addColorStop(0.3, `rgba(52, 199, 89, ${a})`);
+    grad.addColorStop(0.32, `rgba(255, 214, 10, ${a})`);
+    grad.addColorStop(0.55, `rgba(255, 214, 10, ${a})`);
+    grad.addColorStop(0.56, `rgba(255, 159, 10, ${a})`);
+    grad.addColorStop(0.8, `rgba(255, 159, 10, ${a})`);
+    grad.addColorStop(0.82, `rgba(255, 69, 58, ${a})`);
+    grad.addColorStop(1, `rgba(255, 69, 58, ${aWeak})`);
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(src.x, src.y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.restore();
 }
 
 function clamp(value: number, min: number, max: number) {

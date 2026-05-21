@@ -1,11 +1,11 @@
-﻿import { Link } from "react-router-dom";
+﻿import { Link, useNavigate } from "react-router-dom";
 import { ShoppingCart, Heart, Minus, Plus } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "../lib/api";
 import { formatPrice } from "../lib/format";
 import MediaImage from "./MediaImage";
 import { useAuthStore } from "../store/authStore";
-import { isCustomer } from "../lib/roles";
+import { isAdmin, isCustomer } from "../lib/roles";
 
 interface Product {
   id: number;
@@ -20,8 +20,17 @@ interface Product {
   specs?: Record<string, string> | null;
 }
 
-export default function ProductCard({ product }: { product: Product }) {
+interface ProductCardProps {
+  product: Product;
+  favoriteControl?: "toggle" | "none";
+}
+
+export default function ProductCard({
+  product,
+  favoriteControl = "toggle",
+}: ProductCardProps) {
   const { user } = useAuthStore();
+  const navigate = useNavigate();
   const qc = useQueryClient();
 
   const avgRating = product.reviews?.length
@@ -31,7 +40,9 @@ export default function ProductCard({ product }: { product: Product }) {
       ).toFixed(1)
     : null;
 
+  const admin = isAdmin(user);
   const canShop = isCustomer(user);
+  const shopLocked = admin;
 
   const { data: cartItems = [] } = useQuery({
     queryKey: ["cart"],
@@ -42,10 +53,11 @@ export default function ProductCard({ product }: { product: Product }) {
   const { data: favorites = [] } = useQuery({
     queryKey: ["favorites"],
     queryFn: () => api.get("/favorites").then((r) => r.data),
-    enabled: canShop,
+    enabled: !!user && !admin,
   });
 
   const cartItem = (cartItems as any[]).find((i) => i.productId === product.id);
+  const atStockLimit = !!cartItem && cartItem.quantity >= product.stock;
   const isFavorite = (favorites as any[]).some(
     (f) => f.productId === product.id,
   );
@@ -73,9 +85,16 @@ export default function ProductCard({ product }: { product: Product }) {
 
   const handleFavorite = (e: React.MouseEvent) => {
     e.preventDefault();
-    if (!canShop) return;
+    e.stopPropagation();
+    if (shopLocked) return;
+    if (!user) {
+      navigate("/login");
+      return;
+    }
     toggleFavoriteMutation.mutate();
   };
+
+  const showFavoriteToggle = !admin && favoriteControl === "toggle";
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     if (!user) return;
@@ -108,17 +127,26 @@ export default function ProductCard({ product }: { product: Product }) {
           </div>
         )}
 
-        {canShop && (
-          <div className="absolute top-0 left-0 right-0 flex items-start justify-end p-3">
+        {showFavoriteToggle && (
+          <div className="ns-card-fav absolute top-0 left-0 right-0 z-10 flex items-start justify-end p-3">
             <button
+              type="button"
               onClick={handleFavorite}
-              className="ns-icon-round p-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+              disabled={shopLocked}
+              className={`ns-icon-round ns-fav-btn p-2 shadow-sm ${
+                shopLocked ? "cursor-not-allowed opacity-45" : "cursor-pointer"
+              }`}
+              aria-label={
+                isFavorite ? "Убрать из избранного" : "Добавить в избранное"
+              }
             >
               <Heart
-                size={14}
-                strokeWidth={1.5}
+                size={16}
+                strokeWidth={1.75}
                 className={
-                  isFavorite ? "fill-ns-error text-ns-error" : "text-ns-text"
+                  isFavorite
+                    ? "fill-ns-error text-ns-error"
+                    : "fill-transparent text-ns-icon"
                 }
               />
             </button>
@@ -144,14 +172,14 @@ export default function ProductCard({ product }: { product: Product }) {
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col p-2.5 sm:p-4">
-        <span className="ns-caption mb-1 mt-1 block truncate uppercase tracking-wider text-[10px] sm:mb-4 sm:mt-4 sm:text-xs">
+        <span className="ns-caption mb-1 mt-1 block truncate uppercase tracking-wider text-[11px] sm:mb-4 sm:mt-4 sm:text-xs">
           {product.brand.name}
         </span>
         <p className="ns-heading-card mb-1 line-clamp-2 text-sm leading-snug sm:mb-2 sm:text-base">
           {product.name}
         </p>
 
-        <div className="mb-auto h-[4.5rem] space-y-1.5 overflow-hidden hidden md:block">
+        <div className="mb-auto h-[4.5rem] space-y-1 overflow-hidden hidden md:block">
           {product.specs && Object.keys(product.specs).length > 0 && (
             <>
               {Object.entries(product.specs as Record<string, string>)
@@ -159,10 +187,12 @@ export default function ProductCard({ product }: { product: Product }) {
                 .map(([key, value]) => (
                   <div
                     key={key}
-                    className="flex items-start gap-1.5 text-[10px] leading-tight"
+                    className="flex min-w-0 items-start gap-1 text-[10px] leading-tight lg:text-[11px]"
                   >
-                    <span className="text-ns-muted shrink-0">{key}:</span>
-                    <span className="text-ns-text-secondary font-medium line-clamp-1">
+                    <span className="max-w-[42%] shrink-0 truncate text-ns-muted">
+                      {key}:
+                    </span>
+                    <span className="min-w-0 flex-1 text-ns-text-secondary font-medium line-clamp-1">
                       {value}
                     </span>
                   </div>
@@ -178,14 +208,24 @@ export default function ProductCard({ product }: { product: Product }) {
             </span>
           </div>
 
-          {canShop && cartItem ? (
+          {shopLocked ? (
+            <button
+              type="button"
+              disabled
+              className="ns-btn ns-btn-primary w-full text-xs opacity-45 cursor-not-allowed"
+              onClick={(e) => e.preventDefault()}
+            >
+              <ShoppingCart size={14} strokeWidth={1.5} />
+              <span>Купить</span>
+            </button>
+          ) : canShop && cartItem ? (
             <div
               className="flex items-center justify-center gap-2"
               onClick={(e) => e.preventDefault()}
             >
               <button
                 onClick={(e) => handleUpdateCart(e, cartItem.quantity - 1)}
-                className="ns-icon-round w-9 h-9 shrink-0"
+                className="ns-icon-round w-9 h-9 shrink-0 cursor-pointer"
               >
                 <Minus size={14} strokeWidth={2} />
               </button>
@@ -193,8 +233,10 @@ export default function ProductCard({ product }: { product: Product }) {
                 {cartItem.quantity}
               </span>
               <button
+                type="button"
+                disabled={atStockLimit}
                 onClick={(e) => handleUpdateCart(e, cartItem.quantity + 1)}
-                className="ns-icon-round w-9 h-9 shrink-0"
+                className="ns-icon-round w-9 h-9 shrink-0 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 <Plus size={14} strokeWidth={2} />
               </button>

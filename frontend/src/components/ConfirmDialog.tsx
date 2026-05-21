@@ -42,11 +42,6 @@ export default function ConfirmDialog({
 
   if (!open) return null;
 
-  const confirmCls =
-    confirmVariant === "danger"
-      ? "bg-ns-error hover:opacity-90 text-[var(--ns-danger-fg)]"
-      : "bg-ns-accent hover:bg-ns-accent-hover text-ns-accent-fg";
-
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center px-4">
       <div
@@ -54,7 +49,7 @@ export default function ConfirmDialog({
         onClick={onCancel}
         aria-hidden
       />
-      <div className="aurora-panel relative w-full max-w-sm rounded-3xl p-6">
+      <div className="aurora-card relative w-full max-w-sm rounded-2xl p-6">
         <p className="text-lg font-semibold text-ns-text">
           {title}
         </p>
@@ -65,14 +60,14 @@ export default function ConfirmDialog({
           <button
             type="button"
             onClick={onCancel}
-            className="px-4 py-2.5 rounded-full text-sm font-medium ns-chip text-ns-text hover:bg-ns-hover transition-colors"
+            className="ns-btn ns-btn-secondary text-sm"
           >
             {cancelText}
           </button>
           <button
             type="button"
             onClick={onConfirm}
-            className={`px-4 py-2.5 rounded-full text-sm font-medium transition-colors ${confirmCls}`}
+            className={`ns-btn text-sm ${confirmVariant === "danger" ? "bg-ns-error hover:opacity-90 text-[var(--ns-danger-fg)]" : "ns-btn-primary"}`}
           >
             {confirmText}
           </button>

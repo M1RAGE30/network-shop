@@ -4,6 +4,7 @@ import { Home, LayoutGrid, Wrench, ShoppingCart, User, ChevronDown } from "lucid
 import { useAuthStore } from "../store/authStore";
 import { useCartStore } from "../store/cartStore";
 import { isAdmin } from "../lib/roles";
+import { AdminBlockedNav } from "./AdminBlockedNav";
 import BuilderNavMenu from "./BuilderNavMenu";
 
 const items = [
@@ -45,14 +46,9 @@ export default function MobileBottomNav() {
   const [buildersVisible, setBuildersVisible] = useState(false);
   const buildersRef = useRef<HTMLDivElement>(null);
 
-  const navItems = items
-    .filter((item) => {
-      if ("customerOnly" in item && item.customerOnly && (!user || admin)) return false;
-      return true;
-    })
-    .map((item) =>
-      "to" in item && item.to === "/profile" && !user ? { ...item, to: "/login" } : item,
-    );
+  const navItems = items.map((item) =>
+    "to" in item && item.to === "/profile" && !user ? { ...item, to: "/login" } : item,
+  );
 
   useEffect(() => {
     setBuildersOpen(false);
@@ -89,7 +85,7 @@ export default function MobileBottomNav() {
       {buildersOpen && (
         <button
           type="button"
-          className={`fixed inset-0 z-40 bg-black/40 transition-opacity duration-300 ${
+          className={`ns-bottom-nav__backdrop ${
             buildersVisible ? "opacity-100" : "opacity-0"
           }`}
           aria-label="Закрыть меню конструкторов"
@@ -97,7 +93,7 @@ export default function MobileBottomNav() {
         />
       )}
 
-      <div className="relative z-50 flex h-[76px] items-stretch justify-around px-1">
+      <div className="ns-bottom-nav__bar relative z-50 flex h-[76px] items-stretch justify-around px-1">
         {navItems.map((item) => {
           if ("key" in item && item.key === "builders") {
             const active = item.match(location.pathname);
@@ -123,7 +119,7 @@ export default function MobileBottomNav() {
                 <button
                   type="button"
                   onClick={() => setBuildersOpen((v) => !v)}
-                  className={`relative flex w-full flex-col items-center justify-center gap-1 rounded-[14px] px-1 transition-all duration-200 ns-touch-target ${
+                  className={`relative flex w-full cursor-pointer flex-col items-center justify-center gap-1 rounded-[14px] px-1 transition-all duration-200 ns-touch-target ${
                     active || buildersOpen ? "text-ns-text" : "text-ns-muted active:scale-95"
                   }`}
                   aria-expanded={buildersOpen}
@@ -163,19 +159,17 @@ export default function MobileBottomNav() {
           };
           const { to, icon: Icon, label, match } = linkItem;
           const active = match(location.pathname);
-          const showBadge = to === "/cart" && totalCount > 0;
+          const showBadge = to === "/cart" && totalCount > 0 && !admin;
+          const blocked = admin && "customerOnly" in item && item.customerOnly;
 
-          return (
-            <Link
-              key={to}
-              to={to}
-              onClick={() => setBuildersOpen(false)}
-              className={`relative flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-[14px] px-1 transition-all duration-200 ns-touch-target ${
-                active ? "text-ns-text" : "text-ns-muted active:scale-95"
-              }`}
-            >
+          const itemClass = `relative flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-[14px] px-1 transition-all duration-200 ns-touch-target ${
+            active && !blocked ? "text-ns-text" : "text-ns-muted active:scale-95"
+          }`;
+
+          const itemInner = (
+            <>
               <span className="relative flex h-[22px] items-center justify-center">
-                <Icon size={22} strokeWidth={active ? 2 : 1.5} />
+                <Icon size={22} strokeWidth={active && !blocked ? 2 : 1.5} />
                 {showBadge && (
                   <span className="absolute -top-1 -right-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-ns-accent px-1 text-[10px] font-semibold text-ns-accent-fg">
                     {totalCount > 9 ? "9+" : totalCount}
@@ -186,13 +180,32 @@ export default function MobileBottomNav() {
                 <span className="text-[10px] font-semibold leading-tight text-center">
                   {label}
                 </span>
-                {active && (
+                {active && !blocked && (
                   <span
                     className="mt-1 h-1 w-1 shrink-0 rounded-full bg-ns-text"
                     aria-hidden
                   />
                 )}
               </span>
+            </>
+          );
+
+          if (blocked) {
+            return (
+              <AdminBlockedNav key={to} className={itemClass} as="div">
+                {itemInner}
+              </AdminBlockedNav>
+            );
+          }
+
+          return (
+            <Link
+              key={to}
+              to={to}
+              onClick={() => setBuildersOpen(false)}
+              className={itemClass}
+            >
+              {itemInner}
             </Link>
           );
         })}

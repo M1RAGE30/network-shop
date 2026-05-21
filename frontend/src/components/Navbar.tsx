@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   Heart,
@@ -21,15 +21,16 @@ import {
 import { openAdminPanel } from "../lib/appOrigins";
 import { useAuthStore } from "../store/authStore";
 import { isAdmin } from "../lib/roles";
+import { AdminBlockedNav } from "./AdminBlockedNav";
 import { useCartStore } from "../store/cartStore";
 import { useThemeStore } from "../store/themeStore";
-import { getPageTitle } from "../lib/pageTitles";
 import { useBodyScrollLock } from "../lib/useBodyScrollLock";
 import Logo from "./Logo";
 import BuilderNavMenu from "./BuilderNavMenu";
 
 export default function Navbar() {
   const { user } = useAuthStore();
+  const admin = isAdmin(user);
   const totalCount = useCartStore((s) => s.totalCount());
   const { dark, toggle } = useThemeStore();
   const location = useLocation();
@@ -42,8 +43,6 @@ export default function Navbar() {
 
   const isHome = location.pathname === "/";
   const isActive = (path: string) => location.pathname.startsWith(path);
-  const pageTitle = getPageTitle(location.pathname);
-
   useBodyScrollLock(menuOpen, "ns-overlay-open");
 
   useEffect(() => {
@@ -92,7 +91,7 @@ export default function Navbar() {
     `ns-nav-link text-[15px] font-medium text-ns-text ${active ? "ns-nav-link--active" : ""}`;
 
   const iconBtn =
-    "ns-icon-btn ns-touch-target relative flex items-center justify-center rounded-[14px]";
+    "ns-icon-btn ns-touch-target relative flex items-center justify-center rounded-[var(--radius-btn)]";
 
   const builderDropdown = (
     <div className="ns-dropdown ns-card-static absolute top-full left-1/2 z-50 mt-3 min-w-[240px] -translate-x-1/2 p-2">
@@ -100,16 +99,56 @@ export default function Navbar() {
     </div>
   );
 
-  const menuLink = (to: string, label: string, Icon: LucideIcon) => (
-    <Link
-      to={to}
-      onClick={closeMenu}
-      className="flex items-center gap-3 rounded-[14px] px-4 py-3.5 text-base font-medium text-ns-text hover:bg-ns-hover transition-colors"
-    >
-      <Icon size={20} className="text-ns-muted shrink-0" strokeWidth={1.5} />
-      {label}
-    </Link>
-  );
+  const menuLink = (to: string, label: string, Icon: LucideIcon, blocked = false) => {
+    const cls =
+      "flex items-center gap-3 rounded-[14px] px-4 py-3.5 text-base font-medium text-ns-text hover:bg-ns-hover transition-colors";
+    const content = (
+      <>
+        <Icon size={20} className="text-ns-muted shrink-0" strokeWidth={1.5} />
+        {label}
+      </>
+    );
+    if (blocked) {
+      return (
+        <AdminBlockedNav className={cls} as="div">
+          {content}
+        </AdminBlockedNav>
+      );
+    }
+    return (
+      <Link to={to} onClick={closeMenu} className={cls}>
+        {content}
+      </Link>
+    );
+  };
+
+  const iconLink = (
+    to: string,
+    label: string,
+    icon: ReactNode,
+    badge?: React.ReactNode,
+    blocked = false,
+  ) => {
+    const cls = iconBtn;
+    const inner = (
+      <>
+        {icon}
+        {badge}
+      </>
+    );
+    if (blocked) {
+      return (
+        <AdminBlockedNav className={cls} aria-label={label}>
+          {inner}
+        </AdminBlockedNav>
+      );
+    }
+    return (
+      <Link to={to} className={cls} aria-label={label}>
+        {inner}
+      </Link>
+    );
+  };
 
   const cartBadge =
     totalCount > 0 ? (
@@ -154,18 +193,29 @@ export default function Navbar() {
             <button type="button" onClick={toggle} className={iconBtn} aria-label="Тема">
               {dark ? <Sun size={24} strokeWidth={1.5} /> : <Moon size={24} strokeWidth={1.5} />}
             </button>
-            {user && !isAdmin(user) && (
+            {user && (
               <>
-                <Link to="/favorites" className={iconBtn} aria-label="Избранное">
-                  <Heart size={24} strokeWidth={1.5} />
-                </Link>
-                <Link to="/cart" className={iconBtn} aria-label="Корзина">
-                  <ShoppingCart size={24} strokeWidth={1.5} />
-                  {cartBadge}
-                </Link>
-                <Link to="/orders" className={iconBtn} aria-label="Заказы">
-                  <ShoppingBag size={24} strokeWidth={1.5} />
-                </Link>
+                {iconLink(
+                  "/favorites",
+                  "Избранное",
+                  <Heart size={24} strokeWidth={1.5} />,
+                  undefined,
+                  admin,
+                )}
+                {iconLink(
+                  "/cart",
+                  "Корзина",
+                  <ShoppingCart size={24} strokeWidth={1.5} />,
+                  admin ? undefined : cartBadge,
+                  admin,
+                )}
+                {iconLink(
+                  "/orders",
+                  "Заказы",
+                  <ShoppingBag size={24} strokeWidth={1.5} />,
+                  undefined,
+                  admin,
+                )}
               </>
             )}
             {user ? (
@@ -208,12 +258,14 @@ export default function Navbar() {
             <span className="font-semibold text-ns-text text-sm">NetworkShop</span>
           </Link>
           <div className="flex items-center gap-2">
-            {user && !isAdmin(user) && (
-              <Link to="/cart" className={iconBtn} aria-label="Корзина">
-                <ShoppingCart size={24} strokeWidth={1.5} />
-                {cartBadge}
-              </Link>
-            )}
+            {user &&
+              iconLink(
+                "/cart",
+                "Корзина",
+                <ShoppingCart size={24} strokeWidth={1.5} />,
+                admin ? undefined : cartBadge,
+                admin,
+              )}
             <Link to={user ? "/profile" : "/login"} className={iconBtn} aria-label="Профиль">
               <User size={24} strokeWidth={1.5} />
             </Link>
@@ -233,13 +285,7 @@ export default function Navbar() {
             NetworkShop
           </span>
         </Link>
-        {pageTitle ? (
-          <p className="flex-1 text-center text-sm font-medium text-ns-text-secondary truncate px-2">
-            {pageTitle}
-          </p>
-        ) : (
-          <div className="flex-1" />
-        )}
+        <div className="flex-1" />
         <button type="button" onClick={() => setMenuOpen(true)} className={iconBtn} aria-label="Меню">
           <Menu size={24} strokeWidth={1.5} />
         </button>
@@ -271,14 +317,14 @@ export default function Navbar() {
               {menuLink("/catalog", "Каталог", LayoutGrid)}
               {menuLink("/builder/network", "Конструктор сети", Network)}
               {menuLink("/builder/wifi", "Конструктор Wi‑Fi", Wifi)}
-              {user && !isAdmin(user) && (
+              {user && (
                 <>
-                  {menuLink("/favorites", "Избранное", Heart)}
-                  {menuLink("/cart", "Корзина", ShoppingCart)}
-                  {menuLink("/orders", "Заказы", ShoppingBag)}
+                  {menuLink("/favorites", "Избранное", Heart, admin)}
+                  {menuLink("/cart", "Корзина", ShoppingCart, admin)}
+                  {menuLink("/orders", "Заказы", ShoppingBag, admin)}
                 </>
               )}
-              {menuLink("/chat", "Поддержка", MessageCircle)}
+              {!admin && menuLink("/chat", "Поддержка", MessageCircle)}
               {user ? menuLink("/profile", "Профиль", User) : menuLink("/login", "Вход", LogIn)}
               {user?.role === "ADMIN" && (
                 <button

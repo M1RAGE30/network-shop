@@ -13,6 +13,7 @@ import {
   scoreRouter,
   scoreSwitch,
   scoreWifiConstructorAp,
+  scoreWifiConstructorRouter,
   getCoverageM2,
   getPortCount,
   hasPoe,
@@ -182,6 +183,15 @@ const MAX_DEVICES = 200;
 const ROOM_MARGIN_M = 0.42;
 
 const SWITCH_EMOJI = "\u{1F5A7}";
+
+const SCHEME_LEGEND: { mark: string; label: string }[] = [
+  { mark: "R", label: "Маршрутизатор" },
+  { mark: "●", label: "Точка доступа" },
+  { mark: SWITCH_EMOJI, label: "Коммутатор" },
+  { mark: "💻", label: "Проводные ПК" },
+  { mark: "📱", label: "Беспроводные устройства" },
+  { mark: "🖨️", label: "Принтеры и периферия" },
+];
 
 function fetchCategoryProducts(slug: string) {
   return api
@@ -403,7 +413,6 @@ function buildSceneState(
         area,
         spaceType,
       }),
-    "lower_price",
   ) as Product | null;
 
   const routerRadiusM = routerProduct
@@ -425,7 +434,6 @@ function buildSceneState(
       aps,
       (apCandidate) =>
         scoreWifiConstructorAp(apCandidate, area, clientsPerApEst),
-      "lower_price",
     ) as Product | null;
     const referenceCoverage = bestAp ? getCoverageM2(bestAp) : 100;
     apRadiusM = Math.max(2, Math.sqrt(referenceCoverage / Math.PI));
@@ -613,28 +621,25 @@ export default function NetworkBuilderPage() {
       const routerProduct = pickBest(
         routers,
         (routerCandidate) =>
-          scoreRouter(routerCandidate, {
-            totalClients,
-            wiredClients: totalWired,
-            area,
-            spaceType: form.spaceType,
-          }) + scoreRouterLayoutFit(routerCandidate, base),
-        "lower_price",
+          scoreWifiConstructorRouter(routerCandidate, area, totalClients) +
+          scoreRouterLayoutFit(routerCandidate, base),
       ) as Product | null;
       const nextRouterRadiusM = routerProduct
         ? Math.max(2, Math.sqrt(getCoverageM2(routerProduct) / Math.PI))
         : base.routerRadiusM;
-      const clientsPerApEst = Math.max(2, Math.ceil(numbers.wireless / 3));
-      const bestAp = pickBest(
+      const clientsPerApEst = Math.max(
+        2,
+        Math.ceil(numbers.wireless / Math.max(1, Math.ceil(area / 80))),
+      );
+      let bestAp = pickBest(
         aps,
         (apCandidate) =>
           scoreWifiConstructorAp(apCandidate, area, clientsPerApEst),
-        "lower_price",
       ) as Product | null;
-      const nextApRadiusM = bestAp
+      let nextApRadiusM = bestAp
         ? Math.max(2, Math.sqrt(getCoverageM2(bestAp) / Math.PI))
         : base.apRadiusM;
-      const apMarkers =
+      let apMarkers =
         numbers.wireless > 0 && aps.length > 0
           ? computeApMarkers(
               base.clients,
@@ -644,6 +649,30 @@ export default function NetworkBuilderPage() {
               numbers,
             )
           : [];
+      if (numbers.wireless > 0 && aps.length > 0 && apMarkers.length > 0) {
+        const sceneDraft: SceneState = {
+          ...base,
+          apMarkers,
+          routerRadiusM: nextRouterRadiusM,
+          apRadiusM: nextApRadiusM,
+        };
+        bestAp = pickBest(
+          aps,
+          (apCandidate) =>
+            scoreWifiConstructorAp(apCandidate, area, clientsPerApEst) +
+            scoreApLayoutFit(apCandidate, sceneDraft, nextRouterRadiusM),
+        ) as Product | null;
+        nextApRadiusM = bestAp
+          ? Math.max(2, Math.sqrt(getCoverageM2(bestAp) / Math.PI))
+          : nextApRadiusM;
+        apMarkers = computeApMarkers(
+          base.clients,
+          base.router,
+          nextRouterRadiusM,
+          nextApRadiusM,
+          numbers,
+        );
+      }
       const switchNeeded = numbers.wired + numbers.printers + apMarkers.length >= 1;
       const sw =
         base.switch ??
@@ -682,13 +711,8 @@ export default function NetworkBuilderPage() {
     const router = pickBest(
       routers,
       (routerCandidate) =>
-        scoreRouter(routerCandidate, {
-          totalClients,
-          wiredClients: totalWired,
-          area,
-          spaceType: form.spaceType,
-        }) + scoreRouterLayoutFit(routerCandidate, scene),
-      "lower_price",
+        scoreWifiConstructorRouter(routerCandidate, area, totalClients) +
+        scoreRouterLayoutFit(routerCandidate, scene),
     ) as Product | null;
 
     if (router) {
@@ -733,7 +757,6 @@ export default function NetworkBuilderPage() {
           }
           return s;
         },
-        "lower_price",
       ) as Product | null;
       if (sw) {
         const insertAt = router ? 1 : 0;
@@ -752,7 +775,6 @@ export default function NetworkBuilderPage() {
         (apCandidate) =>
           scoreWifiConstructorAp(apCandidate, area, clientsPerApEst) +
           scoreApLayoutFit(apCandidate, scene, routerRadiusM),
-        "lower_price",
       ) as Product | null;
       const referenceCoverage = bestAp ? getCoverageM2(bestAp) : 100;
       const apRadiusM = Math.max(2, Math.sqrt(referenceCoverage / Math.PI));
@@ -769,7 +791,6 @@ export default function NetworkBuilderPage() {
       const adapter = pickBest(
         adapters,
         (adapterCandidate) => scoreAdapter(adapterCandidate),
-        "lower_price",
       ) as Product | null;
       if (adapter) {
         items.push({
@@ -909,33 +930,42 @@ export default function NetworkBuilderPage() {
       ctx.rect(rx, ry, roomW, roomH);
       ctx.clip();
 
-      const apGlowCapPx = Math.min(roomW * 0.11, roomH * 0.11, 88);
-
-      for (const ap of scene.apMarkers) {
-        const px = rx + ap.x * pixelsPerMeter;
-        const py = ry + ap.y * pixelsPerMeter;
-        const rPx = Math.min(scene.apRadiusM * pixelsPerMeter, apGlowCapPx);
+      const drawCoverageZone = (
+        px: number,
+        py: number,
+        radiusM: number,
+        innerAlpha: number,
+        strokeAlpha: number,
+      ) => {
+        const rPx = radiusM * pixelsPerMeter;
+        if (rPx < 2) return;
 
         const grad = ctx.createRadialGradient(px, py, 0, px, py, rPx);
-        grad.addColorStop(0, `rgba(${glow}, 0.16)`);
+        grad.addColorStop(0, `rgba(${glow}, ${innerAlpha})`);
+        grad.addColorStop(0.72, `rgba(${glow}, ${innerAlpha * 0.35})`);
         grad.addColorStop(1, `rgba(${glow}, 0)`);
         ctx.fillStyle = grad;
         ctx.beginPath();
         ctx.arc(px, py, rPx, 0, Math.PI * 2);
         ctx.fill();
-      }
+
+        ctx.beginPath();
+        ctx.arc(px, py, rPx, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(${glow}, ${strokeAlpha})`;
+        ctx.lineWidth = 1.25;
+        ctx.stroke();
+      };
 
       const cx = rx + scene.router.x * pixelsPerMeter;
       const cy = ry + scene.router.y * pixelsPerMeter;
-      const rRadPx = routerRadiusM * pixelsPerMeter;
 
-      const rGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, rRadPx);
-      rGrad.addColorStop(0, `rgba(${glow}, 0.22)`);
-      rGrad.addColorStop(1, `rgba(${glow}, 0)`);
-      ctx.fillStyle = rGrad;
-      ctx.beginPath();
-      ctx.arc(cx, cy, rRadPx, 0, Math.PI * 2);
-      ctx.fill();
+      drawCoverageZone(cx, cy, scene.routerRadiusM, 0.22, 0.28);
+
+      for (const ap of scene.apMarkers) {
+        const px = rx + ap.x * pixelsPerMeter;
+        const py = ry + ap.y * pixelsPerMeter;
+        drawCoverageZone(px, py, scene.apRadiusM, 0.16, 0.22);
+      }
 
       if (scene.clients.length > 0) {
         const n = Math.min(100, scene.clients.length);
@@ -1058,7 +1088,7 @@ export default function NetworkBuilderPage() {
     paint();
     window.addEventListener("resize", paint);
     return () => window.removeEventListener("resize", paint);
-  }, [numbers, scene, showCalculated, routerRadiusM, dark]);
+  }, [numbers, scene, showCalculated, dark]);
 
   const pickDragTarget = (
     ex: number,
@@ -1159,7 +1189,7 @@ export default function NetworkBuilderPage() {
           Конструктор сети
         </h1>
         <p className="ns-net-builder__lead mt-2">
-          План, связи и подбор оборудования в одном окне
+          Подбор оборудования по размерам помещения и числу устройств
         </p>
       </div>
 
@@ -1269,7 +1299,7 @@ export default function NetworkBuilderPage() {
             <div className="flex flex-wrap items-center gap-2">
               {!showCalculated && (
                 <span className="ns-net-builder__hint">
-                  После расчёта — кабели на схеме и комплект справа
+                  После расчёта отображаются кабели на схеме и перечень оборудования
                 </span>
               )}
             </div>
@@ -1279,7 +1309,7 @@ export default function NetworkBuilderPage() {
             <p className="ns-net-builder__section-label mb-0">Схема</p>
             {!showCalculated && hasScene && (
               <p className="ns-net-builder__hint -mt-1">
-                Иконки можно перетаскивать до и после расчёта
+                Положение устройств на схеме меняется перетаскиванием
               </p>
             )}
             <div className="ns-net-builder__canvas-shell">
@@ -1293,12 +1323,11 @@ export default function NetworkBuilderPage() {
               />
             </div>
             <div className="ns-net-builder__legend" aria-label="Легенда">
-              <span className="ns-net-builder__legend-item">R · роутер</span>
-              <span className="ns-net-builder__legend-item">● · точка доступа</span>
-              <span className="ns-net-builder__legend-item">{SWITCH_EMOJI} · коммутатор</span>
-              <span className="ns-net-builder__legend-item">💻 · ПК</span>
-              <span className="ns-net-builder__legend-item">📱 · Wi‑Fi</span>
-              <span className="ns-net-builder__legend-item">🖨️ · периферия</span>
+              {SCHEME_LEGEND.map(({ mark, label }) => (
+                <span key={label} className="ns-net-builder__legend-item">
+                  {mark} · {label}
+                </span>
+              ))}
             </div>
           </div>
         </div>
@@ -1311,9 +1340,9 @@ export default function NetworkBuilderPage() {
                 <span className="ns-net-builder__empty-icon" aria-hidden>
                   <Package size={18} strokeWidth={1.5} />
                 </span>
-                <p className="ns-net-builder__empty-title">Подбор появится после расчёта</p>
+                <p className="ns-net-builder__empty-title">Выполните расчёт для подбора комплекта</p>
                 <p className="ns-net-builder__empty-note">
-                  Роутер, коммутатор, точки доступа и патч-корды — с ценами
+                  Маршрутизатор, коммутатор, точки доступа, патч-корды
                 </p>
               </div>
             )}
@@ -1321,13 +1350,13 @@ export default function NetworkBuilderPage() {
               <div className="ns-net-builder__empty">
                 <p className="ns-net-builder__empty-title">Нет подходящих позиций</p>
                 <p className="ns-net-builder__empty-note">
-                  Попробуйте увеличить площадь или сменить тип помещения
+                  Уточните размеры помещения или тип объекта
                 </p>
               </div>
             )}
             {showCalculated && recommendation.length > 0 && (
               <p className="ns-net-builder__hint mb-2.5">
-                Перетаскивание на схеме обновляет комплект
+                Изменения на схеме пересчитывают комплект
               </p>
             )}
             <div className="space-y-2">
@@ -1352,10 +1381,10 @@ export default function NetworkBuilderPage() {
                     <p className="text-xs font-semibold text-ns-text truncate">
                       {item.product.name}
                     </p>
-                    <p className="text-[10px] text-ns-muted mt-0.5 leading-snug line-clamp-2">
+                    <p className="text-xs text-ns-muted mt-0.5 leading-snug line-clamp-2">
                       {item.reason}
                     </p>
-                    <div className="flex items-center justify-between mt-1 text-[11px]">
+                    <div className="flex items-center justify-between mt-1 text-xs sm:text-sm">
                       <span className="text-ns-muted">
                         × {item.quantity}
                       </span>
@@ -1369,11 +1398,6 @@ export default function NetworkBuilderPage() {
             </div>
             {recommendation.length > 0 && (
               <div className="ns-net-builder__total space-y-1.5">
-                {cableConnections.length > 0 && (
-                  <p className="ns-net-builder__hint">
-                    {cableConnections.length} соединений · патч-корды по длинам на схеме
-                  </p>
-                )}
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-xs font-medium text-ns-text-secondary">
                     Итого

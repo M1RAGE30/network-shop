@@ -33,6 +33,9 @@ $RECYCLE.BIN/
 
 .idea/
 .vscode/
+.cursor/
+
+assets/
 
 *.suo
 *.ntvs*

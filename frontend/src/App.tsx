@@ -2,9 +2,8 @@ import { lazy, Suspense } from "react";
 import { Routes, Route } from "react-router-dom";
 import Layout from "./components/Layout";
 import ProtectedRoute from "./components/ProtectedRoute";
-import CheckoutPage from "./pages/CheckoutPage";
-
 const HomePage = lazy(() => import("./pages/HomePage"));
+const CheckoutPage = lazy(() => import("./pages/CheckoutPage"));
 const CatalogPage = lazy(() => import("./pages/CatalogPage"));
 const ProductPage = lazy(() => import("./pages/ProductPage"));
 const FavoritesPage = lazy(() => import("./pages/FavoritesPage"));

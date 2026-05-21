@@ -121,7 +121,7 @@ export const verifyEmail = async (req: Request, res: Response) => {
     },
   });
 
-  return res.json({ message: "Email успешно подтверждён" });
+  return res.json({ message: "Теперь вы можете войти в свой аккаунт." });
 };
 
 export const login = async (req: Request, res: Response) => {

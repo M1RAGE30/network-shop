@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "../../lib/api";
 import { formatPrice } from "../../lib/format";
@@ -8,6 +8,10 @@ import ConfirmDialog from "../../components/ConfirmDialog";
 import MediaImage from "../../components/MediaImage";
 import { inputCls, selectCls, labelCls, textareaCls } from "../../lib/uiClasses";
 import { categoryDisplayName } from "../../lib/categoryName";
+import {
+  defaultAdminProductCategorySlug,
+  filterAdminProductCategories,
+} from "../../lib/adminProductCategories";
 
 interface ProductForm {
   name: string;
@@ -61,6 +65,7 @@ export default function AdminProductsPage() {
           params: {
             limit: 100,
             search: searchQuery,
+            includeOutOfStock: 1,
             ...(categoryFilter ? { category: categoryFilter } : {}),
           },
         })
@@ -74,6 +79,19 @@ export default function AdminProductsPage() {
     queryKey: ["brands"],
     queryFn: () => api.get("/brands").then((r) => r.data),
   });
+
+  const filterCategories = useMemo(
+    () => filterAdminProductCategories(categories),
+    [categories],
+  );
+
+  useEffect(() => {
+    if (!filterCategories.length) return;
+    const allowed = new Set(filterCategories.map((c) => c.slug));
+    if (!categoryFilter || !allowed.has(categoryFilter)) {
+      setCategoryFilter(defaultAdminProductCategorySlug(filterCategories));
+    }
+  }, [filterCategories, categoryFilter]);
 
   const uploadImage = async (): Promise<string | null> => {
     if (!imageFile) return form.imageUrl || null;
@@ -179,12 +197,12 @@ export default function AdminProductsPage() {
             placeholder="Поиск товаров..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="ns-input ns-input-search w-full rounded-full pr-10 py-2 text-sm"
+            className="ns-input ns-input-search w-full pr-10 py-2 text-sm"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-ns-hover text-ns-muted hover:text-ns-text transition-colors"
+              className="absolute right-3 top-1/2 -translate-y-1/2 ns-action-icon text-ns-muted hover:text-ns-text"
             >
               <X size={14} strokeWidth={2} />
             </button>
@@ -192,12 +210,11 @@ export default function AdminProductsPage() {
           </div>
           <div className="relative w-full sm:w-64">
             <select
-              className={`${selectCls} rounded-full text-sm`}
+              className={`${selectCls} text-sm`}
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
             >
-              <option value="">Все категории</option>
-              {categories.map((c: any) => (
+              {filterCategories.map((c: { id: number; slug: string; name: string }) => (
                 <option key={c.id} value={c.slug}>
                   {categoryDisplayName(c.name)}
                 </option>
@@ -237,7 +254,7 @@ export default function AdminProductsPage() {
             </p>
             <button
               onClick={() => setShowForm(false)}
-              className="p-2 rounded-full hover:bg-ns-hover transition-colors text-ns-text"
+              className="ns-action-icon text-ns-text"
             >
               <X size={20} strokeWidth={1.5} />
             </button>
@@ -441,7 +458,11 @@ export default function AdminProductsPage() {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <span
-                        className={`text-xs font-semibold px-3 py-1.5 rounded-full ${p.stock > 0 ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"}`}
+                        className={`text-xs font-semibold px-3 py-1.5 rounded-full tabular-nums ${
+                          p.stock > 0
+                            ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
+                            : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
+                        }`}
                       >
                         {p.stock}
                       </span>
@@ -451,7 +472,7 @@ export default function AdminProductsPage() {
                         <button
                           type="button"
                           onClick={() => openEdit(p)}
-                          className="p-2 rounded-full hover:bg-ns-hover transition-colors text-ns-text"
+                          className="ns-action-icon text-ns-text"
                         >
                           <Pencil size={16} strokeWidth={1.5} />
                         </button>
@@ -464,7 +485,7 @@ export default function AdminProductsPage() {
                               name: p.name,
                             });
                           }}
-                          className="p-2 rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors text-red-600 dark:text-red-400"
+                          className="ns-action-icon ns-action-icon--square text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30"
                         >
                           <Trash2 size={16} strokeWidth={1.5} />
                         </button>
@@ -477,7 +498,7 @@ export default function AdminProductsPage() {
           </div>
           <div className="md:hidden divide-y divide-ns-border">
             {productsData?.products?.map((p: any) => (
-              <div key={p.id} className="flex items-center gap-3 px-6 py-4">
+              <div key={p.id} className="flex items-center gap-3 px-4 py-4">
                 <div className="w-14 h-14 bg-ns-input rounded-xl flex items-center justify-center shrink-0">
                   {p.imageUrl ? (
                     <MediaImage
@@ -495,7 +516,7 @@ export default function AdminProductsPage() {
                   <p className="text-sm font-semibold text-ns-text truncate">
                     {p.name}
                   </p>
-                  <p className="text-xs text-ns-muted">
+                  <p className="text-sm text-ns-muted">
                     {p.brand?.name} · {formatPrice(p.price)}
                   </p>
                 </div>
@@ -503,7 +524,7 @@ export default function AdminProductsPage() {
                   <button
                     type="button"
                     onClick={() => openEdit(p)}
-                    className="p-2 rounded-full hover:bg-ns-hover transition-colors text-ns-text"
+                    className="ns-action-icon text-ns-text"
                   >
                     <Pencil size={16} strokeWidth={1.5} />
                   </button>
@@ -512,7 +533,7 @@ export default function AdminProductsPage() {
                     onClick={() => {
                       setConfirmDelete({ open: true, id: p.id, name: p.name });
                     }}
-                    className="p-2 rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors text-red-600 dark:text-red-400"
+                    className="ns-action-icon ns-action-icon--square text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30"
                   >
                     <Trash2 size={16} strokeWidth={1.5} />
                   </button>

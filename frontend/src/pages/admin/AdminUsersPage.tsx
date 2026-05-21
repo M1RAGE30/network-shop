@@ -1,7 +1,7 @@
 ﻿import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "../../lib/api";
-import { Pencil, Trash2, X, Check } from "lucide-react";
+import { Pencil, Trash2, X, Check, XCircle } from "lucide-react";
 import { useAuthStore } from "../../store/authStore";
 import { pluralizeUsers } from "../../lib/pluralize";
 import ConfirmDialog from "../../components/ConfirmDialog";
@@ -19,11 +19,33 @@ interface UserRecord {
 interface EditForm {
   name: string;
   email: string;
-  isEmailVerified: boolean;
 }
 
 const roleSelectCls =
-  "w-fit max-w-full cursor-pointer bg-ns-input rounded-lg pl-3 pr-8 py-1.5 text-xs font-semibold text-ns-text focus:outline-none focus:ring-2 focus:ring-ns-accent disabled:opacity-40 disabled:cursor-not-allowed";
+  "w-fit max-w-full cursor-pointer bg-ns-input rounded-[var(--radius-btn)] pl-3 pr-8 py-1.5 text-sm font-semibold text-ns-text focus:outline-none focus:ring-2 focus:ring-ns-accent disabled:opacity-40 disabled:cursor-not-allowed";
+
+function EmailStatusBadge({ verified }: { verified: boolean }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 text-sm font-medium leading-none text-ns-text">
+      {verified ? (
+        <Check
+          size={15}
+          strokeWidth={2.25}
+          className="shrink-0 text-ns-success"
+          aria-hidden
+        />
+      ) : (
+        <XCircle
+          size={15}
+          strokeWidth={2.25}
+          className="shrink-0 text-ns-muted"
+          aria-hidden
+        />
+      )}
+      <span>{verified ? "Почта подтверждена" : "Почта не подтверждена"}</span>
+    </span>
+  );
+}
 
 export default function AdminUsersPage() {
   const qc = useQueryClient();
@@ -37,7 +59,6 @@ export default function AdminUsersPage() {
   const [editForm, setEditForm] = useState<EditForm>({
     name: "",
     email: "",
-    isEmailVerified: false,
   });
 
   const { data: users = [] } = useQuery<UserRecord[]>({
@@ -70,7 +91,6 @@ export default function AdminUsersPage() {
     setEditForm({
       name: u.name,
       email: u.email,
-      isEmailVerified: u.isEmailVerified,
     });
   };
 
@@ -85,14 +105,14 @@ export default function AdminUsersPage() {
       </div>
 
       {editId && editingUser && (
-        <div className="aurora-card rounded-3xl p-6 sm:p-8 space-y-6">
+        <div className="aurora-card p-6 sm:p-8 space-y-6">
           <div className="flex items-center justify-between pb-4">
             <p className="text-lg sm:text-xl font-semibold text-ns-text">
               Редактировать: {editingUser.name}
             </p>
             <button
               onClick={() => setEditId(null)}
-              className="p-2 rounded-full hover:bg-ns-hover transition-colors text-ns-text"
+              className="ns-action-icon text-ns-text"
             >
               <X size={20} strokeWidth={1.5} />
             </button>
@@ -125,25 +145,11 @@ export default function AdminUsersPage() {
               />
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <input
-              type="checkbox"
-              id="email-verified"
-              checked={editForm.isEmailVerified}
-              onChange={(e) =>
-                setEditForm((p) => ({
-                  ...p,
-                  isEmailVerified: e.target.checked,
-                }))
-              }
-              className="w-5 h-5 rounded accent-ns-accent"
-            />
-            <label
-              htmlFor="email-verified"
-              className="text-sm font-medium text-ns-text"
-            >
-              Эл. почта подтверждена
-            </label>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="text-sm leading-none text-ns-text-secondary">
+              Статус почты:
+            </span>
+            <EmailStatusBadge verified={editingUser.isEmailVerified} />
           </div>
           <div className="flex flex-col sm:flex-row gap-3 pt-2">
             <button
@@ -154,14 +160,14 @@ export default function AdminUsersPage() {
                 })
               }
               disabled={updateMutation.isPending}
-              className="aurora-button flex items-center justify-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium transition-transform hover:scale-[1.01] disabled:opacity-40"
+              className="ns-btn ns-btn-primary flex items-center justify-center gap-2 disabled:opacity-40"
             >
               <Check size={16} strokeWidth={1.5} />{" "}
               {updateMutation.isPending ? "Сохранение..." : "Сохранить"}
             </button>
             <button
               onClick={() => setEditId(null)}
-              className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium ns-chip text-ns-text hover:bg-ns-hover transition-colors"
+              className="ns-btn ns-btn-secondary flex items-center justify-center gap-2"
             >
               <X size={16} strokeWidth={1.5} /> Отмена
             </button>
@@ -169,7 +175,7 @@ export default function AdminUsersPage() {
         </div>
       )}
 
-      <div className="aurora-card rounded-3xl overflow-hidden">
+      <div className="aurora-card overflow-hidden">
         <div className="hidden lg:block overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="ns-table-head">
@@ -217,11 +223,7 @@ export default function AdminUsersPage() {
                     </select>
                   </td>
                   <td className="px-6 py-4">
-                    <span
-                      className={`text-xs font-semibold px-3 py-1.5 rounded-full ${u.isEmailVerified ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" : "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"}`}
-                    >
-                      {u.isEmailVerified ? "Подтверждён" : "Не подтверждён"}
-                    </span>
+                    <EmailStatusBadge verified={u.isEmailVerified} />
                   </td>
                   <td className="px-6 py-4 font-semibold text-ns-text">
                     {u._count.orders}
@@ -233,7 +235,7 @@ export default function AdminUsersPage() {
                     <div className="flex items-center justify-end gap-2">
                       <button
                         onClick={() => openEdit(u)}
-                        className="p-2 rounded-full hover:bg-ns-hover transition-colors text-ns-text"
+                        className="ns-action-icon text-ns-text"
                       >
                         <Pencil size={16} strokeWidth={1.5} />
                       </button>
@@ -243,7 +245,7 @@ export default function AdminUsersPage() {
                           setConfirmDelete({ open: true, id: u.id, name: u.name });
                         }}
                         disabled={u.id === currentUser?.id}
-                        className="p-2 rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors text-red-600 dark:text-red-400 disabled:opacity-30"
+                        className="ns-action-icon ns-action-icon--danger text-red-600 dark:text-red-400 disabled:opacity-30"
                       >
                         <Trash2 size={16} strokeWidth={1.5} />
                       </button>
@@ -256,7 +258,7 @@ export default function AdminUsersPage() {
         </div>
         <div className="lg:hidden divide-y divide-ns-border">
           {users.map((u) => (
-            <div key={u.id} className="p-4 sm:p-6 space-y-4">
+            <div key={u.id} className="p-4 space-y-4">
               <div className="flex items-center justify-between">
                 <div className="min-w-0 flex-1 pr-3">
                   <p className="font-semibold text-ns-text text-sm truncate">
@@ -269,7 +271,7 @@ export default function AdminUsersPage() {
                 <div className="flex gap-2 shrink-0">
                   <button
                     onClick={() => openEdit(u)}
-                    className="p-2 rounded-full hover:bg-ns-hover transition-colors text-ns-text"
+                    className="ns-action-icon text-ns-text"
                   >
                     <Pencil size={16} strokeWidth={1.5} />
                   </button>
@@ -279,13 +281,13 @@ export default function AdminUsersPage() {
                       setConfirmDelete({ open: true, id: u.id, name: u.name });
                     }}
                     disabled={u.id === currentUser?.id}
-                    className="p-2 rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors text-red-600 dark:text-red-400 disabled:opacity-30"
+                    className="ns-action-icon ns-action-icon--danger text-red-600 dark:text-red-400 disabled:opacity-30"
                   >
                     <Trash2 size={16} strokeWidth={1.5} />
                   </button>
                 </div>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <select
                   value={u.role}
                   disabled={u.id === currentUser?.id}
@@ -297,11 +299,7 @@ export default function AdminUsersPage() {
                   <option value="USER">Пользователь</option>
                   <option value="ADMIN">Администратор</option>
                 </select>
-                <span
-                  className={`text-xs font-semibold px-3 py-1.5 rounded-full ${u.isEmailVerified ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" : "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"}`}
-                >
-                  {u.isEmailVerified ? "Почта ✓" : "Почта ?"}
-                </span>
+                <EmailStatusBadge verified={u.isEmailVerified} />
               </div>
             </div>
           ))}

@@ -27,12 +27,13 @@ const httpServer = createServer(app);
 
 app.set("trust proxy", 1);
 
-const allowedOrigins = [
-  "http://localhost:5173",
-  "http://127.0.0.1:5173",
-  "http://localhost:5174",
-  "http://127.0.0.1:5174",
-];
+const allowedOrigins = (
+  process.env.CORS_ORIGINS ??
+  "http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174"
+)
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
 
 const io = new Server(httpServer, {
   cors: {
@@ -56,14 +57,18 @@ app.use(express.json({ limit: "100kb" }));
 app.use(express.urlencoded({ extended: true, limit: "100kb" }));
 app.use("/uploads", express.static("uploads"));
 app.use("/api/media", mediaRoutes);
-app.use(
-  rateLimit({
-    windowMs: 60 * 1000,
-    limit: 120,
-    standardHeaders: true,
-    legacyHeaders: false,
-  }),
-);
+
+const isProduction = process.env.NODE_ENV === "production";
+if (isProduction) {
+  app.use(
+    rateLimit({
+      windowMs: 60 * 1000,
+      limit: 400,
+      standardHeaders: true,
+      legacyHeaders: false,
+    }),
+  );
+}
 app.use("/api/auth", authRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/categories", categoryRoutes);

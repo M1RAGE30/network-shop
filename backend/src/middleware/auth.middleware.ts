@@ -6,14 +6,9 @@ export interface AuthRequest<P = Record<string, string>> extends Request<P> {
   userRole?: string;
 }
 
-export const authenticate = (
-  req: AuthRequest,
-  res: Response,
-  next: NextFunction,
-) => {
+const decodeAuthToken = (req: AuthRequest) => {
   const token = req.headers.authorization?.split(" ")[1];
-  if (!token) return res.status(401).json({ message: "Unauthorized" });
-
+  if (!token) return false;
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
       id: number;
@@ -21,10 +16,30 @@ export const authenticate = (
     };
     req.userId = decoded.id;
     req.userRole = decoded.role;
-    next();
+    return true;
   } catch {
-    return res.status(401).json({ message: "Invalid token" });
+    return false;
   }
+};
+
+export const authenticate = (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+) => {
+  if (!decodeAuthToken(req)) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+  next();
+};
+
+export const optionalAuthenticate = (
+  req: AuthRequest,
+  _res: Response,
+  next: NextFunction,
+) => {
+  decodeAuthToken(req);
+  next();
 };
 
 export const requireAdmin = (

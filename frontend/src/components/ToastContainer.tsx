@@ -40,7 +40,7 @@ export default function ToastContainer() {
           <button
             type="button"
             onClick={() => remove(toast.id)}
-            className="shrink-0 p-1 rounded-full text-ns-muted hover:bg-ns-hover transition-colors"
+            className="ns-action-icon shrink-0 text-ns-muted"
             aria-label="Закрыть"
           >
             <X size={16} strokeWidth={1.75} />

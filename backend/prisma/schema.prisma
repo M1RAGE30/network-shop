@@ -80,6 +80,11 @@ model Product {
   favorites  Favorite[]
   reviews    Review[]
 
+  @@index([categoryId])
+  @@index([brandId])
+  @@index([stock])
+  @@index([createdAt])
+  @@index([price])
   @@map("products")
 }
 
@@ -121,6 +126,9 @@ model Order {
 
   items OrderItem[]
 
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
   @@map("orders")
 }
 
@@ -180,5 +188,7 @@ model Message {
   chatRoomId Int
   chatRoom   ChatRoom @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
 
+  @@index([chatRoomId, isRead])
+  @@index([chatRoomId, createdAt])
   @@map("messages")
 }

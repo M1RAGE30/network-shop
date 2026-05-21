@@ -8,6 +8,10 @@ import { productCountLabel } from "../lib/pluralize";
 import { useBodyScrollLock } from "../lib/useBodyScrollLock";
 import CatalogCategoryPicker from "../components/CatalogCategoryPicker";
 import CatalogFilterOverlay from "../components/CatalogFilterOverlay";
+import {
+  countAppliedCatalogFilters,
+  parseSpecFilters,
+} from "../lib/catalogFilters";
 
 const CATEGORY_SPEC_FILTERS: Record<
   string,
@@ -72,18 +76,6 @@ const specLabel = (key: string) =>
     .replace(/^Всего\s+/i, "");
 
 const CATALOG_PAGE_SIZE = 20;
-
-const parseSpecFilters = (value: string | null) => {
-  if (!value) return {};
-  try {
-    const parsed = JSON.parse(value);
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
-      ? (parsed as Record<string, string>)
-      : {};
-  } catch {
-    return {};
-  }
-};
 
 export default function CatalogPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -174,14 +166,15 @@ export default function CatalogPage() {
     queryFn: () => api.get("/brands").then((r) => r.data),
   });
   const { data: categoryProductsData } = useQuery({
-    queryKey: ["category-products-for-filters", selectedCategory],
+    queryKey: ["category-filter-meta", selectedCategory],
     queryFn: () =>
       api
-        .get("/products", {
-          params: { category: selectedCategory, limit: 500, sort: "newest" },
+        .get("/products/filter-meta", {
+          params: { category: selectedCategory },
         })
         .then((r) => r.data),
     enabled: !!selectedCategory,
+    staleTime: 1000 * 60 * 5,
   });
 
   useEffect(() => {
@@ -269,12 +262,11 @@ export default function CatalogPage() {
     });
     return result;
   }, [activeSpecFilters, categoryProducts]);
-  const hasFilters =
-    searchParams.get("search") ||
-    searchParams.get("minPrice") ||
-    searchParams.get("maxPrice") ||
-    searchParams.get("brand") ||
-    Object.keys(specFilters).length > 0;
+  const appliedFiltersCount = countAppliedCatalogFilters(
+    searchParams,
+    specFilters,
+  );
+  const hasFilters = appliedFiltersCount > 0;
 
   const fieldCls =
     "w-full rounded-xl px-4 py-2.5 text-sm text-ns-text placeholder:text-ns-muted";
@@ -384,7 +376,6 @@ export default function CatalogPage() {
   return (
     <div className="py-6 sm:py-8 w-full min-w-0 mx-auto">
       <div className="mb-8 sm:mb-10">
-        <p className="ns-label mb-3">Каталог</p>
         <h1 className="ns-heading-page">Каталог оборудования</h1>
       </div>
 
@@ -445,8 +436,9 @@ export default function CatalogPage() {
               )}
             </div>
             <button
+              type="button"
               onClick={() => setFiltersOpen(true)}
-              className={`lg:hidden flex items-center gap-2 px-4 py-2 rounded-[12px] text-sm font-medium transition-all min-h-[40px] ${
+              className={`lg:hidden relative flex items-center gap-2 px-4 py-2 rounded-[var(--radius-btn)] text-sm font-medium transition-all min-h-[var(--ns-height-btn)] cursor-pointer ${
                 hasFilters
                   ? "bg-ns-accent text-ns-accent-fg"
                   : "bg-ns-elevated text-ns-text-secondary border border-ns-border"
@@ -454,41 +446,13 @@ export default function CatalogPage() {
             >
               <SlidersHorizontal size={16} strokeWidth={1.5} />
               Фильтры
+              {appliedFiltersCount > 0 && (
+                <span className="inline-flex min-w-[1.25rem] items-center justify-center rounded-[var(--radius-btn)] bg-white/20 px-1.5 text-xs font-bold text-inherit">
+                  {appliedFiltersCount}
+                </span>
+              )}
             </button>
           </div>
-
-          {hasFilters && (
-            <div className="flex flex-wrap gap-2 mb-5">
-              {searchParams.get("brand") && (
-                <span className="inline-flex items-center gap-1.5 bg-ns-elevated border border-ns-border text-ns-text text-xs font-medium px-3 py-1.5 rounded-full">
-                  {searchParams.get("brand")}
-                  <button onClick={() => updateFilter("brand", "")}>
-                    <X size={12} strokeWidth={2} />
-                  </button>
-                </span>
-              )}
-              {(searchParams.get("minPrice") || searchParams.get("maxPrice")) && (
-                <span className="inline-flex items-center gap-1.5 bg-ns-elevated border border-ns-border text-ns-text text-xs font-medium px-3 py-1.5 rounded-full">
-                  {searchParams.get("minPrice") && searchParams.get("maxPrice")
-                    ? `${searchParams.get("minPrice")}–${searchParams.get("maxPrice")} BYN`
-                    : searchParams.get("minPrice")
-                      ? `от ${searchParams.get("minPrice")} BYN`
-                      : `до ${searchParams.get("maxPrice")} BYN`}
-                  <button
-                    onClick={() => {
-                      const next = new URLSearchParams(searchParams);
-                      next.delete("minPrice");
-                      next.delete("maxPrice");
-                      next.delete("page");
-                      setSearchParams(next);
-                    }}
-                  >
-                    <X size={12} strokeWidth={2} />
-                  </button>
-                </span>
-              )}
-            </div>
-          )}
 
           <div className="ns-catalog-toolbar mb-4">
             {!isLoading && data?.total != null && (
@@ -549,7 +513,7 @@ export default function CatalogPage() {
                   setSearchParams(next);
                 }}
                 disabled={data.page <= 1}
-                className="px-3 py-2 rounded-full text-sm font-medium bg-ns-elevated border border-ns-border text-ns-text disabled:opacity-30 hover:bg-ns-hover transition-colors"
+                className="px-3 py-2 rounded-[var(--radius-btn)] text-sm font-medium bg-ns-elevated border border-ns-border text-ns-text disabled:opacity-30 hover:bg-ns-hover transition-colors cursor-pointer"
               >
                 ←
               </button>
@@ -577,7 +541,7 @@ export default function CatalogPage() {
                         next.set("page", String(p));
                         setSearchParams(next);
                       }}
-                      className={`w-9 h-9 rounded-full text-sm font-medium transition-colors ${
+                      className={`w-9 h-9 rounded-[var(--radius-btn)] text-sm font-medium transition-colors cursor-pointer ${
                         data.page === p
                           ? "bg-ns-accent text-ns-accent-fg"
                           : "bg-ns-elevated border border-ns-border hover:bg-ns-hover text-ns-text"
@@ -598,7 +562,7 @@ export default function CatalogPage() {
                   setSearchParams(next);
                 }}
                 disabled={data.page >= data.pages}
-                className="px-3 py-2 rounded-full text-sm font-medium bg-ns-elevated border border-ns-border text-ns-text disabled:opacity-30 hover:bg-ns-hover transition-colors"
+                className="px-3 py-2 rounded-[var(--radius-btn)] text-sm font-medium bg-ns-elevated border border-ns-border text-ns-text disabled:opacity-30 hover:bg-ns-hover transition-colors cursor-pointer"
               >
                 →
               </button>

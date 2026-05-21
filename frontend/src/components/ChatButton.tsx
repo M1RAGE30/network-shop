@@ -1,6 +1,7 @@
 ﻿import { useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { MessageCircle } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "../store/authStore";
 import { useChatStore } from "../store/chatStore";
 import { getSocket } from "../lib/socket";
@@ -12,26 +13,32 @@ export default function ChatButton() {
   const { unreadCount, setUnread, increment } = useChatStore();
   const navigate = useNavigate();
   const location = useLocation();
+  const qc = useQueryClient();
 
   const isAdmin = isAdminApp && user?.role === "ADMIN";
   const unreadEndpoint = isAdmin ? "/admin/chats/unread" : "/chat/unread";
   const chatPath = isAdmin ? "/admin/chats" : "/chat";
   const isOnChatPage = location.pathname.startsWith(chatPath);
 
+  const { data: unreadFromApi } = useQuery({
+    queryKey: ["chat-unread", user?.id, isAdmin],
+    queryFn: () => api.get(unreadEndpoint).then((r) => r.data.count as number),
+    enabled: !!user,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  });
+
+  useEffect(() => {
+    if (unreadFromApi !== undefined) setUnread(unreadFromApi);
+  }, [unreadFromApi, setUnread]);
+
   useEffect(() => {
     if (!user) return;
-    api
-      .get(unreadEndpoint)
-      .then((r) => setUnread(r.data.count))
-      .catch(() => {});
     const socket = getSocket();
     const notifyEvent = isAdmin ? "admin_notify" : "user_notify";
     const onNotify = () => increment();
     const onRead = () => {
-      api
-        .get(unreadEndpoint)
-        .then((r) => setUnread(r.data.count))
-        .catch(() => {});
+      qc.invalidateQueries({ queryKey: ["chat-unread", user.id, isAdmin] });
     };
     socket.on(notifyEvent, onNotify);
     socket.on("messages_read", onRead);
@@ -39,11 +46,11 @@ export default function ChatButton() {
       socket.off(notifyEvent, onNotify);
       socket.off("messages_read", onRead);
     };
-  }, [user?.id]);
+  }, [user?.id, isAdmin, increment, qc]);
 
   useEffect(() => {
     if (user && isOnChatPage) setUnread(0);
-  }, [location.pathname, user?.id]);
+  }, [location.pathname, user?.id, isOnChatPage, setUnread]);
 
   if (!user || isOnChatPage || user.role === "ADMIN") return null;
 
@@ -51,7 +58,7 @@ export default function ChatButton() {
     <button
       onClick={() => navigate(chatPath)}
       title={isAdmin ? "Чаты пользователей" : "Чат с консультантом"}
-      className="fixed bottom-5 right-5 z-50 hidden md:flex h-14 w-14 items-center justify-center rounded-[20px] bg-ns-accent text-ns-accent-fg transition-transform hover:scale-[1.03] active:scale-[0.98] mb-[env(safe-area-inset-bottom)] mr-[env(safe-area-inset-right)] md:bottom-6 md:right-6"
+      className="fixed bottom-5 right-5 z-50 hidden md:flex h-14 w-14 items-center justify-center rounded-[var(--radius-btn)] bg-ns-accent text-ns-accent-fg transition-transform hover:scale-[1.03] active:scale-[0.98] mb-[env(safe-area-inset-bottom)] mr-[env(safe-area-inset-right)] md:bottom-6 md:right-6"
     >
       <MessageCircle size={24} strokeWidth={1.5} />
       {unreadCount > 0 && (

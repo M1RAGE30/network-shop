@@ -1,27 +1,11 @@
 import "dotenv/config";
 import { PrismaClient, Prisma } from "../generated/client";
-import { PrismaMariaDb } from "@prisma/adapter-mariadb";
 import bcrypt from "bcrypt";
 import * as fs from "fs";
 import * as path from "path";
+import { createMariaAdapter } from "../src/lib/db-adapter";
 
-const dbUrl = new URL(process.env.DATABASE_URL!);
-const ssl =
-  dbUrl.searchParams.get("sslaccept") === "strict"
-    ? { rejectUnauthorized: true }
-    : undefined;
-
-const adapter = new PrismaMariaDb({
-  host: dbUrl.hostname,
-  port: dbUrl.port ? parseInt(dbUrl.port) : 3306,
-  user: dbUrl.username,
-  password: dbUrl.password,
-  database: dbUrl.pathname.slice(1),
-  ssl,
-  allowPublicKeyRetrieval: true,
-});
-
-const prisma = new PrismaClient({ adapter });
+const prisma = new PrismaClient({ adapter: createMariaAdapter() });
 
 const categoryMapping: Record<string, string> = {
   Маршрутизаторы: "routers",

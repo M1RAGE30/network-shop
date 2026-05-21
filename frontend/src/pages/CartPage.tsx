@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Minus, Plus, ShoppingBag, Trash2, Package } from "lucide-react";
+import { Minus, Plus, ShoppingCart, Trash2, Package } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../lib/api";
 import { formatPrice } from "../lib/format";
@@ -38,7 +38,7 @@ export default function CartPage() {
   if (!items.length) {
     return (
       <div className="text-center py-20">
-        <ShoppingBag
+        <ShoppingCart
           size={64}
           strokeWidth={1}
           className="mx-auto text-ns-muted mb-4"
@@ -51,23 +51,21 @@ export default function CartPage() {
   }
 
   return (
-    <div className="w-full min-w-0 mx-auto py-10 space-y-8">
-      <div className="pb-6">
-        <h1 className="ns-heading-page">Корзина</h1>
-      </div>
+    <div className="w-full min-w-0 mx-auto py-6 sm:py-8">
+      <h1 className="ns-heading-page mb-4 sm:mb-5">Корзина</h1>
 
       <div className="ns-cart-layout">
-        <div className="aurora-card rounded-3xl p-5 sm:p-6 space-y-4">
+        <div className="aurora-card rounded-2xl p-4 sm:p-5 space-y-3">
           {items.map((item: any) => (
             <div
               key={item.productId}
-              className="flex flex-col sm:flex-row sm:items-start gap-3 p-4 rounded-2xl ns-chip"
+              className="flex gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl ns-chip"
             >
               <Link
                 to={`/catalog/${item.product.slug}`}
-                className="flex flex-col sm:flex-row gap-3 flex-1 min-w-0 rounded-xl hover:opacity-90 transition-opacity"
+                className="flex flex-1 min-w-0 gap-3 sm:gap-4 rounded-lg hover:opacity-90 transition-opacity"
               >
-                <div className="w-16 h-16 ns-thumb rounded-xl flex items-center justify-center shrink-0">
+                <div className="w-14 h-14 sm:w-16 sm:h-16 ns-thumb rounded-lg flex items-center justify-center shrink-0 overflow-hidden">
                   {item.product.imageUrl ? (
                     <MediaImage
                       src={item.product.imageUrl}
@@ -76,39 +74,42 @@ export default function CartPage() {
                     />
                   ) : (
                     <Package
-                      size={28}
+                      size={26}
                       strokeWidth={1.25}
                       className="text-ns-muted"
                     />
                   )}
                 </div>
 
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm sm:text-base font-medium text-ns-text leading-snug break-words">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm sm:text-base font-medium text-ns-text leading-snug line-clamp-2">
                     {item.product.name}
                   </p>
-                  <p className="text-xs text-ns-muted mt-1">
-                    Бренд:{" "}
-                    <span className="font-semibold text-ns-text">
-                      {item.product.brand?.name || "—"}
-                    </span>
+                  <p className="text-xs text-ns-muted mt-0.5">
+                    {item.product.brand?.name || "—"}
                   </p>
-                  <p className="text-lg font-semibold text-ns-text mt-2">
+                  <p className="text-sm font-semibold text-ns-text mt-1.5 tabular-nums">
                     {formatPrice(item.product.price)}
+                    <span className="text-xs font-normal text-ns-muted ml-1">
+                      за шт.
+                    </span>
                   </p>
                 </div>
               </Link>
 
-              <div className="flex items-center sm:flex-col sm:items-end gap-3 shrink-0">
+              <div className="flex flex-col items-end justify-between gap-2 shrink-0">
                 <button
+                  type="button"
                   onClick={() => removeMutation.mutate(item.productId)}
-                  className="text-ns-muted hover:text-red-500 transition-colors"
-                  title="Удалить товар"
+                  className="ns-action-icon text-ns-muted hover:text-red-500 transition-colors p-1"
+                  title="Удалить"
+                  aria-label="Удалить"
                 >
                   <Trash2 size={16} strokeWidth={1.5} />
                 </button>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
                   <button
+                    type="button"
                     onClick={() =>
                       item.quantity <= 1
                         ? removeMutation.mutate(item.productId)
@@ -117,34 +118,33 @@ export default function CartPage() {
                             quantity: item.quantity - 1,
                           })
                     }
-                    className="w-8 h-8 flex items-center justify-center rounded-full bg-ns-elevated border border-ns-border hover:bg-ns-hover disabled:opacity-30 transition-colors text-ns-text"
+                    className="inline-grid h-8 w-8 shrink-0 place-items-center rounded-[var(--radius-btn)] border border-ns-border bg-ns-elevated text-ns-text transition-colors hover:bg-ns-hover disabled:opacity-30"
                   >
                     <Minus size={13} strokeWidth={2} />
                   </button>
-                  <span className="w-7 text-center text-sm font-semibold text-ns-text">
+                  <span className="inline-grid h-8 min-w-[1.75rem] place-items-center text-sm font-semibold leading-none tabular-nums text-ns-text">
                     {item.quantity}
                   </span>
                   <button
+                    type="button"
+                    disabled={item.quantity >= item.product.stock}
                     onClick={() =>
                       updateMutation.mutate({
                         productId: item.productId,
                         quantity: item.quantity + 1,
                       })
                     }
-                    className="w-8 h-8 flex items-center justify-center rounded-full bg-ns-elevated border border-ns-border hover:bg-ns-hover transition-colors text-ns-text"
+                    className="inline-grid h-8 w-8 shrink-0 place-items-center rounded-[var(--radius-btn)] border border-ns-border bg-ns-elevated text-ns-text transition-colors hover:bg-ns-hover disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-ns-elevated"
                   >
                     <Plus size={13} strokeWidth={2} />
                   </button>
                 </div>
-                <span className="text-sm font-semibold text-ns-text whitespace-nowrap">
-                  {formatPrice(Number(item.product.price) * item.quantity)}
-                </span>
               </div>
             </div>
           ))}
         </div>
 
-        <div className="aurora-card rounded-3xl p-5 sm:p-6 h-fit">
+        <div className="aurora-card rounded-2xl p-4 sm:p-5 h-fit">
           <p className="text-sm font-semibold text-ns-muted mb-4">
             Итого к оплате
           </p>
@@ -153,7 +153,7 @@ export default function CartPage() {
           </p>
           <button
             onClick={() => navigate("/orders/new")}
-            className="aurora-button w-full py-3.5 rounded-full text-base font-medium transition-transform hover:scale-[1.01]"
+            className="aurora-button w-full py-3.5 text-base font-medium transition-transform hover:scale-[1.01]"
           >
             Оформить заказ
           </button>

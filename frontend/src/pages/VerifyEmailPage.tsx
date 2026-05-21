@@ -3,10 +3,13 @@ import { Link, useSearchParams } from "react-router-dom";
 import api from "../lib/api";
 import { CheckCircle2, Loader2, XCircle } from "lucide-react";
 
+const RESEND_COOLDOWN_SEC = 60;
+
 export default function VerifyEmailPage() {
   const [searchParams] = useSearchParams();
   const email = searchParams.get("email")?.trim().toLowerCase() || "";
-  const resentOnMount = useRef(false);
+  const shouldSendOnMount = searchParams.get("send") === "1";
+  const sentOnMountRef = useRef(false);
 
   const [code, setCode] = useState("");
   const [status, setStatus] = useState<"form" | "loading" | "success" | "error">(
@@ -15,24 +18,40 @@ export default function VerifyEmailPage() {
   const [message, setMessage] = useState("");
   const [resendNotice, setResendNotice] = useState("");
   const [resending, setResending] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
 
   useEffect(() => {
-    if (!email || resentOnMount.current) return;
-    resentOnMount.current = true;
+    if (resendCooldown <= 0) return;
+    const timer = window.setTimeout(() => {
+      setResendCooldown((s) => Math.max(0, s - 1));
+    }, 1000);
+    return () => window.clearTimeout(timer);
+  }, [resendCooldown]);
+
+  const startResendCooldown = () => setResendCooldown(RESEND_COOLDOWN_SEC);
+
+  useEffect(() => {
+    if (!email || !shouldSendOnMount || sentOnMountRef.current) return;
+    sentOnMountRef.current = true;
     setResending(true);
     api
       .post("/auth/resend-verification", { email })
+      .then(() => {
+        setResendNotice("Код отправлен на почту");
+        startResendCooldown();
+      })
       .catch(() => {})
       .finally(() => setResending(false));
-  }, [email]);
+  }, [email, shouldSendOnMount]);
 
   const handleResend = async () => {
-    if (!email) return;
+    if (!email || resending || resendCooldown > 0) return;
     setResending(true);
     setResendNotice("");
     try {
       await api.post("/auth/resend-verification", { email });
       setResendNotice("Код отправлен повторно");
+      startResendCooldown();
     } catch (err: any) {
       setResendNotice(
         err.response?.data?.message || "Не удалось отправить код",
@@ -48,9 +67,8 @@ export default function VerifyEmailPage() {
     setStatus("loading");
     setMessage("");
     try {
-      const { data } = await api.post("/auth/verify-email", { email, code });
+      await api.post("/auth/verify-email", { email, code });
       setStatus("success");
-      setMessage(data.message);
     } catch (err: any) {
       setStatus("form");
       setMessage(err.response?.data?.message || "Ошибка подтверждения");
@@ -86,10 +104,12 @@ export default function VerifyEmailPage() {
         <h1 className="text-2xl font-semibold text-ns-text">
           Email подтверждён
         </h1>
-        <p className="text-ns-text-secondary">{message}</p>
+        <p className="text-ns-text-secondary">
+          Теперь вы можете войти в свой аккаунт.
+        </p>
         <Link
           to="/login"
-          className="inline-flex bg-ns-accent text-ns-accent-fg px-8 py-3 rounded-full text-sm font-medium hover:bg-ns-accent-hover transition-colors"
+          className="ns-btn ns-btn-primary px-8"
         >
           Войти
         </Link>
@@ -99,7 +119,7 @@ export default function VerifyEmailPage() {
 
   return (
     <div className="max-w-md mx-auto py-16 px-4">
-      <div className="aurora-card rounded-3xl p-6 sm:p-8">
+      <div className="aurora-card p-6 sm:p-8">
         <div className="mb-8 text-center">
           <h1 className="text-3xl font-semibold text-ns-text mb-2">
             Подтверждение email
@@ -140,7 +160,7 @@ export default function VerifyEmailPage() {
           <button
             type="submit"
             disabled={status === "loading" || code.length !== 6}
-            className="w-full bg-ns-accent text-ns-accent-fg rounded-full py-3.5 text-base font-medium hover:bg-ns-accent-hover disabled:opacity-40 transition-colors flex items-center justify-center gap-2"
+            className="ns-btn ns-btn-primary w-full text-base disabled:opacity-40 flex items-center justify-center gap-2"
           >
             {status === "loading" ? (
               <>
@@ -154,10 +174,14 @@ export default function VerifyEmailPage() {
           <button
             type="button"
             onClick={handleResend}
-            disabled={resending}
-            className="w-full text-sm text-ns-text underline underline-offset-2 font-medium cursor-pointer hover:text-ns-text-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            disabled={resending || resendCooldown > 0}
+            className="w-full text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 disabled:no-underline text-ns-text-secondary hover:text-ns-text underline underline-offset-2 disabled:hover:text-ns-text-secondary"
           >
-            {resending ? "Отправляем код…" : "Отправить код повторно"}
+            {resending
+              ? "Отправляем код…"
+              : resendCooldown > 0
+                ? `Повторная отправка через ${resendCooldown} с`
+                : "Отправить код повторно"}
           </button>
           {resendNotice && (
             <p className="text-xs text-center text-ns-text-secondary">

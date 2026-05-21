@@ -7,7 +7,16 @@ const router = Router();
 router.use(authenticate, requireAdmin);
 
 router.get("/stats", async (_req, res) => {
-  const [totalOrders, totalUsers, totalProducts, revenue] = await Promise.all([
+  const [
+    totalOrders,
+    totalUsers,
+    totalProducts,
+    revenue,
+    pendingOrders,
+    unreadChats,
+    statusGroups,
+    recentOrders,
+  ] = await Promise.all([
     prisma.order.count(),
     prisma.user.count(),
     prisma.product.count(),
@@ -15,12 +24,40 @@ router.get("/stats", async (_req, res) => {
       _sum: { totalAmount: true },
       where: { status: "DELIVERED" },
     }),
+    prisma.order.count({ where: { status: "PENDING" } }),
+    prisma.message.count({
+      where: { isRead: false, user: { role: "USER" } },
+    }),
+    prisma.order.groupBy({
+      by: ["status"],
+      _count: { id: true },
+    }),
+    prisma.order.findMany({
+      take: 5,
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        status: true,
+        totalAmount: true,
+        createdAt: true,
+        user: { select: { name: true } },
+      },
+    }),
   ]);
+
+  const ordersByStatus = Object.fromEntries(
+    statusGroups.map((row) => [row.status, row._count.id]),
+  );
+
   return res.json({
     totalOrders,
     totalUsers,
     totalProducts,
     revenue: revenue._sum.totalAmount ?? 0,
+    pendingOrders,
+    unreadChats,
+    ordersByStatus,
+    recentOrders,
   });
 });
 

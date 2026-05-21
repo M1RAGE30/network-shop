@@ -4,7 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import api from "../../lib/api";
 import { getSocket } from "../../lib/socket";
 import { useChatStore } from "../../store/chatStore";
-import { Send, MessageCircle, Trash2 } from "lucide-react";
+import { Send, MessageCircle, Trash2, ArrowLeft } from "lucide-react";
 import { pluralizeDialogs } from "../../lib/pluralize";
 
 interface Message {
@@ -215,7 +215,7 @@ export default function AdminChatsPage() {
                     </span>
                   )}
                   {(localUnread[room.id] ?? 0) > 0 && !isActive ? (
-                    <span className="bg-ns-accent text-ns-accent-fg text-xs min-w-[18px] h-[18px] flex items-center justify-center px-1.5 font-semibold rounded-full">
+                    <span className="inline-grid min-h-[1.125rem] min-w-[1.125rem] place-items-center rounded-full bg-ns-accent px-1 text-[10px] font-semibold leading-none tabular-nums text-ns-accent-fg">
                       {(localUnread[room.id] ?? 0) > 99
                         ? "99+"
                         : localUnread[room.id]}
@@ -227,7 +227,7 @@ export default function AdminChatsPage() {
                         if (confirm(`Удалить диалог с ${room.userName}?`))
                           deleteMutation.mutate(room.id);
                       }}
-                      className="opacity-0 group-hover:opacity-100 p-1 rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 transition-all text-red-600 dark:text-red-400"
+                      className="opacity-0 group-hover:opacity-100 ns-action-icon ns-action-icon--danger transition-opacity"
                     >
                       <Trash2 size={12} strokeWidth={1.5} />
                     </button>
@@ -260,61 +260,68 @@ export default function AdminChatsPage() {
                   setActiveRoomId(null);
                   navigate("/admin/chats", { replace: true });
                 }}
-                className="md:hidden p-2 rounded-full hover:bg-ns-hover transition-colors text-ns-text"
+                className="md:hidden ns-action-icon ns-action-icon--square text-ns-text shrink-0"
+                aria-label="Назад к списку"
               >
-                ←
+                <ArrowLeft size={18} strokeWidth={1.75} />
               </button>
               <p className="text-sm font-semibold text-ns-text">
                 {activeRoom.userName}
               </p>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+            <div className="flex-1 overflow-y-auto overflow-x-hidden px-5 py-4 space-y-3">
               {messages.map((msg) => {
                 const isAdmin = msg.user.role === "ADMIN";
                 return (
                   <div
                     key={msg.id}
-                    className={`flex flex-col ${isAdmin ? "items-end" : "items-start"}`}
+                    className={`flex min-w-0 ${isAdmin ? "justify-end" : "justify-start"}`}
                   >
-                    <span className="text-xs text-ns-muted px-2">
-                      {isAdmin ? "🛡️ Вы" : msg.user.name}
-                    </span>
                     <div
-                      className={`px-4 py-2.5 text-sm break-words whitespace-pre-wrap rounded-2xl max-w-[78%] ${
-                        isAdmin
-                          ? "bg-ns-accent text-ns-accent-fg"
-                          : "ns-chip text-ns-text"
-                      }`}
+                      className={`flex max-w-[85%] min-w-0 flex-col gap-1 ${isAdmin ? "items-end" : "items-start"}`}
                     >
-                      {msg.content}
+                      <span className="text-xs text-ns-muted px-1">
+                        {isAdmin ? "🛡️ Вы" : msg.user.name}
+                      </span>
+                      <div
+                        className={`ns-chat-bubble px-4 py-2.5 text-sm ${
+                          isAdmin
+                            ? "bg-ns-accent text-ns-accent-fg"
+                            : "ns-chip text-ns-text"
+                        }`}
+                      >
+                        {msg.content}
+                      </div>
+                      <span className="text-xs text-ns-muted px-1">
+                        {new Date(msg.createdAt).toLocaleTimeString("ru-BY", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </span>
                     </div>
-                    <span className="text-xs text-ns-muted px-2 mt-1">
-                      {new Date(msg.createdAt).toLocaleTimeString("ru-BY", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </span>
                   </div>
                 );
               })}
             </div>
 
-            <div className="px-4 py-4 border-t border-ns-border flex gap-2">
+            <div className="px-4 py-4 border-t border-ns-border flex items-center gap-2">
               <input
                 type="text"
                 placeholder="Ответить..."
-                className="flex-1 bg-ns-elevated border border-ns-border rounded-full px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-ns-accent text-ns-text placeholder:text-ns-muted  transition-all"
+                className="ns-input ns-chat-input flex-1 min-w-0 text-sm"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
               />
               <button
+                type="button"
                 onClick={sendMessage}
                 disabled={!input.trim()}
-                className="aurora-button rounded-full w-12 h-12 flex items-center justify-center transition-transform hover:scale-[1.03] disabled:opacity-30 shrink-0"
+                className="aurora-button ns-chat-send disabled:opacity-40"
+                aria-label="Отправить"
               >
-                <Send size={18} strokeWidth={1.5} />
+                <Send strokeWidth={2} aria-hidden />
               </button>
             </div>
           </>

@@ -86,7 +86,7 @@ export default function LoginPage() {
       const data = err.response?.data;
       if (data?.code === "EMAIL_NOT_VERIFIED" && data?.email) {
         navigate(
-          `/verify-email?email=${encodeURIComponent(data.email)}`,
+          `/verify-email?email=${encodeURIComponent(data.email)}&send=1`,
           { replace: true },
         );
         return;

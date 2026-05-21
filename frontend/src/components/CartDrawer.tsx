@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { X, Minus, Plus, Trash2, ShoppingBag, Package } from "lucide-react";
+import { X, Minus, Plus, Trash2, ShoppingCart, Package } from "lucide-react";
 import api from "../lib/api";
 import { formatPrice } from "../lib/format";
 import { useAuthStore } from "../store/authStore";
@@ -105,7 +105,7 @@ export default function CartDrawer({ open, onClose }: CartDrawerProps) {
           </h2>
           <button
             onClick={handleClose}
-            className="p-2 rounded-full hover:bg-ns-hover transition-colors text-ns-text"
+            className="ns-action-icon text-ns-text"
           >
             <X size={20} strokeWidth={1.5} />
           </button>
@@ -113,7 +113,7 @@ export default function CartDrawer({ open, onClose }: CartDrawerProps) {
 
         {items.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center gap-4">
-            <ShoppingBag
+            <ShoppingCart
               size={56}
               strokeWidth={1}
               className="text-ns-muted"
@@ -176,21 +176,23 @@ export default function CartDrawer({ open, onClose }: CartDrawerProps) {
                                 quantity: item.quantity - 1,
                               })
                         }
-                        className="w-7 h-7 flex items-center justify-center rounded-full ns-chip hover:bg-ns-hover disabled:opacity-30 transition-colors text-ns-text"
+                        className="inline-grid h-7 w-7 shrink-0 place-items-center rounded-[var(--radius-btn)] border border-ns-border bg-ns-elevated text-ns-text transition-colors hover:bg-ns-hover disabled:opacity-30"
                       >
                         <Minus size={12} strokeWidth={2} />
                       </button>
-                      <span className="w-6 text-center text-sm font-semibold text-ns-text">
+                      <span className="inline-grid h-7 min-w-[1.5rem] place-items-center text-sm font-semibold leading-none tabular-nums text-ns-text">
                         {item.quantity}
                       </span>
                       <button
+                        type="button"
+                        disabled={item.quantity >= item.product.stock}
                         onClick={() =>
                           updateMutation.mutate({
                             productId: item.productId,
                             quantity: item.quantity + 1,
                           })
                         }
-                        className="w-7 h-7 flex items-center justify-center rounded-full ns-chip hover:bg-ns-hover transition-colors text-ns-text"
+                        className="inline-grid h-7 w-7 shrink-0 place-items-center rounded-[var(--radius-btn)] border border-ns-border bg-ns-elevated text-ns-text transition-colors hover:bg-ns-hover disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-ns-elevated"
                       >
                         <Plus size={12} strokeWidth={2} />
                       </button>
@@ -213,7 +215,7 @@ export default function CartDrawer({ open, onClose }: CartDrawerProps) {
                   handleClose();
                   navigate("/orders/new");
                 }}
-                className="aurora-button w-full py-3.5 rounded-full text-base font-medium transition-transform hover:scale-[1.01]"
+                className="aurora-button w-full py-3.5 text-base font-medium transition-transform hover:scale-[1.01]"
               >
                 Оформить заказ
               </button>

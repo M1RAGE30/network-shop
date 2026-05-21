@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import prisma from "../lib/prisma";
+import { AuthRequest } from "../middleware/auth.middleware";
 
 const ALLOWED_PRODUCT_FIELDS = [
   "name",
@@ -15,6 +16,12 @@ const ALLOWED_PRODUCT_FIELDS = [
 
 type ProductField = (typeof ALLOWED_PRODUCT_FIELDS)[number];
 
+const PRODUCT_LIST_INCLUDE = {
+  category: { select: { id: true, name: true, slug: true } },
+  brand: { select: { id: true, name: true } },
+  reviews: { select: { rating: true } },
+} as const;
+
 const pickProductFields = (body: Record<string, unknown>) =>
   Object.fromEntries(
     ALLOWED_PRODUCT_FIELDS.filter((k) => k in body).map((k) => [
@@ -23,20 +30,15 @@ const pickProductFields = (body: Record<string, unknown>) =>
     ]),
   );
 
-export const getProducts = async (req: Request, res: Response) => {
-  const {
-    category,
-    brand,
-    minPrice,
-    maxPrice,
-    search,
-    page = "1",
-    limit = "12",
-    sort = "newest",
-    specs,
-  } = req.query as Record<string, string>;
-
+function buildProductWhere(
+  query: Record<string, string>,
+  userRole?: string,
+): Record<string, unknown> {
+  const { category, brand, minPrice, maxPrice, search } = query;
   const where: Record<string, unknown> = {};
+  const includeOutOfStock =
+    query.includeOutOfStock === "1" && userRole === "ADMIN";
+  if (!includeOutOfStock) where.stock = { gt: 0 };
   if (category) where.category = { slug: category };
   if (brand) where.brand = { name: brand };
   if (search) where.name = { contains: search };
@@ -46,79 +48,147 @@ export const getProducts = async (req: Request, res: Response) => {
       ...(maxPrice && { lte: parseFloat(maxPrice) }),
     };
   }
+  return where;
+}
 
-  const pageNum = Math.max(1, parseInt(page) || 1);
-  const take = Math.min(500, Math.max(1, parseInt(limit) || 12));
-  const skip = (pageNum - 1) * take;
+function parseSpecFilters(specs?: string): Record<string, string> {
+  if (!specs) return {};
+  try {
+    const parsed = JSON.parse(specs);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    return Object.fromEntries(
+      Object.entries(parsed)
+        .filter(([, value]) => typeof value === "string" && value.trim())
+        .map(([key, value]) => [key, (value as string).trim()]),
+    );
+  } catch {
+    return {};
+  }
+}
 
-  const orderBy: Record<string, string> = {};
+function matchesSpecFilters(
+  specs: unknown,
+  specFilters: Record<string, string>,
+): boolean {
+  if (!Object.keys(specFilters).length) return true;
+  const productSpecs =
+    specs && typeof specs === "object"
+      ? (specs as Record<string, unknown>)
+      : {};
+  return Object.entries(specFilters).every(([key, value]) => {
+    const specValue = productSpecs[key];
+    return typeof specValue === "string" && specValue === value;
+  });
+}
+
+function resolveSort(sort: string) {
   switch (sort) {
     case "price-asc":
-      orderBy.price = "asc";
-      break;
+      return { price: "asc" as const };
     case "price-desc":
-      orderBy.price = "desc";
-      break;
+      return { price: "desc" as const };
     case "name-asc":
-      orderBy.name = "asc";
-      break;
+      return { name: "asc" as const };
     case "name-desc":
-      orderBy.name = "desc";
-      break;
+      return { name: "desc" as const };
     case "newest":
     default:
-      orderBy.createdAt = "desc";
-      break;
+      return { createdAt: "desc" as const };
+  }
+}
+
+export const getProducts = async (req: AuthRequest, res: Response) => {
+  const query = req.query as Record<string, string>;
+  const {
+    page = "1",
+    limit = "12",
+    sort = "newest",
+    specs,
+  } = query;
+
+  const where = buildProductWhere(query, req.userRole);
+  const pageNum = Math.max(1, parseInt(page, 10) || 1);
+  const take = Math.min(500, Math.max(1, parseInt(limit, 10) || 12));
+  const skip = (pageNum - 1) * take;
+  const orderBy = resolveSort(sort);
+  const specFilters = parseSpecFilters(specs);
+
+  if (!Object.keys(specFilters).length) {
+    const [products, total] = await Promise.all([
+      prisma.product.findMany({
+        where,
+        include: PRODUCT_LIST_INCLUDE,
+        orderBy,
+        skip,
+        take,
+      }),
+      prisma.product.count({ where }),
+    ]);
+    return res.json({
+      products,
+      total,
+      page: pageNum,
+      pages: Math.ceil(total / take),
+    });
   }
 
-  let specFilters: Record<string, string> = {};
-  if (specs) {
-    try {
-      const parsed = JSON.parse(specs);
-      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-        specFilters = Object.fromEntries(
-          Object.entries(parsed)
-            .filter(([, value]) => typeof value === "string" && value.trim())
-            .map(([key, value]) => [key, (value as string).trim()]),
-        );
-      }
-    } catch {
-      specFilters = {};
-    }
-  }
-
-  const allProducts = await prisma.product.findMany({
+  const candidates = await prisma.product.findMany({
     where,
-    include: {
-      category: true,
-      brand: true,
-      reviews: { select: { rating: true } },
-    },
+    select: { id: true, specs: true },
     orderBy,
   });
+  const matchedIds = candidates
+    .filter((product) => matchesSpecFilters(product.specs, specFilters))
+    .map((product) => product.id);
+  const total = matchedIds.length;
+  const pageIds = matchedIds.slice(skip, skip + take);
 
-  const filteredProducts = Object.keys(specFilters).length
-    ? allProducts.filter((product) => {
-        const productSpecs =
-          product.specs && typeof product.specs === "object"
-            ? (product.specs as Record<string, unknown>)
-            : {};
+  if (!pageIds.length) {
+    return res.json({
+      products: [],
+      total,
+      page: pageNum,
+      pages: Math.ceil(total / take) || 0,
+    });
+  }
 
-        return Object.entries(specFilters).every(([key, value]) => {
-          const specValue = productSpecs[key];
-          return typeof specValue === "string" && specValue === value;
-        });
-      })
-    : allProducts;
-
-  const products = filteredProducts.slice(skip, skip + take);
-  const total = filteredProducts.length;
+  const products = await prisma.product.findMany({
+    where: { id: { in: pageIds } },
+    include: PRODUCT_LIST_INCLUDE,
+  });
+  const orderMap = new Map(pageIds.map((id, index) => [id, index]));
+  products.sort(
+    (a, b) => (orderMap.get(a.id) ?? 0) - (orderMap.get(b.id) ?? 0),
+  );
 
   return res.json({
     products,
     total,
     page: pageNum,
     pages: Math.ceil(total / take),
+  });
+};
+
+export const getProductFilterMeta = async (req: AuthRequest, res: Response) => {
+  const { category } = req.query as Record<string, string>;
+  const where = buildProductWhere(
+    { category: category ?? "", includeOutOfStock: "0" },
+    req.userRole,
+  );
+
+  const rows = await prisma.product.findMany({
+    where,
+    select: {
+      specs: true,
+      brand: { select: { name: true } },
+    },
+  });
+
+  return res.json({
+    products: rows.map((row) => ({
+      specs: row.specs,
+      brand: row.brand,
+    })),
   });
 };
 

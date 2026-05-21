@@ -2,9 +2,19 @@ import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "../lib/api";
 import { formatPrice } from "../lib/format";
-import { ShoppingCart, Heart, Star, Minus, Plus, Package } from "lucide-react";
+import {
+  ShoppingCart,
+  Heart,
+  Star,
+  Minus,
+  Plus,
+  Package,
+  BookOpen,
+} from "lucide-react";
+import RouterSetupGuideSection from "../components/RouterSetupGuideSection";
+import { isRouterProduct } from "../lib/routerSetupGuides";
 import { useAuthStore } from "../store/authStore";
-import { isCustomer } from "../lib/roles";
+import { isAdmin, isCustomer } from "../lib/roles";
 import { useState } from "react";
 import { pluralizeReviews } from "../lib/pluralize";
 import MediaImage from "../components/MediaImage";
@@ -23,7 +33,9 @@ export default function ProductPage() {
     queryFn: () => api.get(`/products/${slug}`).then((r) => r.data),
   });
 
+  const admin = isAdmin(user);
   const canShop = isCustomer(user);
+  const shopLocked = admin;
 
   const { data: cartItems = [] } = useQuery({
     queryKey: ["cart"],
@@ -34,12 +46,14 @@ export default function ProductPage() {
   const { data: favorites = [] } = useQuery({
     queryKey: ["favorites"],
     queryFn: () => api.get("/favorites").then((r) => r.data),
-    enabled: canShop,
+    enabled: !!user && !admin,
   });
 
   const cartItem = product
     ? (cartItems as any[]).find((i) => i.productId === product.id)
     : null;
+  const atStockLimit =
+    !!product && !!cartItem && cartItem.quantity >= product.stock;
   const isFavorite = product
     ? (favorites as any[]).some((f) => f.productId === product.id)
     : false;
@@ -103,7 +117,13 @@ export default function ProductPage() {
       ).toFixed(1)
     : null;
 
-  const activeTab = location.hash === "#reviews" ? "reviews" : "specs";
+  const isRouter = isRouterProduct(product.category);
+  const activeTab =
+    location.hash === "#reviews"
+      ? "reviews"
+      : location.hash === "#setup" && isRouter
+        ? "setup"
+        : "specs";
 
   return (
     <div className="max-w-[1280px] mx-auto space-y-7 sm:space-y-9 px-3 sm:px-4 lg:px-6 py-6 sm:py-8">
@@ -187,14 +207,34 @@ export default function ProductPage() {
             </p>
           )}
 
-          <div className="flex items-center gap-3 pt-3 sm:pt-4">
-            {canShop && cartItem ? (
+          {isRouter && (
+            <button
+              type="button"
+              onClick={() => navigate({ hash: "setup" }, { replace: true })}
+              className="ns-btn ns-btn-secondary w-full sm:w-auto inline-flex items-center justify-center gap-2"
+            >
+              <BookOpen size={18} strokeWidth={1.75} />
+              Инструкция по настройке
+            </button>
+          )}
+
+          <div className="flex items-stretch gap-3 pt-3 sm:pt-4">
+            {shopLocked ? (
+              <button
+                type="button"
+                disabled
+                className="aurora-button flex-1 min-w-0 min-h-[var(--ns-height-btn)] flex items-center justify-center gap-2 text-sm font-medium opacity-45 cursor-not-allowed"
+              >
+                <ShoppingCart size={18} strokeWidth={1.5} className="sm:w-5 sm:h-5" />
+                Купить
+              </button>
+            ) : canShop && cartItem ? (
               <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
                 <button
                   onClick={() =>
                     updateCartMutation.mutate(cartItem.quantity - 1)
                   }
-                  className="w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center rounded-full ns-chip ns-chip--round hover:bg-ns-hover transition-colors text-ns-text"
+                  className="w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center rounded-[var(--radius-btn)] border border-ns-border bg-ns-elevated hover:bg-ns-hover transition-colors text-ns-text cursor-pointer"
                 >
                   <Minus
                     size={16}
@@ -206,10 +246,12 @@ export default function ProductPage() {
                   {cartItem.quantity}
                 </span>
                 <button
+                  type="button"
+                  disabled={atStockLimit}
                   onClick={() =>
                     updateCartMutation.mutate(cartItem.quantity + 1)
                   }
-                  className="w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center rounded-full ns-chip ns-chip--round hover:bg-ns-hover transition-colors text-ns-text"
+                  className="w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center rounded-[var(--radius-btn)] border border-ns-border bg-ns-elevated hover:bg-ns-hover transition-colors text-ns-text cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-ns-elevated"
                 >
                   <Plus
                     size={16}
@@ -224,7 +266,7 @@ export default function ProductPage() {
             ) : canShop ? (
               <button
                 onClick={() => addToCartMutation.mutate()}
-                className="aurora-button flex-1 min-w-0 flex items-center justify-center gap-2 text-sm font-medium transition-transform hover:scale-[1.01] active:scale-[0.99]"
+                className="aurora-button flex-1 min-w-0 min-h-[var(--ns-height-btn)] flex items-center justify-center gap-2 text-sm font-medium transition-transform hover:scale-[1.01] active:scale-[0.99]"
               >
                 <ShoppingCart
                   size={18}
@@ -242,21 +284,35 @@ export default function ProductPage() {
               </Link>
             ) : null}
 
-            {canShop && (
+            {!admin && (
               <button
-                onClick={() => toggleFavoriteMutation.mutate()}
-                className={`ns-btn flex h-11 w-11 sm:h-12 sm:w-12 shrink-0 items-center justify-center p-0 border-2 transition-all ${
-                  isFavorite
-                    ? "ns-btn-primary border-ns-accent"
-                    : "border-ns-accent/45 text-ns-accent bg-ns-bg-secondary hover:bg-ns-hover hover:border-ns-accent"
+                type="button"
+                onClick={() => {
+                  if (shopLocked) return;
+                  if (!user) {
+                    navigate("/login");
+                    return;
+                  }
+                  toggleFavoriteMutation.mutate();
+                }}
+                disabled={shopLocked}
+                className={`ns-icon-round flex h-[var(--ns-height-btn)] w-[var(--ns-height-btn)] shrink-0 items-center justify-center ${
+                  shopLocked ? "cursor-not-allowed opacity-45" : ""
                 }`}
-                aria-label={isFavorite ? "Убрать из избранного" : "Добавить в избранное"}
+                aria-label={
+                  isFavorite ? "Убрать из избранного" : "Добавить в избранное"
+                }
                 title={isFavorite ? "В избранном" : "Добавить в избранное"}
               >
                 <Heart
-                  size={21}
-                  strokeWidth={1.8}
-                  className={`sm:w-[23px] sm:h-[23px] ${isFavorite ? "fill-white" : "fill-transparent"}`}
+                  size={20}
+                  strokeWidth={2}
+                  className={
+                    isFavorite
+                      ? "fill-ns-error text-ns-error"
+                      : "fill-none text-ns-text"
+                  }
+                  aria-hidden
                 />
               </button>
             )}
@@ -280,6 +336,15 @@ export default function ProductPage() {
         >
           Отзывы
         </button>
+        {isRouter && (
+          <button
+            type="button"
+            onClick={() => navigate({ hash: "setup" }, { replace: true })}
+            className={`ns-tab-btn ${activeTab === "setup" ? "ns-tab-btn--active" : ""}`}
+          >
+            Настройка
+          </button>
+        )}
       </nav>
 
       {activeTab === "reviews" && (
@@ -372,13 +437,26 @@ export default function ProductPage() {
         </section>
       )}
 
+      {activeTab === "setup" && isRouter && (
+        <RouterSetupGuideSection
+          product={{
+            name: product.name,
+            slug: product.slug,
+            brand: product.brand,
+            specs: product.specs as Record<string, string> | null,
+          }}
+        />
+      )}
+
       {activeTab === "specs" && product.specs && (
         <section className="rounded-[2rem] px-1 sm:px-2">
           <h2 className="text-xl sm:text-2xl font-semibold text-ns-text mb-6 sm:mb-8">
             Характеристики
           </h2>
           <div className="grid grid-cols-1 gap-3">
-            {Object.entries(product.specs as Record<string, string>).map(
+            {Object.entries(product.specs as Record<string, string>)
+              .filter(([key]) => !key.startsWith("_"))
+              .map(
               ([k, v], index) => (
                 <div
                   key={k}

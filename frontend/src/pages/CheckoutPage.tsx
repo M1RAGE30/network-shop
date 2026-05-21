@@ -5,7 +5,7 @@ import api from "../lib/api";
 import { formatPrice } from "../lib/format";
 import AddressInput from "../components/AddressInput";
 import PhoneInput from "../components/PhoneInput";
-import { ShoppingBag, Package } from "lucide-react";
+import { ShoppingCart, Package } from "lucide-react";
 import { useAuthStore } from "../store/authStore";
 import MediaImage from "../components/MediaImage";
 
@@ -84,7 +84,7 @@ export default function CheckoutPage() {
   if (!items.length)
     return (
       <div className="text-center py-20">
-        <ShoppingBag
+        <ShoppingCart
           size={64}
           strokeWidth={1}
           className="mx-auto text-ns-muted mb-4"
@@ -96,27 +96,23 @@ export default function CheckoutPage() {
     );
 
   return (
-    <div className="w-full min-w-0 mx-auto py-10 space-y-8">
-      <div className="pb-6">
-        <h1 className="font-display text-4xl sm:text-5xl font-semibold text-ns-text tracking-tight">
-          Оформление заказа
-        </h1>
-      </div>
+    <div className="w-full min-w-0 mx-auto py-6 sm:py-8">
+      <h1 className="ns-heading-page mb-4 sm:mb-5">Оформление заказа</h1>
 
-      <div className="grid md:grid-cols-2 gap-8">
-        <div className="space-y-6">
-          <div className="aurora-card rounded-3xl p-6">
-            <p className="text-sm font-semibold text-ns-text mb-5 pb-4">
+      <div className="grid md:grid-cols-2 gap-5 lg:gap-6">
+        <div className="space-y-5">
+          <div className="aurora-card rounded-2xl p-4 sm:p-5">
+            <p className="text-sm font-semibold text-ns-text mb-3">
               Состав заказа
             </p>
-            <div className="space-y-3">
+            <div className="space-y-2">
               {items.map((item: any) => (
                 <Link
                   key={item.productId}
                   to={`/catalog/${item.product.slug}`}
                   className="flex items-center gap-3 p-3 rounded-xl ns-chip hover:bg-ns-hover transition-colors min-w-0"
                 >
-                  <div className="w-14 h-14 bg-ns-elevated border border-ns-border rounded-lg flex items-center justify-center shrink-0">
+                  <div className="w-12 h-12 sm:w-14 sm:h-14 ns-thumb rounded-lg flex items-center justify-center shrink-0 overflow-hidden">
                     {item.product.imageUrl ? (
                       <MediaImage
                         src={item.product.imageUrl}
@@ -125,27 +121,25 @@ export default function CheckoutPage() {
                       />
                     ) : (
                       <Package
-                        size={26}
+                        size={24}
                         strokeWidth={1.25}
                         className="text-ns-muted"
                       />
                     )}
                   </div>
-                  <div className="flex-1 min-w-0">
+                  <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-ns-text line-clamp-2 leading-snug">
                       {item.product.name}
                     </p>
-                    <p className="text-xs text-ns-muted mt-1">
-                      × {item.quantity}
+                    <p className="text-xs text-ns-muted mt-1 tabular-nums">
+                      {item.quantity} шт. · {formatPrice(item.product.price)} за
+                      шт.
                     </p>
                   </div>
-                  <span className="text-sm font-semibold text-ns-text shrink-0">
-                    {formatPrice(Number(item.product.price) * item.quantity)}
-                  </span>
                 </Link>
               ))}
             </div>
-            <div className="flex justify-between pt-4 mt-5">
+            <div className="flex justify-between items-center pt-4 mt-4 border-t border-ns-border">
               <span className="text-base font-semibold text-ns-text">
                 Итого
               </span>
@@ -155,8 +149,8 @@ export default function CheckoutPage() {
             </div>
           </div>
 
-          <div className="aurora-panel rounded-3xl p-6 text-ns-text">
-            <p className="text-sm font-semibold mb-4">Доставка</p>
+          <div className="aurora-card rounded-2xl p-4 sm:p-5 text-ns-text">
+            <p className="text-sm font-semibold text-ns-text mb-3">Доставка</p>
             <div className="space-y-2.5">
               <div className="flex items-center gap-2.5">
                 <div className="w-1.5 h-1.5 bg-ns-text rounded-full" />
@@ -176,10 +170,10 @@ export default function CheckoutPage() {
 
         <form
           onSubmit={handleSubmit}
-          className="aurora-card rounded-3xl p-6 space-y-6"
+          className="aurora-card rounded-2xl p-4 sm:p-5 space-y-5"
           noValidate
         >
-          <p className="text-sm font-semibold text-ns-text pb-4">
+          <p className="text-sm font-semibold text-ns-text">
             Данные доставки
           </p>
           <AddressInput
@@ -211,7 +205,7 @@ export default function CheckoutPage() {
           <button
             type="submit"
             disabled={orderMutation.isPending || !isValid}
-            className="aurora-button w-full rounded-full py-4 text-base font-medium transition-transform hover:scale-[1.01] disabled:opacity-40"
+            className="aurora-button w-full py-4 text-base font-medium transition-transform hover:scale-[1.01] disabled:opacity-40"
           >
             {orderMutation.isPending ? "Оформляем..." : "Подтвердить заказ"}
           </button>

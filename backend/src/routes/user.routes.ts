@@ -39,11 +39,11 @@ router.put("/:id/role", async (req, res) => {
 });
 
 router.put("/:id", async (req, res) => {
-  const { name, email, isEmailVerified } = req.body;
+  const { name, email } = req.body;
   try {
     const user = await prisma.user.update({
       where: { id: parseInt(req.params.id) },
-      data: { name, email, isEmailVerified },
+      data: { name, email },
       select: {
         id: true,
         email: true,

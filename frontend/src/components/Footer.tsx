@@ -1,12 +1,25 @@
 ﻿import { Link } from "react-router-dom";
 import { isAdmin } from "../lib/roles";
 import { useAuthStore } from "../store/authStore";
+import { AdminBlockedNav } from "./AdminBlockedNav";
+
 export default function Footer() {
   const { user } = useAuthStore();
-  const showCustomerLinks = !user || !isAdmin(user);
+  const admin = isAdmin(user);
 
   const linkClass =
-    "text-[15px] text-ns-text-secondary hover:text-ns-text transition-colors duration-200";
+    "text-[15px] text-ns-text-secondary hover:text-ns-text transition-colors duration-200 cursor-pointer";
+
+  const footerLink = (to: string, label: string, blocked = false) =>
+    blocked ? (
+      <AdminBlockedNav className={linkClass} as="span">
+        {label}
+      </AdminBlockedNav>
+    ) : (
+      <Link to={to} className={linkClass}>
+        {label}
+      </Link>
+    );
 
   return (
     <footer className="ns-site-footer">
@@ -45,25 +58,9 @@ export default function Footer() {
                   Профиль
                 </Link>
               </li>
-              {showCustomerLinks && (
-                <>
-                  <li>
-                    <Link to="/orders" className={linkClass}>
-                      Заказы
-                    </Link>
-                  </li>
-                  <li>
-                    <Link to="/favorites" className={linkClass}>
-                      Избранное
-                    </Link>
-                  </li>
-                  <li>
-                    <Link to="/cart" className={linkClass}>
-                      Корзина
-                    </Link>
-                  </li>
-                </>
-              )}
+              <li>{footerLink("/orders", "Заказы", admin)}</li>
+              <li>{footerLink("/favorites", "Избранное", admin)}</li>
+              <li>{footerLink("/cart", "Корзина", admin)}</li>
             </ul>
           </div>
           <div>
@@ -84,11 +81,13 @@ export default function Footer() {
           <div>
             <h3 className="text-sm font-semibold text-ns-text mb-4">Поддержка</h3>
             <ul className="space-y-3">
-              <li>
-                <Link to="/chat" className={linkClass}>
-                  Чат поддержки
-                </Link>
-              </li>
+              {!admin && (
+                <li>
+                  <Link to="/chat" className={linkClass}>
+                    Чат поддержки
+                  </Link>
+                </li>
+              )}
               <li>
                 <a href="tel:+375291234567" className={linkClass}>
                   +375 (29) 123-45-67

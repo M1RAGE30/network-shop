@@ -1,6 +1,7 @@
 import { Response } from "express";
 import prisma from "../lib/prisma";
 import { AuthRequest } from "../middleware/auth.middleware";
+import { capCartQuantity } from "../lib/cartStock";
 
 export const getCart = async (req: AuthRequest, res: Response) => {
   const items = await prisma.cartItem.findMany({
@@ -18,10 +19,20 @@ export const addToCart = async (req: AuthRequest, res: Response) => {
   if (!Number.isInteger(quantity) || quantity < 1 || quantity > 999) {
     return res.status(400).json({ message: "Invalid quantity" });
   }
+  const capped = await capCartQuantity(
+    req.userId!,
+    productId,
+    quantity,
+    "increment",
+  );
+  if ("error" in capped) {
+    return res.status(409).json({ message: "Товар отсутствует на складе" });
+  }
+
   const item = await prisma.cartItem.upsert({
     where: { userId_productId: { userId: req.userId!, productId } },
-    update: { quantity: { increment: quantity } },
-    create: { userId: req.userId!, productId, quantity },
+    update: { quantity: capped.quantity },
+    create: { userId: req.userId!, productId, quantity: capped.quantity },
     include: { product: true },
   });
   return res.json(item);
@@ -35,14 +46,25 @@ export const updateCart = async (
   if (!Number.isInteger(quantity) || quantity < 1 || quantity > 999) {
     return res.status(400).json({ message: "Invalid quantity" });
   }
+  const productId = parseInt(req.params.productId);
+  const capped = await capCartQuantity(
+    req.userId!,
+    productId,
+    quantity,
+    "set",
+  );
+  if ("error" in capped) {
+    return res.status(409).json({ message: "Товар отсутствует на складе" });
+  }
+
   const item = await prisma.cartItem.update({
     where: {
       userId_productId: {
         userId: req.userId!,
-        productId: parseInt(req.params.productId),
+        productId,
       },
     },
-    data: { quantity },
+    data: { quantity: capped.quantity },
   });
   return res.json(item);
 };
@@ -102,11 +124,27 @@ export const bulkAddToCart = async (req: AuthRequest, res: Response) => {
     return res.status(400).json({ message: "Товары не найдены" });
   }
 
+  const cappedItems: { productId: number; quantity: number }[] = [];
+  for (const item of filtered) {
+    const capped = await capCartQuantity(
+      userId,
+      item.productId,
+      item.quantity,
+      "increment",
+    );
+    if ("error" in capped) continue;
+    cappedItems.push({ productId: item.productId, quantity: capped.quantity });
+  }
+
+  if (cappedItems.length === 0) {
+    return res.status(409).json({ message: "Товары отсутствуют на складе" });
+  }
+
   await prisma.$transaction(
-    filtered.map((item) =>
+    cappedItems.map((item) =>
       prisma.cartItem.upsert({
         where: { userId_productId: { userId, productId: item.productId } },
-        update: { quantity: { increment: item.quantity } },
+        update: { quantity: item.quantity },
         create: { userId, productId: item.productId, quantity: item.quantity },
       }),
     ),

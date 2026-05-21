@@ -23,8 +23,8 @@ const WHY = [
 export default function HomePage() {
   return (
     <div className="relative ns-reduce-motion">
-      <section className="ns-container-hero ns-hero-section pb-16 md:pb-20 lg:pb-24">
-        <div className="flex flex-col gap-12 lg:grid lg:grid-cols-2 lg:gap-16 lg:items-center max-w-[1320px] mx-auto">
+      <section className="ns-container ns-hero-section pb-16 md:pb-20 lg:pb-24">
+        <div className="flex w-full flex-col gap-12 lg:grid lg:grid-cols-2 lg:gap-16 lg:items-center">
           <div className="ns-hero-stagger flex flex-col max-w-[620px] gap-6 lg:gap-8">
             <p className="ns-caption uppercase tracking-wide">Профессиональное сетевое оборудование</p>
             <h1 className="ns-heading-hero max-w-[650px]">Сетевые решения для дома и бизнеса</h1>
