@@ -9,18 +9,51 @@
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) (рекомендуется) **или** Node.js 22+, MariaDB 11+
 - Git
 
-## Запуск на новом компьютере (Docker, рекомендуется)
+## Учётные данные MariaDB (из `docker-compose.yml`)
 
-Все сервисы (БД, API, магазин, админка) поднимаются одной командой.
+Эти значения задаются при первом запуске контейнера `db`. Меняются только если вы правите `docker-compose.yml` или пересоздаёте том (`docker compose down -v`).
+
+| Параметр | Значение |
+|----------|----------|
+| База данных | `network_shop` |
+| Пользователь приложения | `shopuser` |
+| Пароль пользователя | `shoppassword` |
+| Root-пользователь | `root` |
+| Root-пароль | `root` (переменная `MARIADB_ROOT_PASSWORD`, по умолчанию `root`) |
+| Порт на вашем ПК | `3307` → внутри контейнера `3306` |
+| Имя сервиса в Docker-сети | `db` |
+
+**API в Docker** всегда подключается как `shopuser` к `db:3306` (строка в `docker-compose.yml`, не из `backend/.env`).
+
+**API на хосте** (`npm run dev` в `backend`) — в `backend/.env` укажите `localhost:3307`. Подойдут оба варианта (если compose не меняли):
+
+```env
+DATABASE_URL=mysql://shopuser:shoppassword@localhost:3307/network_shop
+```
+
+или
+
+```env
+DATABASE_URL=mysql://root:root@localhost:3307/network_shop
+```
+
+В `backend/.env.example` указан вариант с `shopuser` — он совпадает с пользователем API в Docker.
+
+---
+
+## Запуск на новом компьютере (Docker)
 
 ```bash
 git clone <url-репозитория> network-shop-v2
 cd network-shop-v2
-cp .env.example .env
+cp backend/.env.example backend/.env
 docker compose up -d --build
 ```
 
-Первый запуск занимает несколько минут: скачиваются образы, применяется схема БД, выполняется seed с товарами из `backend/products.json`.
+Отредактируйте `backend/.env`: `JWT_SECRET`, `SMTP_*`.  
+Для фронтенда при необходимости: `cp frontend/.env.example frontend/.env`.
+
+Первый запуск занимает несколько минут: образы, `prisma db push`, при `SEED_ON_START=true` в `backend/.env` — seed из `backend/products.json`.
 
 ### Адреса
 
@@ -29,31 +62,31 @@ docker compose up -d --build
 | Магазин | http://localhost:5173 |
 | Админ-панель | http://localhost:5174 |
 | API | http://localhost:3000 |
-| MariaDB (с хоста) | `localhost:3307` |
+| MariaDB с хоста | `127.0.0.1:3307`, база `network_shop` |
 
-### Учётная запись администратора (после seed)
+### Админ сайта (после seed)
 
 - Email: `admin@networkshop.by`
 - Пароль: `Admin123!`
 
 ### После первого успешного запуска
 
-В файле `.env` в корне проекта установите:
+В `backend/.env`:
 
 ```env
 SEED_ON_START=false
 ```
 
-И перезапустите API: `docker compose up -d api`. Иначе при каждом старте контейнера seed будет выполняться заново (долго).
+Затем: `docker compose up -d api`.
 
 ### Полезные команды
 
 ```bash
-docker compose logs -f          # логи всех сервисов
-docker compose logs -f api      # только API
-docker compose down             # остановить
-docker compose down -v          # остановить и удалить данные БД
-npm run docker:up               # то же, что docker compose up -d --build
+docker compose logs -f
+docker compose logs -f api
+docker compose down
+docker compose down -v
+npm run docker:up
 ```
 
 ### phpMyAdmin (опционально)
@@ -62,13 +95,29 @@ npm run docker:up               # то же, что docker compose up -d --build
 docker compose --profile tools up -d phpmyadmin
 ```
 
-Откроется http://localhost:8081 (хост `db`, пользователь `shopuser`, пароль `shoppassword`).
+Откройте в браузере: **http://localhost:8081**
+
+В `docker-compose.yml` для phpMyAdmin задано:
+
+| Переменная | Значение |
+|------------|----------|
+| `PMA_HOST` | `db` (имя сервиса MariaDB в Docker, не `localhost`) |
+| `PMA_USER` | `shopuser` |
+| `PMA_PASSWORD` | `shoppassword` |
+
+Обычно вход выполняется **автоматически** под `shopuser`. Если появится форма входа:
+
+- **Сервер:** `db`
+- **Пользователь:** `shopuser`
+- **Пароль:** `shoppassword`
+
+Полный доступ (root): пользователь `root`, пароль `root` — только если вы не меняли `MARIADB_ROOT_PASSWORD` в compose.
+
+С хоста (DBeaver, HeidiSQL и т.п.): хост `127.0.0.1`, порт `3307`, база `network_shop`, логин/пароль — `shopuser` / `shoppassword` или `root` / `root`.
 
 ---
 
-## Локальная разработка без Docker (только БД в Docker)
-
-Если удобнее запускать Node на хосте, а в контейнере держать только MariaDB:
+## Локальная разработка (только БД в Docker)
 
 ```bash
 docker compose up -d db
@@ -82,13 +131,14 @@ npm install
 cp .env.example .env
 ```
 
-В `backend/.env` для локального API:
+Пример `backend/.env` (подключение с хоста к контейнеру `db`):
 
 ```env
 DATABASE_URL=mysql://shopuser:shoppassword@localhost:3307/network_shop
 JWT_SECRET=change-me
 PORT=3000
 CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174
+SEED_ON_START=false
 ```
 
 ```bash
@@ -97,7 +147,9 @@ npm run seed
 npm run dev
 ```
 
-### Frontend (два терминала)
+`SEED_ON_START` влияет только на контейнер `api` в Docker, не на `npm run dev`.
+
+### Frontend
 
 ```bash
 cd frontend
@@ -106,48 +158,44 @@ cp .env.example .env
 npm run dev
 ```
 
-Во втором терминале — админка:
+Админка (второй терминал):
 
 ```bash
 npm run dev:admin
 ```
 
-`VITE_API_URL` в `.env` можно оставить пустым: запросы идут на `/api` через прокси Vite.
+Для dev удобнее **пустой** `VITE_API_URL` — запросы идут на `/api` через прокси Vite.  
+Если задан `VITE_API_URL=http://localhost:3000`, axios ходит на API напрямую (тоже работает при запущенном backend).
 
 ---
 
 ## Переменные окружения
 
-### Корень (`.env` для Docker Compose)
-
-| Переменная | По умолчанию | Назначение |
-|------------|--------------|------------|
-| `JWT_SECRET` | `dev-change-me` | Подпись JWT |
-| `MYSQL_ROOT_PASSWORD` | `root` | Пароль root MariaDB |
-| `MYSQL_PORT` | `3307` | Порт БД на хосте |
-| `API_PORT` | `3000` | Порт API на хосте |
-| `SEED_ON_START` | `true` | Запуск seed при старте API-контейнера |
-| `CORS_ORIGINS` | localhost:5173,5174 | Разрешённые origin через запятую |
-
-### Backend (`backend/.env`)
+### `backend/.env`
 
 | Переменная | Назначение |
 |------------|------------|
-| `DATABASE_URL` | Строка подключения MySQL/MariaDB |
-| `JWT_SECRET` | Секрет JWT |
+| `DATABASE_URL` | Для `npm run dev` на хосте: `localhost:3307`. В Docker API использует `shopuser@db:3306` из compose |
+| `JWT_SECRET` | Подпись JWT |
 | `PORT` | Порт API (3000) |
-| `CORS_ORIGINS` | CORS для фронтенда |
-| `DB_POOL_SIZE` | Размер пула соединений (10) |
-| `SMTP_*` | Почта для верификации email |
+| `CORS_ORIGINS` | Origins фронтенда через запятую |
+| `DB_POOL_SIZE` | Пул соединений (по умолчанию 10) |
+| `SEED_ON_START` | `true` — seed при старте контейнера `api`; после первого запуска — `false` |
+| `SMTP_*` | Почта для кода подтверждения email |
 
-### Frontend (`frontend/.env`)
+### `frontend/.env`
 
-| Переменная | Назначение |
-|------------|------------|
-| `VITE_API_URL` | Базовый URL API; пусто = прокси `/api` |
-| `VITE_DADATA_API_TOKEN` | Подсказки адресов (опционально) |
-| `VITE_SHOP_URL` | URL магазина |
-| `VITE_ADMIN_URL` | URL админки |
+| Переменная | По умолчанию в example | Назначение |
+|------------|------------------------|------------|
+| `VITE_API_URL` | пусто | Пусто — прокси `/api`; иначе полный URL API |
+| `VITE_DADATA_API_TOKEN` | пусто | Подсказки адресов (опционально) |
+| `VITE_SHOP_URL` | http://localhost:5173 | URL магазина |
+| `VITE_ADMIN_URL` | http://localhost:5174 | URL админки |
+
+### Порты Docker без корневого `.env`
+
+В `docker-compose.yml` уже задано: БД `3307`, API `3000`, магазин `5173`, админ `5174`, phpMyAdmin `8081`.  
+Переопределение из shell, например: `MYSQL_PORT=3308 docker compose up -d db`.
 
 ---
 
@@ -158,22 +206,22 @@ cd backend && npm run build && npm start
 cd ../frontend && npm run build && npm run build:admin
 ```
 
-Для production задайте `NODE_ENV=production`, надёжный `JWT_SECRET`, реальные `SMTP_*` и `DATABASE_URL`. Rate limit на API включается только при `NODE_ENV=production`.
+`NODE_ENV=production`, надёжный `JWT_SECRET`, реальные `SMTP_*` и `DATABASE_URL`. Rate limit на API только в production.
 
 ---
 
-## Структура Docker-сервисов
+## Сервисы Docker
 
-- **db** — MariaDB 11 с томом данных и настройками InnoDB
-- **api** — Express + Prisma (миграция схемы и seed при старте)
-- **shop** — Vite dev-сервер магазина (порт 5173)
-- **admin** — Vite dev-сервер админки (порт 5174)
-- **phpmyadmin** — профиль `tools`, по желанию
+- **db** — MariaDB 11, том `mysql_data`
+- **api** — Express + Prisma, `backend/.env` + фиксированный `DATABASE_URL` для сети Docker
+- **shop** — Vite, порт 5173
+- **admin** — Vite, порт 5174
+- **phpmyadmin** — профиль `tools`, порт 8081
 
 ---
 
 ## Темы
 
-Светлая тема по умолчанию. Переключатель в шапке сохраняет выбор в `localStorage`.
+Светлая тема по умолчанию. Переключатель в шапке — `localStorage`.
 
-Подробное описание страниц и API: `docs/ОПИСАНИЕ_САЙТА.txt`
+Подробнее: `docs/ОПИСАНИЕ_САЙТА.txt`

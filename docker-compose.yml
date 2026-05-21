@@ -2,11 +2,8 @@ name: network-shop
 
 x-api-env: &api-env
   DATABASE_URL: mysql://shopuser:shoppassword@db:3306/network_shop
-  JWT_SECRET: ${JWT_SECRET:-dev-change-me}
   PORT: 3000
   NODE_ENV: development
-  CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174}
-  SEED_ON_START: ${SEED_ON_START:-true}
   DB_POOL_SIZE: 10
 
 services:
@@ -37,6 +34,9 @@ services:
       dockerfile: Dockerfile
     container_name: network_shop_api
     restart: unless-stopped
+    env_file:
+      - path: ./backend/.env
+        required: false
     environment: *api-env
     ports:
       - "${API_PORT:-3000}:3000"
