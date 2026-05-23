@@ -11,7 +11,6 @@ const transporter = nodemailer.createTransport({
 });
 
 function verificationEmailHtml(code: string) {
-  const codeDisplay = code.split("").join("&#8202;");
   return `<!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -29,7 +28,7 @@ function verificationEmailHtml(code: string) {
     h1 { margin: 0 0 12px; font-size: 22px; line-height: 1.3; }
     .lead { margin: 0 0 20px; font-size: 14px; line-height: 1.6; }
     .code-box { margin: 0 auto 18px; padding: 14px 16px; border-radius: 10px; display: inline-block; max-width: 100%; box-sizing: border-box; text-align: center; }
-    .code { font-size: 28px; font-weight: 700; letter-spacing: 0; line-height: 1.2; font-family: ui-monospace, Consolas, monospace; white-space: nowrap; }
+    .code { font-size: 28px; font-weight: 700; letter-spacing: 0.35em; line-height: 1.2; font-family: ui-monospace, Consolas, monospace; white-space: nowrap; }
     .foot { margin: 0; font-size: 12px; line-height: 1.6; max-width: 100%; }
     @media (prefers-color-scheme: light) {
       .wrapper { background: #f4f4f5 !important; }
@@ -63,7 +62,7 @@ function verificationEmailHtml(code: string) {
           Введите код на сайте. Код действует <strong>10 минут</strong>.
         </p>
         <div class="code-box" style="background:#f4f4f5;border:1px solid rgba(9,9,11,0.12);max-width:100%;box-sizing:border-box;">
-          <span class="code" style="color:#09090b;font-size:28px;letter-spacing:0;">${codeDisplay}</span>
+          <span class="code" style="color:#09090b;font-size:28px;letter-spacing:0.35em;">${code}</span>
         </div>
         <p class="foot" style="color:#52525b;">
           Если вы не регистрировались в NetworkShop, проигнорируйте это письмо.
@@ -80,6 +79,7 @@ export const sendVerificationCodeEmail = async (to: string, code: string) => {
     from: `"NetworkShop" <${process.env.SMTP_USER}>`,
     to,
     subject: "Код подтверждения — NetworkShop",
+    text: `Код подтверждения NetworkShop: ${code}\n\nКод действует 10 минут.`,
     html: verificationEmailHtml(code),
   });
 };

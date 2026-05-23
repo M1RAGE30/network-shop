@@ -3,9 +3,9 @@ import { PrismaClient, Prisma } from "../generated/client";
 import bcrypt from "bcrypt";
 import * as fs from "fs";
 import * as path from "path";
-import { createMariaAdapter } from "../src/lib/db-adapter";
+import { createMysqlAdapter } from "../src/lib/db-adapter";
 
-const prisma = new PrismaClient({ adapter: createMariaAdapter() });
+const prisma = new PrismaClient({ adapter: createMysqlAdapter() });
 
 const categoryMapping: Record<string, string> = {
   Маршрутизаторы: "routers",
@@ -177,6 +177,15 @@ async function seedFromJson(jsonPath: string) {
 
 async function main() {
   await seedAdmin();
+
+  const forceSeed = process.env.FORCE_SEED === "true";
+  const productCount = await prisma.product.count();
+  if (productCount > 0 && !forceSeed) {
+    console.log(
+      `Skip seed: ${productCount} products already in DB (FORCE_SEED=true to re-import)`,
+    );
+    return;
+  }
 
   const jsonPath = process.env.SEED_JSON
     ? path.resolve(process.env.SEED_JSON)

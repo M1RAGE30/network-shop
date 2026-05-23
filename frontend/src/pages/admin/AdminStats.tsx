@@ -65,12 +65,12 @@ export default function AdminStats() {
   const recentOrders = data?.recentOrders ?? [];
 
   return (
-    <div className="space-y-4 sm:space-y-5 max-w-5xl">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+    <div className="flex min-h-0 w-full flex-1 flex-col space-y-4 sm:space-y-5 xl:space-y-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 xl:gap-5">
         {metrics.map(({ label, value, icon: Icon, hint }) => (
           <div
             key={label}
-            className="ns-card-static flex flex-col gap-2.5 sm:gap-3 p-4 sm:p-5 min-w-0"
+            className="ns-card-static flex flex-col gap-2.5 sm:gap-3 xl:gap-4 p-4 sm:p-5 xl:p-6 min-w-0"
           >
             <div className="flex items-center justify-between gap-2">
               <p className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-ns-muted leading-tight">
@@ -80,7 +80,7 @@ export default function AdminStats() {
                 <Icon size={16} strokeWidth={1.75} />
               </span>
             </div>
-            <p className="text-2xl sm:text-3xl font-bold leading-none text-ns-text tabular-nums">
+            <p className="text-2xl sm:text-3xl xl:text-4xl font-bold leading-none text-ns-text tabular-nums">
               {isLoading ? "—" : (value ?? "—")}
             </p>
             {hint && (
@@ -90,9 +90,9 @@ export default function AdminStats() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-        <div className="ns-card-static p-4 sm:p-5">
-          <h2 className="text-sm font-semibold text-ns-text mb-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 xl:gap-5">
+        <div className="ns-card-static p-4 sm:p-5 xl:p-6">
+          <h2 className="text-sm xl:text-base font-semibold text-ns-text mb-3 xl:mb-4">
             Заказы по статусам
           </h2>
           <ul className="space-y-2">
@@ -113,15 +113,12 @@ export default function AdminStats() {
                 </span>
               </li>
             ))}
-            {!isLoading && statusRows.every((r) => r.count === 0) && (
-              <li className="text-sm text-ns-muted">Заказов пока нет</li>
-            )}
           </ul>
         </div>
 
-        <div className="ns-card-static p-4 sm:p-5">
-          <div className="flex items-center justify-between gap-2 mb-3">
-            <h2 className="text-sm font-semibold text-ns-text">
+        <div className="ns-card-static flex min-h-[220px] flex-col p-4 sm:p-5 xl:p-6 sm:min-h-[260px]">
+          <div className="flex items-center justify-between gap-2 mb-3 xl:mb-4">
+            <h2 className="text-sm xl:text-base font-semibold text-ns-text">
               Последние заказы
             </h2>
             <Link
@@ -133,7 +130,17 @@ export default function AdminStats() {
             </Link>
           </div>
           {recentOrders.length === 0 && !isLoading ? (
-            <p className="text-sm text-ns-muted">Заказов пока нет</p>
+            <div className="flex flex-1 flex-col items-center justify-center gap-3 py-8 text-center">
+              <ShoppingBag
+                size={48}
+                strokeWidth={1.25}
+                className="text-ns-muted shrink-0"
+                aria-hidden
+              />
+              <p className="text-sm xl:text-base text-ns-muted">
+                Заказов пока нет
+              </p>
+            </div>
           ) : (
             <ul className="space-y-2">
               {recentOrders.map((order: any) => (

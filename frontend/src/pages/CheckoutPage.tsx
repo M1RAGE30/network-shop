@@ -148,24 +148,6 @@ export default function CheckoutPage() {
               </span>
             </div>
           </div>
-
-          <div className="aurora-card rounded-2xl p-4 sm:p-5 text-ns-text">
-            <p className="text-sm font-semibold text-ns-text mb-3">Доставка</p>
-            <div className="space-y-2.5">
-              <div className="flex items-center gap-2.5">
-                <div className="w-1.5 h-1.5 bg-ns-text rounded-full" />
-                <span className="text-sm">Курьером по Беларуси</span>
-              </div>
-              <div className="flex items-center gap-2.5">
-                <div className="w-1.5 h-1.5 bg-ns-text rounded-full" />
-                <span className="text-sm">Самовывоз из пунктов выдачи</span>
-              </div>
-              <div className="flex items-center gap-2.5">
-                <div className="w-1.5 h-1.5 bg-ns-text rounded-full" />
-                <span className="text-sm">Доставка от 1 дня</span>
-              </div>
-            </div>
-          </div>
         </div>
 
         <form

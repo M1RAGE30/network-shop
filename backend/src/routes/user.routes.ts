@@ -22,6 +22,12 @@ router.get("/", async (_req, res) => {
 });
 
 router.put("/:id/role", async (req, res) => {
+  const targetId = parseInt(req.params.id, 10);
+  if (targetId === req.userId) {
+    return res
+      .status(403)
+      .json({ message: "Нельзя изменить свою роль в админ-панели" });
+  }
   const { role } = req.body;
   if (!["USER", "ADMIN"].includes(role)) {
     return res.status(400).json({ message: "Invalid role" });
@@ -39,6 +45,12 @@ router.put("/:id/role", async (req, res) => {
 });
 
 router.put("/:id", async (req, res) => {
+  const targetId = parseInt(req.params.id, 10);
+  if (targetId === req.userId) {
+    return res
+      .status(403)
+      .json({ message: "Нельзя редактировать свой профиль в админ-панели" });
+  }
   const { name, email } = req.body;
   try {
     const user = await prisma.user.update({
@@ -59,6 +71,12 @@ router.put("/:id", async (req, res) => {
 });
 
 router.delete("/:id", async (req, res) => {
+  const targetId = parseInt(req.params.id, 10);
+  if (targetId === req.userId) {
+    return res
+      .status(403)
+      .json({ message: "Нельзя удалить свой аккаунт в админ-панели" });
+  }
   try {
     await prisma.user.delete({ where: { id: parseInt(req.params.id) } });
     return res.status(204).send();

@@ -141,9 +141,9 @@ export default function AdminOrdersPage() {
 
   return (
 
-    <div className="space-y-4 max-w-3xl">
+    <div className="flex min-h-0 w-full flex-1 flex-col space-y-4 sm:space-y-5">
 
-      <p className="text-sm font-semibold text-ns-muted">
+      <p className="text-sm sm:text-base font-semibold text-ns-muted">
 
         Всего: {pluralizeOrders(orders.length)}
 
@@ -153,19 +153,17 @@ export default function AdminOrdersPage() {
 
       {orders.length === 0 ? (
 
-        <div className="text-center py-20">
+        <div className="ns-page-empty aurora-card flex-1 min-h-0 rounded-2xl">
 
           <ShoppingBag
 
-            size={64}
-
             strokeWidth={1}
 
-            className="mx-auto text-ns-muted mb-4"
+            className="ns-page-empty__icon"
 
           />
 
-          <p className="text-lg text-ns-muted">Заказов пока нет</p>
+          <p className="text-lg xl:text-xl text-ns-muted">Заказов пока нет</p>
 
         </div>
 

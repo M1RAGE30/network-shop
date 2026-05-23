@@ -56,19 +56,17 @@ export default function OrdersPage() {
 
     return (
 
-      <div className="text-center py-16 sm:py-20">
+      <div className="ns-page-empty aurora-card rounded-2xl">
 
         <ShoppingBag
 
-          size={64}
-
           strokeWidth={1}
 
-          className="mx-auto text-ns-muted mb-4"
+          className="ns-page-empty__icon"
 
         />
 
-        <p className="text-lg text-ns-muted">Заказов пока нет</p>
+        <p className="text-lg xl:text-xl text-ns-muted">Заказов пока нет</p>
 
       </div>
 
@@ -78,7 +76,7 @@ export default function OrdersPage() {
 
   return (
 
-    <div className="w-full min-w-0 max-w-3xl mx-auto py-6 sm:py-8">
+    <div className="ns-page-narrow w-full min-w-0 py-6 sm:py-8">
 
       <h1 className="ns-heading-page mb-4 sm:mb-5">Мои заказы</h1>
 

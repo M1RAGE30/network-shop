@@ -33,7 +33,7 @@ const items = [
     icon: User,
     label: "Профиль",
     authOnly: true,
-    match: (p: string) => p === "/profile" || p === "/login",
+    match: (p: string) => p === "/profile",
   },
 ] as const;
 

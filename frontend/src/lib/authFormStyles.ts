@@ -17,3 +17,6 @@ export const authFieldError = "mt-1.5 text-xs font-medium text-red-500";
 
 export const authInputCls = (hasError: boolean) =>
   `ns-input w-full text-sm ${hasError ? "ring-2 ring-red-500" : ""}`;
+
+export const authCodeInput =
+  "ns-input w-full !h-12 font-mono text-xl font-semibold text-center tabular-nums tracking-[0.28em] placeholder:tracking-[0.28em] placeholder:font-mono";

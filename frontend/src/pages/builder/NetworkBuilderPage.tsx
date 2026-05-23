@@ -1184,11 +1184,11 @@ export default function NetworkBuilderPage() {
 
   return (
       <div className="ns-net-builder w-full min-w-0 mx-auto pb-10">
-      <div className="text-center mb-7 sm:mb-8">
-        <h1 className="font-display text-2xl sm:text-3xl font-semibold text-ns-text tracking-tight">
+      <div className="text-center mb-8">
+        <h1 className="ns-page-hero__title text-3xl sm:text-4xl font-semibold text-ns-text">
           Конструктор сети
         </h1>
-        <p className="ns-net-builder__lead mt-2">
+        <p className="text-sm text-ns-muted mt-2">
           Подбор оборудования по размерам помещения и числу устройств
         </p>
       </div>

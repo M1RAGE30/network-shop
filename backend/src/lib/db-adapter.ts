@@ -1,6 +1,6 @@
 import { PrismaMariaDb } from "@prisma/adapter-mariadb";
 
-export function createMariaAdapter(connectionString?: string) {
+export function createMysqlAdapter(connectionString?: string) {
   const dbUrl = new URL(
     connectionString ||
       process.env.DATABASE_URL ||

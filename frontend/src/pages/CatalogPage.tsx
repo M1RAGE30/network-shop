@@ -3,13 +3,14 @@ import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import api from "../lib/api";
 import ProductCard from "../components/ProductCard";
-import { Search, X, SlidersHorizontal } from "lucide-react";
+import { Search, X, SlidersHorizontal, RotateCcw } from "lucide-react";
 import { productCountLabel } from "../lib/pluralize";
 import { useBodyScrollLock } from "../lib/useBodyScrollLock";
 import CatalogCategoryPicker from "../components/CatalogCategoryPicker";
 import CatalogFilterOverlay from "../components/CatalogFilterOverlay";
 import {
   countAppliedCatalogFilters,
+  formatSpecFilterLabel,
   parseSpecFilters,
 } from "../lib/catalogFilters";
 
@@ -69,12 +70,6 @@ const EXCLUDED_DYNAMIC_SPEC_KEYS = new Set([
   "Страна происхождения (производства)",
 ]);
 
-const specLabel = (key: string) =>
-  key
-    .replace(/^Поддержка\s+/i, "")
-    .replace(/^Количество\s+/i, "")
-    .replace(/^Всего\s+/i, "");
-
 const CATALOG_PAGE_SIZE = 20;
 
 export default function CatalogPage() {
@@ -125,6 +120,22 @@ export default function CatalogPage() {
       });
   }, [searchParams]);
 
+  useEffect(() => {
+    const trimmed = search.trim();
+    const urlSearch = searchParams.get("search") || "";
+    if (trimmed === urlSearch) return;
+
+    const timer = window.setTimeout(() => {
+      const next = new URLSearchParams(searchParams);
+      if (trimmed) next.set("search", trimmed);
+      else next.delete("search");
+      next.delete("page");
+      setSearchParams(next);
+    }, 350);
+
+    return () => window.clearTimeout(timer);
+  }, [search, searchParams, setSearchParams]);
+
   useBodyScrollLock(filtersOpen, "catalog-filters-open ns-overlay-open");
 
   const applyFilters = () => {
@@ -161,10 +172,6 @@ export default function CatalogPage() {
     queryFn: () => api.get("/categories").then((r) => r.data),
   });
 
-  const { data: brands } = useQuery({
-    queryKey: ["brands"],
-    queryFn: () => api.get("/brands").then((r) => r.data),
-  });
   const { data: categoryProductsData } = useQuery({
     queryKey: ["category-filter-meta", selectedCategory],
     queryFn: () =>
@@ -223,6 +230,20 @@ export default function CatalogPage() {
     setSearchParams(selectedCategory ? { category: selectedCategory } : {});
   };
   const categoryProducts = categoryProductsData?.products ?? [];
+  const categoryBrands = useMemo(() => {
+    const names = new Set<string>();
+    categoryProducts.forEach((product: any) => {
+      const name = product.brand?.name;
+      if (typeof name === "string" && name.trim()) names.add(name.trim());
+    });
+    return Array.from(names).sort((a, b) => a.localeCompare(b, "ru"));
+  }, [categoryProducts]);
+
+  useEffect(() => {
+    if (!brandFilter) return;
+    if (!categoryBrands.includes(brandFilter)) setBrandFilter("");
+  }, [selectedCategory, categoryBrands, brandFilter]);
+
   const activeSpecFilters = useMemo(() => {
     const preferred = CATEGORY_SPEC_FILTERS[selectedCategory] ?? [];
     const preferredKeys = new Set(preferred.map((filter) => filter.key));
@@ -244,7 +265,7 @@ export default function CatalogPage() {
       .filter(([, values]) => values.size > 1 && values.size <= 30)
       .sort((a, b) => b[1].size - a[1].size)
       .slice(0, Math.max(0, 12 - preferred.length))
-      .map(([key]) => ({ key, label: specLabel(key) }));
+      .map(([key]) => ({ key, label: formatSpecFilterLabel(key) }));
 
     return [...preferred, ...extra];
   }, [categoryProducts, selectedCategory]);
@@ -299,9 +320,9 @@ export default function CatalogPage() {
               onChange={(e) => setBrandFilter(e.target.value)}
         >
           <option value="">Все бренды</option>
-          {brands?.map((b: any) => (
-            <option key={b.id} value={b.name}>
-              {b.name}
+          {categoryBrands.map((name) => (
+            <option key={name} value={name}>
+              {name}
             </option>
           ))}
         </select>
@@ -490,10 +511,13 @@ export default function CatalogPage() {
                 Ничего не найдено
               </p>
               <button
+                type="button"
                 onClick={clearFilters}
-                className="ns-btn ns-btn-primary text-sm"
+                className="ns-icon-round mx-auto flex h-11 w-11 items-center justify-center shadow-sm cursor-pointer"
+                aria-label="Сбросить фильтры"
+                title="Сбросить фильтры"
               >
-                Сбросить фильтры
+                <RotateCcw size={20} strokeWidth={1.75} className="text-ns-icon" />
               </button>
             </div>
           ) : (

@@ -1,15 +1,39 @@
-﻿import { useEffect, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+﻿import { useEffect, useState } from "react";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import api from "../lib/api";
+import {
+  authCard,
+  authCodeInput,
+  authErrorBox,
+  authForm,
+  authHeader,
+  authLabel,
+  authLink,
+  authPageWrap,
+  authSubmitBtn,
+  authSubtitle,
+  authTitle,
+} from "../lib/authFormStyles";
 import { CheckCircle2, Loader2, XCircle } from "lucide-react";
 
 const RESEND_COOLDOWN_SEC = 60;
+const CODE_LENGTH = 6;
+const NOTICE_HIDE_MS = 10_000;
+
+type VerifyEmailLocationState = {
+  verifyNotice?: string;
+  codeSent?: boolean;
+} | null;
+
+function normalizeVerificationCode(raw: string): string {
+  return raw.replace(/\D/g, "").slice(0, CODE_LENGTH);
+}
 
 export default function VerifyEmailPage() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
+  const navigate = useNavigate();
   const email = searchParams.get("email")?.trim().toLowerCase() || "";
-  const shouldSendOnMount = searchParams.get("send") === "1";
-  const sentOnMountRef = useRef(false);
 
   const [code, setCode] = useState("");
   const [status, setStatus] = useState<"form" | "loading" | "success" | "error">(
@@ -31,22 +55,38 @@ export default function VerifyEmailPage() {
   const startResendCooldown = () => setResendCooldown(RESEND_COOLDOWN_SEC);
 
   useEffect(() => {
-    if (!email || !shouldSendOnMount || sentOnMountRef.current) return;
-    sentOnMountRef.current = true;
-    setResending(true);
-    api
-      .post("/auth/resend-verification", { email })
-      .then(() => {
-        setResendNotice("Код отправлен на почту");
-        startResendCooldown();
-      })
-      .catch(() => {})
-      .finally(() => setResending(false));
-  }, [email, shouldSendOnMount]);
+    if (searchParams.get("send") !== "1") return;
+    const next = new URLSearchParams(searchParams);
+    next.delete("send");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  useEffect(() => {
+    const state = location.state as VerifyEmailLocationState;
+    if (!state?.verifyNotice && !state?.codeSent) return;
+
+    if (state.verifyNotice) {
+      setResendNotice(state.verifyNotice);
+    } else if (state.codeSent) {
+      setResendNotice("Код отправлен на почту");
+    }
+
+    navigate(
+      { pathname: location.pathname, search: location.search },
+      { replace: true, state: null },
+    );
+  }, [location.pathname, location.search, location.state, navigate]);
+
+  useEffect(() => {
+    if (!resendNotice) return;
+    const timer = window.setTimeout(() => setResendNotice(""), NOTICE_HIDE_MS);
+    return () => window.clearTimeout(timer);
+  }, [resendNotice]);
 
   const handleResend = async () => {
     if (!email || resending || resendCooldown > 0) return;
     setResending(true);
+    setMessage("");
     setResendNotice("");
     try {
       await api.post("/auth/resend-verification", { email });
@@ -80,15 +120,10 @@ export default function VerifyEmailPage() {
 
   if (!email) {
     return (
-      <div className="max-w-md mx-auto py-20 px-4 text-center space-y-4">
+      <div className={`${authPageWrap} text-center space-y-4`}>
         <XCircle size={40} className="mx-auto text-ns-error" strokeWidth={1.5} />
-        <p className="text-ns-text font-semibold">
-          Укажите email
-        </p>
-        <Link
-          to="/register"
-          className="inline-block text-ns-text underline underline-offset-2 font-medium hover:underline"
-        >
+        <p className="text-ns-text font-semibold">Укажите email</p>
+        <Link to="/register" className={authLink}>
           Зарегистрироваться
         </Link>
       </div>
@@ -97,20 +132,15 @@ export default function VerifyEmailPage() {
 
   if (status === "success") {
     return (
-      <div className="max-w-md mx-auto py-20 px-4 text-center space-y-6">
+      <div className={`${authPageWrap} text-center space-y-5`}>
         <div className="w-16 h-16 rounded-full bg-ns-success/15 flex items-center justify-center mx-auto">
           <CheckCircle2 size={36} className="text-ns-success" strokeWidth={1.5} />
         </div>
-        <h1 className="text-2xl font-semibold text-ns-text">
-          Email подтверждён
-        </h1>
-        <p className="text-ns-text-secondary">
+        <h1 className="text-2xl font-semibold text-ns-text">Email подтверждён</h1>
+        <p className="text-ns-text-secondary text-sm">
           Теперь вы можете войти в свой аккаунт.
         </p>
-        <Link
-          to="/login"
-          className="ns-btn ns-btn-primary px-8"
-        >
+        <Link to="/login" className="ns-btn ns-btn-primary px-8">
           Войти
         </Link>
       </div>
@@ -118,49 +148,56 @@ export default function VerifyEmailPage() {
   }
 
   return (
-    <div className="max-w-md mx-auto py-16 px-4">
-      <div className="aurora-card p-6 sm:p-8">
-        <div className="mb-8 text-center">
-          <h1 className="text-3xl font-semibold text-ns-text mb-2">
-            Подтверждение email
-          </h1>
-          <p className="text-sm text-ns-text-secondary">
-            Код отправлен на{" "}
-            <span className="font-semibold text-ns-text">
+    <div className={authPageWrap}>
+      <div className={authCard}>
+        <div className={`${authHeader} !mb-6`}>
+          <h1 className={authTitle}>Подтверждение email</h1>
+          <p className={`${authSubtitle} leading-relaxed`}>
+            Введите шестизначный код из письма.
+            <span className="block mt-2 font-semibold text-ns-text break-all">
               {email}
             </span>
-            . Действует 10 минут.
+            <span className="block mt-1 text-sm text-ns-muted">
+              Код действует 10 минут
+            </span>
           </p>
         </div>
 
-        {message && status === "form" && (
-          <div className="mb-4 bg-red-50/70 dark:bg-red-900/10 rounded-xl px-4 py-3 text-sm text-red-600 dark:text-red-400">
-            {message}
-          </div>
-        )}
+        <form onSubmit={handleSubmit} className={`${authForm} !space-y-4`}>
+          {message && (
+            <div className={authErrorBox} role="alert">
+              {message}
+            </div>
+          )}
 
-        <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label className="block text-sm font-semibold text-ns-text mb-2">
+            <label htmlFor="verify-code" className={authLabel}>
               Код из письма
             </label>
             <input
+              id="verify-code"
               type="text"
               inputMode="numeric"
               autoComplete="one-time-code"
-              maxLength={6}
               placeholder="000000"
               value={code}
               onChange={(e) =>
-                setCode(e.target.value.replace(/\D/g, "").slice(0, 6))
+                setCode(normalizeVerificationCode(e.target.value))
               }
-              className="ns-input w-full text-center text-2xl tracking-[0.4em] font-semibold"
+              onPaste={(e) => {
+                e.preventDefault();
+                setCode(
+                  normalizeVerificationCode(e.clipboardData.getData("text")),
+                );
+              }}
+              className={authCodeInput}
             />
           </div>
+
           <button
             type="submit"
             disabled={status === "loading" || code.length !== 6}
-            className="ns-btn ns-btn-primary w-full text-base disabled:opacity-40 flex items-center justify-center gap-2"
+            className={`${authSubmitBtn} !mt-1 flex items-center justify-center gap-2 disabled:opacity-40`}
           >
             {status === "loading" ? (
               <>
@@ -171,23 +208,27 @@ export default function VerifyEmailPage() {
               "Подтвердить"
             )}
           </button>
-          <button
-            type="button"
-            onClick={handleResend}
-            disabled={resending || resendCooldown > 0}
-            className="w-full text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 disabled:no-underline text-ns-text-secondary hover:text-ns-text underline underline-offset-2 disabled:hover:text-ns-text-secondary"
-          >
-            {resending
-              ? "Отправляем код…"
-              : resendCooldown > 0
-                ? `Повторная отправка через ${resendCooldown} с`
-                : "Отправить код повторно"}
-          </button>
-          {resendNotice && (
-            <p className="text-xs text-center text-ns-text-secondary">
+
+          <div className="space-y-2 pt-2 border-t border-ns-border/60">
+            <button
+              type="button"
+              onClick={handleResend}
+              disabled={resending || resendCooldown > 0}
+              className="w-full text-sm font-medium text-ns-text-secondary hover:text-ns-text underline underline-offset-2 transition-colors disabled:cursor-not-allowed disabled:opacity-50 disabled:no-underline disabled:hover:text-ns-text-secondary"
+            >
+              {resending
+                ? "Отправляем код…"
+                : resendCooldown > 0
+                  ? `Повторная отправка через ${resendCooldown} с`
+                  : "Отправить код повторно"}
+            </button>
+            <p
+              className="min-h-[1.125rem] text-xs text-center text-ns-muted transition-opacity duration-200"
+              aria-live="polite"
+            >
               {resendNotice}
             </p>
-          )}
+          </div>
         </form>
       </div>
     </div>

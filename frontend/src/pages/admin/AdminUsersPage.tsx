@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+﻿import { useEffect, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "../../lib/api";
 import { Pencil, Trash2, X, Check, XCircle } from "lucide-react";
@@ -6,6 +6,7 @@ import { useAuthStore } from "../../store/authStore";
 import { pluralizeUsers } from "../../lib/pluralize";
 import ConfirmDialog from "../../components/ConfirmDialog";
 import { inputCls, labelCls } from "../../lib/uiClasses";
+import { scrollToFormElement } from "../../lib/scrollToForm";
 
 interface UserRecord {
   id: number;
@@ -60,6 +61,7 @@ export default function AdminUsersPage() {
     name: "",
     email: "",
   });
+  const editFormRef = useRef<HTMLDivElement>(null);
 
   const { data: users = [] } = useQuery<UserRecord[]>({
     queryKey: ["admin-users"],
@@ -87,6 +89,7 @@ export default function AdminUsersPage() {
   });
 
   const openEdit = (u: UserRecord) => {
+    if (u.id === currentUser?.id) return;
     setEditId(u.id);
     setEditForm({
       name: u.name,
@@ -94,7 +97,12 @@ export default function AdminUsersPage() {
     });
   };
 
+  useEffect(() => {
+    if (editId != null) scrollToFormElement(editFormRef.current);
+  }, [editId]);
+
   const editingUser = users.find((u) => u.id === editId);
+  const isSelf = (id: number) => id === currentUser?.id;
 
   return (
     <div className="space-y-6">
@@ -105,7 +113,7 @@ export default function AdminUsersPage() {
       </div>
 
       {editId && editingUser && (
-        <div className="aurora-card p-6 sm:p-8 space-y-6">
+        <div ref={editFormRef} className="aurora-card scroll-mt-4 p-6 sm:p-8 space-y-6">
           <div className="flex items-center justify-between pb-4">
             <p className="text-lg sm:text-xl font-semibold text-ns-text">
               Редактировать: {editingUser.name}
@@ -209,7 +217,7 @@ export default function AdminUsersPage() {
                   <td className="px-6 py-4">
                     <select
                       value={u.role}
-                      disabled={u.id === currentUser?.id}
+                      disabled={isSelf(u.id)}
                       onChange={(e) =>
                         roleMutation.mutate({
                           id: u.id,
@@ -234,8 +242,13 @@ export default function AdminUsersPage() {
                   <td className="px-6 py-4">
                     <div className="flex items-center justify-end gap-2">
                       <button
+                        type="button"
                         onClick={() => openEdit(u)}
-                        className="ns-action-icon text-ns-text"
+                        disabled={isSelf(u.id)}
+                        className="ns-action-icon text-ns-text disabled:opacity-30 disabled:cursor-not-allowed"
+                        aria-label={
+                          isSelf(u.id) ? "Нельзя редактировать свой профиль" : "Редактировать"
+                        }
                       >
                         <Pencil size={16} strokeWidth={1.5} />
                       </button>
@@ -244,7 +257,7 @@ export default function AdminUsersPage() {
                         onClick={() => {
                           setConfirmDelete({ open: true, id: u.id, name: u.name });
                         }}
-                        disabled={u.id === currentUser?.id}
+                        disabled={isSelf(u.id)}
                         className="ns-action-icon ns-action-icon--danger text-red-600 dark:text-red-400 disabled:opacity-30"
                       >
                         <Trash2 size={16} strokeWidth={1.5} />
@@ -270,8 +283,13 @@ export default function AdminUsersPage() {
                 </div>
                 <div className="flex gap-2 shrink-0">
                   <button
+                    type="button"
                     onClick={() => openEdit(u)}
-                    className="ns-action-icon text-ns-text"
+                    disabled={isSelf(u.id)}
+                    className="ns-action-icon text-ns-text disabled:opacity-30 disabled:cursor-not-allowed"
+                    aria-label={
+                      isSelf(u.id) ? "Нельзя редактировать свой профиль" : "Редактировать"
+                    }
                   >
                     <Pencil size={16} strokeWidth={1.5} />
                   </button>
@@ -280,7 +298,7 @@ export default function AdminUsersPage() {
                     onClick={() => {
                       setConfirmDelete({ open: true, id: u.id, name: u.name });
                     }}
-                    disabled={u.id === currentUser?.id}
+                    disabled={isSelf(u.id)}
                     className="ns-action-icon ns-action-icon--danger text-red-600 dark:text-red-400 disabled:opacity-30"
                   >
                     <Trash2 size={16} strokeWidth={1.5} />
@@ -290,7 +308,7 @@ export default function AdminUsersPage() {
               <div className="flex flex-wrap items-center gap-2">
                 <select
                   value={u.role}
-                  disabled={u.id === currentUser?.id}
+                  disabled={isSelf(u.id)}
                   onChange={(e) =>
                     roleMutation.mutate({ id: u.id, role: e.target.value })
                   }

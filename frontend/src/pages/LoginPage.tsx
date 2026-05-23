@@ -18,6 +18,10 @@ import {
   authTitle,
 } from "../lib/authFormStyles";
 import api from "../lib/api";
+import {
+  clearLoginReturnAdmin,
+  wantsLoginReturnAdmin,
+} from "../lib/loginReturn";
 import { useAuthStore } from "../store/authStore";
 import { Eye, EyeOff } from "lucide-react";
 
@@ -47,10 +51,11 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (
-      searchParams.get("return") === "admin" &&
+      wantsLoginReturnAdmin(searchParams) &&
       user?.role === "ADMIN" &&
       token
     ) {
+      clearLoginReturnAdmin();
       redirectToAdminWithAuth(user, token);
     }
   }, [searchParams, user, token]);
@@ -76,8 +81,9 @@ export default function LoginPage() {
       setAuth(data.user, data.token);
       if (
         data.user.role === "ADMIN" &&
-        (searchParams.get("return") === "admin" || isAdminApp)
+        (wantsLoginReturnAdmin(searchParams) || isAdminApp)
       ) {
+        clearLoginReturnAdmin();
         redirectToAdminWithAuth(data.user, data.token);
         return;
       }
@@ -86,8 +92,13 @@ export default function LoginPage() {
       const data = err.response?.data;
       if (data?.code === "EMAIL_NOT_VERIFIED" && data?.email) {
         navigate(
-          `/verify-email?email=${encodeURIComponent(data.email)}&send=1`,
-          { replace: true },
+          `/verify-email?email=${encodeURIComponent(data.email)}`,
+          {
+            replace: true,
+            state: {
+              verifyNotice: data.message || "Код отправлен на почту",
+            },
+          },
         );
         return;
       }

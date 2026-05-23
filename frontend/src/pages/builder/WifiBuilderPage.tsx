@@ -385,8 +385,8 @@ export default function WifiBuilderPage() {
   return (
     <div className="w-full min-w-0 mx-auto pb-10">
       <div className="text-center mb-8">
-        <h1 className="font-display text-3xl sm:text-4xl font-semibold text-ns-text tracking-tight">
-          Конструктор Wi-Fi покрытия
+        <h1 className="ns-page-hero__title text-3xl sm:text-4xl font-semibold text-ns-text">
+          Конструктор Wi‑Fi покрытия
         </h1>
         <p className="text-sm text-ns-muted mt-2">
           План помещения, расстановка оборудования и оценка зоны покрытия

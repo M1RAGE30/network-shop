@@ -98,7 +98,7 @@ export default function RegisterPage() {
       });
       navigate(
         `/verify-email?email=${encodeURIComponent(data.email || form.email)}`,
-        { replace: true },
+        { replace: true, state: { codeSent: true } },
       );
     } catch (err: any) {
       setServerError(err.response?.data?.message || "Ошибка регистрации");

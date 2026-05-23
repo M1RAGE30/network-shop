@@ -1,7 +1,8 @@
 import { useLocation } from "react-router-dom";
-import { Moon, Sun, Store } from "lucide-react";
+import { Store } from "lucide-react";
 import { SHOP_ORIGIN } from "../lib/appOrigins";
 import { useThemeStore } from "../store/themeStore";
+import ThemeToggleIcon, { themeToggleAriaLabel } from "./ThemeToggleIcon";
 
 export default function AdminMobileFab() {
   const { pathname } = useLocation();
@@ -18,9 +19,9 @@ export default function AdminMobileFab() {
         type="button"
         onClick={toggle}
         className="ns-admin-fab__btn"
-        aria-label={dark ? "Светлая тема" : "Тёмная тема"}
+        aria-label={themeToggleAriaLabel(dark)}
       >
-        {dark ? <Sun size={22} strokeWidth={1.5} /> : <Moon size={22} strokeWidth={1.5} />}
+        <ThemeToggleIcon size={22} />
       </button>
       <a href={SHOP_ORIGIN} className="ns-admin-fab__btn" aria-label="В магазин">
         <Store size={22} strokeWidth={1.5} />

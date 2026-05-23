@@ -5,8 +5,6 @@ import {
   ShoppingBag,
   Users,
   MessageSquare,
-  Moon,
-  Sun,
   Store,
 } from "lucide-react";
 import { useThemeStore } from "../store/themeStore";
@@ -17,6 +15,7 @@ import AdminOrdersPage from "./admin/AdminOrdersPage";
 import AdminChatsPage from "./admin/AdminChatsPage";
 import AdminUsersPage from "./admin/AdminUsersPage";
 import AdminMobileFab from "../components/AdminMobileFab";
+import ThemeToggleIcon, { themeToggleAriaLabel } from "../components/ThemeToggleIcon";
 
 const NAV = [
   { to: "/admin", label: "Статистика", icon: LayoutDashboard, end: true },
@@ -30,6 +29,10 @@ export default function AdminPage() {
   const location = useLocation();
   const { dark, toggle } = useThemeStore();
   const isChats = location.pathname.startsWith("/admin/chats");
+  const isFullHeightView =
+    isChats ||
+    location.pathname === "/admin" ||
+    location.pathname === "/admin/orders";
 
   const isActive = (to: string, end?: boolean) =>
     end
@@ -63,8 +66,9 @@ export default function AdminPage() {
             type="button"
             onClick={toggle}
             className="flex w-full cursor-pointer items-center gap-3 rounded-[10px] px-3 py-2.5 text-left text-sm font-medium text-ns-text-secondary transition-colors hover:bg-ns-hover hover:text-ns-text"
+            aria-label={themeToggleAriaLabel(dark)}
           >
-            {dark ? <Sun size={18} strokeWidth={1.5} /> : <Moon size={18} strokeWidth={1.5} />}
+            <ThemeToggleIcon size={18} />
             {dark ? "Светлая тема" : "Тёмная тема"}
           </button>
           <a
@@ -95,8 +99,8 @@ export default function AdminPage() {
         </nav>
 
         <div
-          className={`ns-admin-content w-full min-w-0 flex-1 max-lg:pb-24 p-3 sm:p-4 lg:p-8 ${
-            isChats
+          className={`ns-admin-content w-full min-w-0 flex-1 max-lg:pb-24 p-3 sm:p-4 lg:p-6 xl:p-8 ${
+            isFullHeightView
               ? "flex min-h-0 flex-col overflow-hidden"
               : "overflow-auto"
           }`}

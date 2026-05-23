@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
@@ -16,7 +17,23 @@ export default function CatalogFilterOverlay({
   onReset,
   children,
 }: CatalogFilterOverlayProps) {
-  if (!open) return null;
+  const [mounted, setMounted] = useState(false);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setMounted(true);
+      const id = requestAnimationFrame(() => {
+        requestAnimationFrame(() => setVisible(true));
+      });
+      return () => cancelAnimationFrame(id);
+    }
+    setVisible(false);
+    const t = window.setTimeout(() => setMounted(false), 320);
+    return () => window.clearTimeout(t);
+  }, [open]);
+
+  if (!mounted) return null;
 
   const header = (
     <div className="flex shrink-0 items-center justify-between border-b border-ns-border px-5 py-4">
@@ -48,12 +65,16 @@ export default function CatalogFilterOverlay({
       <div className="fixed inset-0 z-[200] flex flex-col justify-end md:hidden">
         <button
           type="button"
-          className="absolute inset-0 bg-black/60"
+          className={`ns-overlay-backdrop absolute inset-0 bg-black/60 transition-opacity duration-300 ${
+            visible ? "opacity-100" : "opacity-0"
+          }`}
           onClick={onClose}
           aria-label="Закрыть фильтры"
         />
         <div
-          className="relative flex max-h-[min(92dvh,720px)] flex-col rounded-t-[20px] border-t border-ns-border bg-ns-bg-secondary"
+          className={`ns-catalog-filter-sheet relative flex max-h-[min(92dvh,720px)] flex-col rounded-t-[20px] border-t border-ns-border bg-ns-bg-secondary ${
+            visible ? "ns-catalog-filter-sheet--open" : ""
+          }`}
           role="dialog"
           aria-modal="true"
           aria-label="Фильтры каталога"
@@ -69,12 +90,16 @@ export default function CatalogFilterOverlay({
       <div className="fixed inset-0 z-[200] hidden md:block lg:hidden">
         <button
           type="button"
-          className="absolute inset-0 bg-black/60 backdrop-blur-[2px]"
+          className={`ns-overlay-backdrop absolute inset-0 bg-black/60 backdrop-blur-[2px] transition-opacity duration-300 ${
+            visible ? "opacity-100" : "opacity-0"
+          }`}
           onClick={onClose}
           aria-label="Закрыть фильтры"
         />
         <aside
-          className="absolute right-0 top-0 flex h-full w-[min(100%,22rem)] flex-col border-l border-ns-border bg-ns-bg-secondary"
+          className={`ns-catalog-filter-drawer absolute right-0 top-0 flex h-full w-[min(100%,22rem)] flex-col border-l border-ns-border bg-ns-bg-secondary ${
+            visible ? "ns-catalog-filter-drawer--open" : ""
+          }`}
           role="dialog"
           aria-modal="true"
           aria-label="Фильтры каталога"

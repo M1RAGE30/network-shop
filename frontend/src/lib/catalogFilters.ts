@@ -1,3 +1,14 @@
+export function formatSpecFilterLabel(key: string, preferredLabel?: string) {
+  if (preferredLabel) return preferredLabel;
+  const stripped = key
+    .replace(/^Поддержка\s+/i, "")
+    .replace(/^Количество\s+/i, "")
+    .replace(/^Всего\s+/i, "")
+    .trim();
+  const base = stripped || key;
+  return base.charAt(0).toUpperCase() + base.slice(1);
+}
+
 export function parseSpecFilters(value: string | null): Record<string, string> {
   if (!value) return {};
   try {

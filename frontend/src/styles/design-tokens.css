@@ -35,6 +35,7 @@
   --ns-height-input: 38px;
   --ns-height-nav: 56px;
   --ns-container-max: 100%;
+  --ns-page-narrow-max: 100%;
 }
 
 @media (min-width: 768px) {
@@ -48,6 +49,7 @@
     --ns-height-input: 40px;
     --ns-height-nav: 64px;
     --ns-container-max: 1040px;
+    --ns-page-narrow-max: 48rem;
   }
 }
 
@@ -61,12 +63,20 @@
     --ns-height-input: 42px;
     --ns-height-nav: 68px;
     --ns-container-max: 1280px;
+    --ns-page-narrow-max: 56rem;
+  }
+}
+
+@media (min-width: 1536px) {
+  :root {
+    --ns-page-narrow-max: 64rem;
   }
 }
 
 @media (min-width: 1920px) {
   :root {
     --ns-container-max: 1720px;
+    --ns-page-narrow-max: 72rem;
   }
 }
 

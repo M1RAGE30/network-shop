@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { SHOP_ORIGIN } from "../lib/appOrigins";
 import { redirectToAdminWithAuth } from "../lib/adminAuth";
+import { setLoginReturnAdmin } from "../lib/loginReturn";
 import { useAuthStore } from "../store/authStore";
 import { useAuthHydrated } from "../lib/useAuthHydrated";
 
@@ -16,7 +17,8 @@ export default function AdminBridgePage() {
       return;
     }
 
-    window.location.replace(`${SHOP_ORIGIN}/login?return=admin`);
+    setLoginReturnAdmin();
+    window.location.replace(`${SHOP_ORIGIN}/login`);
   }, [hydrated, user, token]);
 
   return (

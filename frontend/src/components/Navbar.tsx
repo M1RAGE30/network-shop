@@ -11,11 +11,8 @@ import {
   ShoppingCart,
   Menu,
   X,
-  Sun,
-  Moon,
   LayoutGrid,
   MessageCircle,
-  LogIn,
   Settings,
 } from "lucide-react";
 import { openAdminPanel } from "../lib/appOrigins";
@@ -27,6 +24,7 @@ import { useThemeStore } from "../store/themeStore";
 import { useBodyScrollLock } from "../lib/useBodyScrollLock";
 import Logo from "./Logo";
 import BuilderNavMenu from "./BuilderNavMenu";
+import ThemeToggleIcon, { themeToggleAriaLabel } from "./ThemeToggleIcon";
 
 export default function Navbar() {
   const { user } = useAuthStore();
@@ -190,8 +188,13 @@ export default function Navbar() {
           </nav>
 
           <div className="flex items-center gap-6 shrink-0">
-            <button type="button" onClick={toggle} className={iconBtn} aria-label="Тема">
-              {dark ? <Sun size={24} strokeWidth={1.5} /> : <Moon size={24} strokeWidth={1.5} />}
+            <button
+              type="button"
+              onClick={toggle}
+              className={iconBtn}
+              aria-label={themeToggleAriaLabel(dark)}
+            >
+              <ThemeToggleIcon size={24} />
             </button>
             {user && (
               <>
@@ -325,7 +328,7 @@ export default function Navbar() {
                 </>
               )}
               {!admin && menuLink("/chat", "Поддержка", MessageCircle)}
-              {user ? menuLink("/profile", "Профиль", User) : menuLink("/login", "Вход", LogIn)}
+              {user && menuLink("/profile", "Профиль", User)}
               {user?.role === "ADMIN" && (
                 <button
                   type="button"
@@ -342,21 +345,31 @@ export default function Navbar() {
               <button
                 type="button"
                 onClick={() => toggle()}
-                className="w-full rounded-[14px] px-4 py-3.5 text-left text-base font-medium text-ns-text hover:bg-ns-hover flex items-center gap-3"
+                className="flex w-full items-center gap-3 rounded-[14px] px-4 py-3.5 text-left text-base font-medium text-ns-text hover:bg-ns-hover"
+                aria-label={themeToggleAriaLabel(dark)}
               >
-                {dark ? <Sun size={20} strokeWidth={1.5} /> : <Moon size={20} strokeWidth={1.5} />}
+                <ThemeToggleIcon size={20} className="text-ns-muted" />
                 {dark ? "Светлая тема" : "Тёмная тема"}
               </button>
-              {!user && (
+            </nav>
+            {!user && (
+              <div className="shrink-0 space-y-2 border-t border-ns-border px-3 py-4">
+                <Link
+                  to="/login"
+                  onClick={closeMenu}
+                  className="ns-btn ns-btn-secondary w-full"
+                >
+                  Вход
+                </Link>
                 <Link
                   to="/register"
                   onClick={closeMenu}
-                  className="ns-btn ns-btn-primary w-full mt-4"
+                  className="ns-btn ns-btn-primary w-full"
                 >
                   Регистрация
                 </Link>
-              )}
-            </nav>
+              </div>
+            )}
           </aside>
         </>
       )}
