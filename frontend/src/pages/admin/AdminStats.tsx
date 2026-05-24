@@ -15,6 +15,7 @@ import {
   orderStatusBadgeClass,
   orderStatusLabels,
 } from "../../lib/orderStatus";
+import { AdminStatsSkeleton } from "../../components/skeleton/Skeleton";
 
 const STATUS_ORDER = [
   "PENDING",
@@ -64,6 +65,10 @@ export default function AdminStats() {
 
   const recentOrders = data?.recentOrders ?? [];
 
+  if (isLoading) {
+    return <AdminStatsSkeleton />;
+  }
+
   return (
     <div className="flex min-h-0 w-full flex-1 flex-col space-y-4 sm:space-y-5 xl:space-y-6">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 xl:gap-5">
@@ -81,7 +86,7 @@ export default function AdminStats() {
               </span>
             </div>
             <p className="text-2xl sm:text-3xl xl:text-4xl font-bold leading-none text-ns-text tabular-nums">
-              {isLoading ? "—" : (value ?? "—")}
+              {value ?? "—"}
             </p>
             {hint && (
               <p className="text-xs text-ns-muted leading-snug">{hint}</p>
@@ -91,16 +96,17 @@ export default function AdminStats() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 xl:gap-5">
-        <div className="ns-card-static p-4 sm:p-5 xl:p-6">
-          <h2 className="text-sm xl:text-base font-semibold text-ns-text mb-3 xl:mb-4">
+        <div className="ns-card-static flex min-h-[220px] flex-col p-4 sm:min-h-[260px] sm:p-5 xl:p-6">
+          <h2 className="shrink-0 text-sm xl:text-base font-semibold text-ns-text">
             Заказы по статусам
           </h2>
-          <ul className="space-y-2">
-            {statusRows.map(({ status, count }) => (
-              <li
-                key={status}
-                className="flex items-center justify-between gap-3 text-sm"
-              >
+          <div className="flex min-h-0 flex-1 flex-col justify-center pt-3 xl:pt-4">
+            <ul className="w-full space-y-2">
+              {statusRows.map(({ status, count }) => (
+                <li
+                  key={status}
+                  className="flex items-center justify-between gap-3 text-sm"
+                >
                 <span
                   className={
                     orderStatusBadgeClass[status] ?? "ns-badge ns-badge--muted"
@@ -109,14 +115,15 @@ export default function AdminStats() {
                   {orderStatusLabels[status] ?? status}
                 </span>
                 <span className="font-semibold text-ns-text tabular-nums">
-                  {isLoading ? "—" : count}
+                  {count}
                 </span>
-              </li>
-            ))}
-          </ul>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
 
-        <div className="ns-card-static flex min-h-[220px] flex-col p-4 sm:p-5 xl:p-6 sm:min-h-[260px]">
+        <div className="ns-card-static flex min-h-[220px] flex-col p-4 sm:min-h-[260px] sm:p-5 xl:p-6">
           <div className="flex items-center justify-between gap-2 mb-3 xl:mb-4">
             <h2 className="text-sm xl:text-base font-semibold text-ns-text">
               Последние заказы
@@ -129,7 +136,7 @@ export default function AdminStats() {
               <ArrowRight size={14} strokeWidth={2} />
             </Link>
           </div>
-          {recentOrders.length === 0 && !isLoading ? (
+          {recentOrders.length === 0 ? (
             <div className="flex flex-1 flex-col items-center justify-center gap-3 py-8 text-center">
               <ShoppingBag
                 size={48}
@@ -182,7 +189,7 @@ export default function AdminStats() {
         </div>
       </div>
 
-      {!isLoading && (data?.pendingOrders > 0 || data?.unreadChats > 0) && (
+      {(data?.pendingOrders > 0 || data?.unreadChats > 0) && (
         <div className="ns-card-static flex flex-wrap items-center gap-3 p-4 sm:p-5 text-sm text-ns-text-secondary">
           <Clock size={18} className="text-ns-muted shrink-0" strokeWidth={1.75} />
           <p className="min-w-0 flex-1 leading-snug">

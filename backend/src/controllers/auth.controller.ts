@@ -5,9 +5,13 @@ import crypto from "crypto";
 import { validationResult } from "express-validator";
 import prisma from "../lib/prisma";
 import { AuthRequest } from "../middleware/auth.middleware";
-import { sendVerificationCodeEmail } from "../lib/mailer";
+import {
+  sendPasswordResetEmail,
+  sendVerificationCodeEmail,
+} from "../lib/mailer";
 
 const VERIFY_CODE_TTL_MS = 10 * 60 * 1000;
+const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000;
 
 function generateVerifyCode(): string {
   return String(crypto.randomInt(100000, 999999));
@@ -203,31 +207,19 @@ export const updateMe = async (req: AuthRequest, res: Response) => {
   const userId = req.userId;
   if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
-  const { name, email, phone, address, avatarUrl } = req.body as {
+  const { name, phone, address, avatarUrl } = req.body as {
     name?: string;
-    email?: string;
     phone?: string | null;
     address?: string | null;
     avatarUrl?: string | null;
   };
 
   if (!name?.trim()) return res.status(400).json({ message: "Имя обязательно" });
-  if (!email?.trim()) return res.status(400).json({ message: "Email обязателен" });
-
-  const normalizedEmail = email.trim().toLowerCase();
-  const existing = await prisma.user.findFirst({
-    where: { email: normalizedEmail, NOT: { id: userId } },
-    select: { id: true },
-  });
-  if (existing) {
-    return res.status(409).json({ message: "Email уже используется" });
-  }
 
   const user = await prisma.user.update({
     where: { id: userId },
     data: {
       name: name.trim(),
-      email: normalizedEmail,
       phone: phone?.trim() || null,
       address: address?.trim() || null,
       avatarUrl: avatarUrl?.trim() || null,
@@ -246,4 +238,115 @@ export const updateMe = async (req: AuthRequest, res: Response) => {
   });
 
   return res.json(user);
+};
+
+export const changePassword = async (req: AuthRequest, res: Response) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty())
+    return res.status(400).json({ errors: errors.array() });
+
+  const userId = req.userId;
+  if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+  const { currentPassword, newPassword } = req.body as {
+    currentPassword: string;
+    newPassword: string;
+  };
+
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) return res.status(401).json({ message: "Unauthorized" });
+
+  const valid = await bcrypt.compare(currentPassword, user.password);
+  if (!valid) {
+    return res.status(400).json({ message: "Неверный текущий пароль" });
+  }
+
+  const hashed = await bcrypt.hash(newPassword, 10);
+  await prisma.user.update({
+    where: { id: userId },
+    data: { password: hashed },
+  });
+
+  return res.json({ message: "Пароль изменён" });
+};
+
+export const forgotPassword = async (req: Request, res: Response) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty())
+    return res.status(400).json({ errors: errors.array() });
+
+  const normalizedEmail = String(req.body.email).trim().toLowerCase();
+  const user = await prisma.user.findUnique({
+    where: { email: normalizedEmail },
+  });
+
+  if (user?.isEmailVerified) {
+    const token = crypto.randomBytes(32).toString("hex");
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordResetToken: token,
+        passwordResetExpiry: new Date(Date.now() + PASSWORD_RESET_TTL_MS),
+      },
+    });
+    await sendPasswordResetEmail(normalizedEmail, token);
+  }
+
+  return res.json({
+    message:
+      "Если аккаунт с таким email существует, на почту отправлена ссылка для сброса пароля.",
+  });
+};
+
+export const validateResetToken = async (req: Request, res: Response) => {
+  const token = String(req.query.token || "").trim();
+  if (!token || token.length < 32) {
+    return res.json({ valid: false });
+  }
+
+  const user = await prisma.user.findFirst({
+    where: { passwordResetToken: token },
+    select: { passwordResetExpiry: true },
+  });
+
+  const valid =
+    !!user?.passwordResetExpiry && user.passwordResetExpiry > new Date();
+
+  return res.json({ valid });
+};
+
+export const resetPassword = async (req: Request, res: Response) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty())
+    return res.status(400).json({ errors: errors.array() });
+
+  const token = String(req.body.token).trim();
+  const { password } = req.body;
+
+  const user = await prisma.user.findFirst({
+    where: { passwordResetToken: token },
+  });
+
+  if (
+    !user ||
+    !user.passwordResetExpiry ||
+    user.passwordResetExpiry < new Date()
+  ) {
+    return res.status(400).json({
+      message: "Ссылка недействительна или истекла. Запросите сброс пароля снова.",
+      code: "RESET_EXPIRED",
+    });
+  }
+
+  const hashed = await bcrypt.hash(password, 10);
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      password: hashed,
+      passwordResetToken: null,
+      passwordResetExpiry: null,
+    },
+  });
+
+  return res.json({ message: "Пароль обновлён. Теперь вы можете войти." });
 };

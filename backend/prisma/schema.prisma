@@ -17,9 +17,11 @@ model User {
   avatarUrl         String?
   role              Role     @default(USER)
   isEmailVerified   Boolean  @default(false)
-  verifyToken       String?  @unique
-  verifyTokenExpiry DateTime?
-  createdAt         DateTime @default(now())
+  verifyToken           String?   @unique
+  verifyTokenExpiry     DateTime?
+  passwordResetToken    String?   @unique
+  passwordResetExpiry   DateTime?
+  createdAt             DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
   orders    Order[]

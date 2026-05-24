@@ -650,13 +650,107 @@
 
   .ns-hero-section {
     min-height: auto;
-    padding-top: 80px;
+    padding-top: clamp(4rem, 10vw, 5rem);
+  }
+
+  @media (min-width: 768px) {
+    .ns-hero-section {
+      padding-top: clamp(5rem, 8vw, 6.25rem);
+    }
   }
 
   @media (min-width: 1280px) {
     .ns-hero-section {
       min-height: 760px;
       padding-top: 140px;
+    }
+  }
+
+  .ns-home-hero__layout {
+    display: flex;
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: clamp(2rem, 6vw, 3rem);
+  }
+
+  @media (min-width: 1024px) {
+    .ns-home-hero__layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      align-items: center;
+      gap: 4rem;
+    }
+  }
+
+  .ns-home-hero__copy {
+    max-width: 620px;
+    width: 100%;
+  }
+
+  @media (min-width: 1024px) {
+    .ns-home-hero__copy {
+      justify-self: start;
+    }
+  }
+
+  .ns-home-hero__actions {
+    display: flex;
+    width: 100%;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  @media (min-width: 420px) {
+    .ns-home-hero__actions {
+      flex-direction: row;
+      flex-wrap: wrap;
+      align-items: stretch;
+    }
+  }
+
+  .ns-home-hero__visual {
+    width: 100%;
+    max-width: 600px;
+    margin-inline: auto;
+    flex-shrink: 0;
+  }
+
+  @media (min-width: 1024px) {
+    .ns-home-hero__visual {
+      justify-self: end;
+      min-height: 500px;
+      display: flex;
+      align-items: center;
+    }
+  }
+
+  .ns-home-why__grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  @media (min-width: 640px) {
+    .ns-home-why__grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1.25rem;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .ns-home-why__grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1.5rem;
+    }
+  }
+
+  @media (min-width: 640px) and (max-width: 1023px) {
+    .ns-home-why__grid > :last-child {
+      grid-column: 1 / -1;
+      max-width: 28rem;
+      justify-self: center;
+      width: 100%;
     }
   }
 
@@ -901,6 +995,27 @@
     white-space: pre-wrap;
     overflow-wrap: anywhere;
     word-break: break-word;
+  }
+
+  .ns-skeleton {
+    background-color: var(--color-ns-elevated);
+    background-image: linear-gradient(
+      90deg,
+      var(--color-ns-elevated) 0%,
+      var(--color-ns-hover) 45%,
+      var(--color-ns-elevated) 90%
+    );
+    background-size: 200% 100%;
+    animation: ns-skeleton-shimmer 1.5s ease-in-out infinite;
+  }
+
+  @keyframes ns-skeleton-shimmer {
+    0% {
+      background-position: 100% 0;
+    }
+    100% {
+      background-position: -100% 0;
+    }
   }
 
   .ns-product-grid {
@@ -1274,9 +1389,11 @@
 
   .ns-card-fav {
     opacity: 1;
+    pointer-events: auto;
     transition: opacity 0.2s ease;
   }
 
+  /* Только мышь: сердечко по hover; на телефонах и планшетах — всегда видно */
   @media (hover: hover) and (pointer: fine) {
     .ns-card .ns-card-fav {
       opacity: 0;
@@ -1285,6 +1402,13 @@
 
     .ns-card:hover .ns-card-fav,
     .ns-card:focus-within .ns-card-fav {
+      opacity: 1;
+      pointer-events: auto;
+    }
+  }
+
+  @media (hover: none), (pointer: coarse) {
+    .ns-card .ns-card-fav {
       opacity: 1;
       pointer-events: auto;
     }
@@ -1305,18 +1429,74 @@
     border-top: 1px solid var(--color-ns-border);
     background: var(--color-ns-bg-secondary);
     box-shadow: none;
-    padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .ns-site-footer__inner {
+    padding-top: 3rem;
+    padding-bottom: 2.5rem;
+  }
+
+  @media (min-width: 640px) {
+    .ns-site-footer__inner {
+      padding-top: 4rem;
+      padding-bottom: 2.5rem;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .ns-site-footer__inner {
+      padding-top: 5rem;
+      padding-bottom: 2.5rem;
+    }
+  }
+
+  .ns-footer-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: clamp(1.5rem, 5vw, 3rem);
+    row-gap: 2.5rem;
+    align-items: start;
+  }
+
+  @media (min-width: 1024px) {
+    .ns-footer-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      row-gap: 2rem;
+    }
+  }
+
+  .ns-footer-contact {
+    display: inline-block;
+    max-width: 100%;
+    white-space: nowrap;
+  }
+
+  .ns-footer-contact--email {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .ns-site-footer__separator {
+    margin-block: 2rem;
+  }
+
+  @media (min-width: 768px) {
+    .ns-site-footer__separator {
+      margin-block: 2.5rem;
+    }
+  }
+
+  .ns-site-footer__copy {
+    margin-inline: auto;
+    max-width: 36rem;
+    padding-inline: 0.5rem;
+    text-wrap: balance;
   }
 
   .dark .ns-site-footer {
     background: var(--color-ns-bg);
     box-shadow: none;
-  }
-
-  @media (min-width: 768px) {
-    .ns-site-footer {
-      padding-bottom: 0;
-    }
   }
 
   .ns-brands-track {
@@ -1421,14 +1601,52 @@
   }
 
   .ns-bottom-nav {
-    height: 76px;
-    background: var(--color-ns-bg);
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 50;
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    box-sizing: border-box;
+    background: var(--color-ns-bg-secondary);
     border-top: 1px solid var(--color-ns-border);
     box-shadow: none;
+    transition:
+      background-color 0.25s ease,
+      border-color 0.25s ease;
+  }
+
+  /* Светлая тема: белая панель без тени */
+  :root:not(.dark) .ns-bottom-nav:not(.ns-bottom-nav--builders-open) {
+    background: #ffffff;
+    border-top-color: rgba(9, 9, 11, 0.1);
+  }
+
+  :root:not(.dark) .ns-bottom-nav:not(.ns-bottom-nav--builders-open) .text-ns-muted {
+    color: #a1a1aa;
+  }
+
+  :root:not(.dark) .ns-bottom-nav:not(.ns-bottom-nav--builders-open) .text-ns-text {
+    color: #09090b;
+  }
+
+  :root:not(.dark) .ns-bottom-nav:not(.ns-bottom-nav--builders-open) .bg-ns-text {
+    background-color: #09090b;
+  }
+
+  /* Раскрыты конструкторы — цвет как у интерфейса (в обеих темах) */
+  .ns-bottom-nav--builders-open {
+    background: var(--color-ns-bg);
+    border-top-color: var(--color-ns-border);
   }
 
   .ns-bottom-nav__bar {
-    background: var(--color-ns-bg);
+    height: 76px;
+    width: 100%;
+    background: transparent;
   }
 
   .ns-bottom-nav__backdrop {

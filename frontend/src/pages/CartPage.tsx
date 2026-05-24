@@ -4,12 +4,13 @@ import { Link, useNavigate } from "react-router-dom";
 import api from "../lib/api";
 import { formatPrice } from "../lib/format";
 import MediaImage from "../components/MediaImage";
+import { CartPageSkeleton } from "../components/skeleton/Skeleton";
 
 export default function CartPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
 
-  const { data: items = [] } = useQuery({
+  const { data: items = [], isPending } = useQuery({
     queryKey: ["cart"],
     queryFn: () => api.get("/cart").then((r) => r.data),
   });
@@ -34,6 +35,10 @@ export default function CartPage() {
     (s: number, i: any) => s + Number(i.product.price) * i.quantity,
     0,
   );
+
+  if (isPending) {
+    return <CartPageSkeleton />;
+  }
 
   if (!items.length) {
     return (

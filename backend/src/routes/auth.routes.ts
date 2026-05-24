@@ -8,6 +8,10 @@ import {
   verifyEmail,
   resendVerification,
   updateMe,
+  changePassword,
+  forgotPassword,
+  validateResetToken,
+  resetPassword,
 } from "../controllers/auth.controller";
 import { authenticate } from "../middleware/auth.middleware";
 
@@ -79,6 +83,10 @@ router.post(
   resendVerification,
 );
 
+const passwordRules = body("password")
+  .isLength({ min: 6, max: 128 })
+  .withMessage("Пароль от 6 до 128 символов");
+
 router.get("/me", authenticate, getMe);
 router.put(
   "/me",
@@ -89,15 +97,41 @@ router.put(
       .notEmpty()
       .isLength({ max: 100 })
       .withMessage("Имя обязательно"),
-    body("email")
-      .isEmail()
-      .isLength({ max: 254 })
-      .withMessage("Некорректный email"),
     body("phone").optional({ values: "null" }).isLength({ max: 30 }),
     body("address").optional({ values: "null" }).isLength({ max: 255 }),
     body("avatarUrl").optional({ values: "null" }).isLength({ max: 500 }),
   ],
   updateMe,
+);
+
+router.put(
+  "/me/password",
+  authenticate,
+  authLimiter,
+  [
+    body("currentPassword").notEmpty().isLength({ max: 128 }),
+    passwordRules,
+  ],
+  changePassword,
+);
+
+router.post(
+  "/forgot-password",
+  authLimiter,
+  [body("email").isEmail().isLength({ max: 254 })],
+  forgotPassword,
+);
+
+router.get("/reset-password/validate", validateResetToken);
+
+router.post(
+  "/reset-password",
+  authLimiter,
+  [
+    body("token").trim().isLength({ min: 32, max: 128 }),
+    passwordRules,
+  ],
+  resetPassword,
 );
 
 export default router;

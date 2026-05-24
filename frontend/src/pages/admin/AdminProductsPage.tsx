@@ -11,6 +11,7 @@ import { categoryDisplayName } from "../../lib/categoryName";
 import { authErrorBox } from "../../lib/authFormStyles";
 import { scrollToFormElement } from "../../lib/scrollToForm";
 import { useToastStore } from "../../store/toastStore";
+import { AdminProductsTableSkeleton } from "../../components/skeleton/Skeleton";
 
 interface ProductForm {
   name: string;
@@ -710,6 +711,9 @@ export default function AdminProductsPage() {
             </span>
           )}
         </p>
+        {productsLoading ? (
+          <AdminProductsTableSkeleton />
+        ) : (
         <div className="aurora-card rounded-3xl overflow-hidden">
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm">
@@ -848,8 +852,9 @@ export default function AdminProductsPage() {
             ))}
           </div>
         </div>
+        )}
 
-        {listPages > 1 && (
+        {!productsLoading && listPages > 1 && (
           <div className="mt-4 flex flex-wrap justify-center items-center gap-1.5">
             <button
               type="button"

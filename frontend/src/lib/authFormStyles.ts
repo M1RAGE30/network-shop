@@ -12,8 +12,13 @@ export const authFooter =
 export const authLink =
   "text-ns-text underline underline-offset-2 font-medium hover:underline transition-colors";
 export const authErrorBox =
-  "rounded-xl bg-red-50/70 px-4 py-3 text-sm font-medium text-red-600 dark:bg-red-900/10 dark:text-red-400";
-export const authFieldError = "mt-1.5 text-xs font-medium text-red-500";
+  "rounded-[var(--radius-card)] bg-red-50/70 px-4 py-3 text-sm font-medium text-red-600 dark:bg-red-900/10 dark:text-red-400";
+export const authSuccessBox =
+  "rounded-[var(--radius-card)] bg-green-50/70 px-4 py-3 text-sm font-medium text-green-700 dark:bg-green-900/15 dark:text-green-400";
+export const authFieldError = "mt-1.5 text-sm font-medium text-ns-error";
+export const authForgotWrap = "flex justify-end -mt-1";
+export const authForgotLink =
+  "text-sm font-medium text-ns-text-secondary hover:text-ns-text underline underline-offset-2 transition-colors";
 
 export const authInputCls = (hasError: boolean) =>
   `ns-input w-full text-sm ${hasError ? "ring-2 ring-red-500" : ""}`;

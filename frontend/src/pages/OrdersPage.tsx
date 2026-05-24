@@ -9,6 +9,7 @@ import { useState } from "react";
 import { ShoppingBag } from "lucide-react";
 import OrderItemRow from "../components/OrderItemRow";
 import OrderCardSummary from "../components/OrderCardSummary";
+import { OrderListSkeleton } from "../components/skeleton/Skeleton";
 
 
 
@@ -18,13 +19,11 @@ export default function OrdersPage() {
 
   const [expanded, setExpanded] = useState<number | null>(null);
 
-  const { data: orders = [] } = useQuery({
-
+  const { data: orders, isPending } = useQuery({
     queryKey: ["orders"],
-
     queryFn: () => api.get("/orders").then((r) => r.data),
-
   });
+  const orderList = orders ?? [];
 
   const { data: expandedOrder } = useQuery({
 
@@ -52,39 +51,28 @@ export default function OrdersPage() {
 
 
 
-  if (!orders.length)
-
-    return (
-
-      <div className="ns-page-empty aurora-card rounded-2xl">
-
-        <ShoppingBag
-
-          strokeWidth={1}
-
-          className="ns-page-empty__icon"
-
-        />
-
-        <p className="text-lg xl:text-xl text-ns-muted">Заказов пока нет</p>
-
-      </div>
-
-    );
-
-
-
   return (
 
     <div className="ns-page-narrow w-full min-w-0 py-6 sm:py-8">
 
       <h1 className="ns-heading-page mb-4 sm:mb-5">Мои заказы</h1>
 
-
-
+      {isPending ? (
+        <OrderListSkeleton />
+      ) : orderList.length === 0 ? (
+        <div className="py-16 text-center">
+          <ShoppingBag
+            size={48}
+            strokeWidth={1.25}
+            className="mx-auto mb-4 text-ns-muted"
+            aria-hidden
+          />
+          <p className="text-lg text-ns-muted">Заказов пока нет</p>
+        </div>
+      ) : (
       <div className="space-y-3 sm:space-y-4">
 
-        {orders.map((order: any) => {
+        {orderList.map((order: any) => {
 
           const isOpen = expanded === order.id;
 
@@ -305,6 +293,7 @@ export default function OrdersPage() {
         })}
 
       </div>
+      )}
 
     </div>
 

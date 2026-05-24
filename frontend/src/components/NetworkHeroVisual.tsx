@@ -9,7 +9,7 @@ const nodes = [
 
 export default function NetworkHeroVisual() {
   return (
-    <div className="relative mx-auto aspect-square w-full max-w-[520px]">
+    <div className="relative mx-auto w-full max-w-[min(100%,520px)] aspect-[5/4] sm:aspect-square">
       <div className="absolute inset-0 overflow-hidden rounded-[var(--ns-radius-card)] border border-ns-border bg-ns-elevated">
         <svg
           className="absolute inset-0 h-full w-full text-ns-muted"

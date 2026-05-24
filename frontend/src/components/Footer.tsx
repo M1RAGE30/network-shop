@@ -21,10 +21,12 @@ export default function Footer() {
       </Link>
     );
 
+  const contactClass = `${linkClass} ns-footer-contact`;
+
   return (
-    <footer className="ns-site-footer">
-      <div className="ns-container pt-20 pb-10">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-10 lg:gap-12">
+    <footer className="ns-site-footer hidden md:block">
+      <div className="ns-container ns-site-footer__inner">
+        <div className="ns-footer-grid">
           <div>
             <h3 className="text-sm font-semibold text-ns-text mb-4">Магазин</h3>
             <ul className="space-y-3">
@@ -89,12 +91,15 @@ export default function Footer() {
                 </li>
               )}
               <li>
-                <a href="tel:+375291234567" className={linkClass}>
+                <a href="tel:+375291234567" className={contactClass}>
                   +375 (29) 123-45-67
                 </a>
               </li>
               <li>
-                <a href="mailto:support@networkshop.by" className={linkClass}>
+                <a
+                  href="mailto:support@networkshop.by"
+                  className={`${contactClass} ns-footer-contact--email`}
+                >
                   support@networkshop.by
                 </a>
               </li>
@@ -102,8 +107,8 @@ export default function Footer() {
           </div>
         </div>
 
-        <hr className="ns-separator my-10" />
-        <p className="text-sm text-ns-muted text-center">
+        <hr className="ns-separator ns-site-footer__separator" />
+        <p className="ns-site-footer__copy text-sm text-ns-muted text-center">
           © {new Date().getFullYear()} NetworkShop. Сетевое оборудование для дома и бизнеса.
         </p>
       </div>

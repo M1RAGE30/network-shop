@@ -7,14 +7,9 @@ import AdminStandaloneLayout from "./AdminStandaloneLayout";
 
 const AdminPage = lazy(() => import("../pages/AdminPage"));
 
-const PageLoader = () => (
-  <div className="flex items-center justify-center py-24">
-    <div
-      className="h-8 w-8 animate-spin rounded-full border-2 border-ns-border border-t-ns-accent"
-      aria-hidden
-    />
-  </div>
-);
+import { PageRouteSkeleton } from "../components/skeleton/Skeleton";
+
+const PageLoader = () => <PageRouteSkeleton />;
 
 export default function AdminApp() {
   return (

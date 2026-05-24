@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import api from "../lib/api";
 import ProductCard from "../components/ProductCard";
+import { ProductCardSkeletonGrid } from "../components/skeleton/Skeleton";
 import { Search, X, SlidersHorizontal, RotateCcw } from "lucide-react";
 import { productCountLabel } from "../lib/pluralize";
 import { useBodyScrollLock } from "../lib/useBodyScrollLock";
@@ -23,6 +24,8 @@ const CATEGORY_SPEC_FILTERS: Record<
     { key: "Диапазон частот", label: "Диапазон" },
     { key: "Поддержка сотовой связи", label: "Сотовая связь" },
     { key: "Всего LAN-портов", label: "LAN-порты" },
+    { key: "Количество антенн", label: "Количество антенн" },
+    { key: "MIMO", label: "MIMO" },
     { key: "Порты USB", label: "USB" },
     { key: "Цвет", label: "Цвет" },
   ],
@@ -497,14 +500,7 @@ export default function CatalogPage() {
           </div>
 
           {isLoading ? (
-            <div className="ns-product-grid">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="h-[400px] sm:h-[420px] w-full rounded-2xl bg-ns-elevated animate-pulse"
-                />
-              ))}
-            </div>
+            <ProductCardSkeletonGrid />
           ) : data?.products?.length === 0 ? (
             <div className="aurora-card text-center py-24 rounded-2xl">
               <p className="text-2xl font-semibold text-ns-text mb-4">

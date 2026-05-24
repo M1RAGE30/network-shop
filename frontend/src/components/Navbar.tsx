@@ -38,10 +38,19 @@ export default function Navbar() {
   const [menuMounted, setMenuMounted] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
   const builderRef = useRef<HTMLDivElement>(null);
+  const [phoneLayout, setPhoneLayout] = useState(false);
 
   const isHome = location.pathname === "/";
   const isActive = (path: string) => location.pathname.startsWith(path);
   useBodyScrollLock(menuOpen, "ns-overlay-open");
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const update = () => setPhoneLayout(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
@@ -163,7 +172,9 @@ export default function Navbar() {
         <div className="ns-container h-full flex items-center justify-between gap-6">
           <Link to="/" className="flex items-center gap-3 shrink-0">
             <Logo size={40} />
-            <span className="text-base font-semibold text-ns-text">NetworkShop</span>
+            <span className="text-lg font-semibold text-ns-text tracking-tight">
+              NetworkShop
+            </span>
           </Link>
 
           <nav className="flex items-center gap-6" aria-label="Основное меню">
@@ -258,40 +269,79 @@ export default function Navbar() {
         <div className="ns-container h-full flex items-center justify-between gap-4 w-full">
           <Link to="/" className="flex items-center gap-2 shrink-0">
             <Logo size={28} />
-            <span className="font-semibold text-ns-text text-sm">NetworkShop</span>
+            <span className="font-semibold text-ns-text text-base tracking-tight">
+              NetworkShop
+            </span>
           </Link>
-          <div className="flex items-center gap-2">
-            {user &&
-              iconLink(
-                "/cart",
-                "Корзина",
-                <ShoppingCart size={24} strokeWidth={1.5} />,
-                admin ? undefined : cartBadge,
-                admin,
-              )}
-            <Link to={user ? "/profile" : "/login"} className={iconBtn} aria-label="Профиль">
-              <User size={24} strokeWidth={1.5} />
-            </Link>
-            <button type="button" onClick={() => setMenuOpen(true)} className={iconBtn} aria-label="Меню">
-              <Menu size={24} strokeWidth={1.5} />
-            </button>
-          </div>
+          <button type="button" onClick={() => setMenuOpen(true)} className={iconBtn} aria-label="Меню">
+            <Menu size={24} strokeWidth={1.5} />
+          </button>
         </div>
       </header>
 
       <header
-        className={`ns-mobile-nav sticky top-0 z-[90] flex md:hidden items-center justify-between gap-2 px-5 ${navSurface}`}
+        className={`ns-mobile-nav sticky top-0 z-[90] flex md:hidden items-center justify-between gap-2 px-4 sm:px-5 ${navSurface}`}
       >
         <Link to="/" className="flex items-center gap-2 shrink-0 min-w-0">
           <Logo size={28} />
-          <span className="font-semibold text-ns-text text-sm truncate hidden min-[375px]:inline">
+          <span className="font-semibold text-ns-text text-base tracking-tight truncate hidden min-[375px]:inline">
             NetworkShop
           </span>
         </Link>
-        <div className="flex-1" />
-        <button type="button" onClick={() => setMenuOpen(true)} className={iconBtn} aria-label="Меню">
-          <Menu size={24} strokeWidth={1.5} />
-        </button>
+        <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
+          <button
+            type="button"
+            onClick={toggle}
+            className={iconBtn}
+            aria-label={themeToggleAriaLabel(dark)}
+          >
+            <ThemeToggleIcon size={22} />
+          </button>
+          {user && (
+            <>
+              {iconLink(
+                "/favorites",
+                "Избранное",
+                <Heart size={22} strokeWidth={1.5} />,
+                undefined,
+                admin,
+              )}
+              {iconLink(
+                "/orders",
+                "Заказы",
+                <ShoppingBag size={22} strokeWidth={1.5} />,
+                undefined,
+                admin,
+              )}
+            </>
+          )}
+          {!admin &&
+            iconLink(
+              "/chat",
+              "Поддержка",
+              <MessageCircle size={22} strokeWidth={1.5} />,
+            )}
+          {user?.role === "ADMIN" && (
+            <button
+              type="button"
+              onClick={() => openAdminPanel()}
+              className={iconBtn}
+              aria-label="Админ-панель"
+            >
+              <Settings size={22} strokeWidth={1.5} />
+            </button>
+          )}
+          {!user && (
+            <button
+              type="button"
+              onClick={() => setMenuOpen(true)}
+              className={iconBtn}
+              aria-label="Меню"
+            >
+              <Menu size={24} strokeWidth={1.5} />
+            </button>
+          )}
+        </div>
       </header>
 
       {menuMounted && (
@@ -317,40 +367,53 @@ export default function Navbar() {
               </button>
             </div>
             <nav className="flex-1 overflow-y-auto overscroll-contain px-3 py-4 space-y-1">
-              {menuLink("/catalog", "Каталог", LayoutGrid)}
-              {menuLink("/builder/network", "Конструктор сети", Network)}
-              {menuLink("/builder/wifi", "Конструктор Wi‑Fi", Wifi)}
-              {user && (
+              {!phoneLayout && (
                 <>
-                  {menuLink("/favorites", "Избранное", Heart, admin)}
-                  {menuLink("/cart", "Корзина", ShoppingCart, admin)}
-                  {menuLink("/orders", "Заказы", ShoppingBag, admin)}
+                  {menuLink("/catalog", "Каталог", LayoutGrid)}
+                  {menuLink("/builder/network", "Конструктор сети", Network)}
+                  {menuLink("/builder/wifi", "Конструктор Wi‑Fi", Wifi)}
+                  {user && (
+                    <>
+                      {menuLink("/favorites", "Избранное", Heart, admin)}
+                      {menuLink("/cart", "Корзина", ShoppingCart, admin)}
+                      {menuLink("/orders", "Заказы", ShoppingBag, admin)}
+                    </>
+                  )}
+                  {user && menuLink("/profile", "Профиль", User)}
+                  {!admin && menuLink("/chat", "Поддержка", MessageCircle)}
+                  {user?.role === "ADMIN" && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        closeMenu();
+                        openAdminPanel();
+                      }}
+                      className="flex w-full items-center gap-3 rounded-[14px] px-4 py-3.5 text-left text-base font-medium text-ns-text transition-colors hover:bg-ns-hover"
+                    >
+                      <Settings
+                        size={20}
+                        className="shrink-0 text-ns-muted"
+                        strokeWidth={1.5}
+                      />
+                      Админ-панель
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => toggle()}
+                    className="flex w-full items-center gap-3 rounded-[14px] px-4 py-3.5 text-left text-base font-medium text-ns-text hover:bg-ns-hover"
+                    aria-label={themeToggleAriaLabel(dark)}
+                  >
+                    <ThemeToggleIcon size={20} className="text-ns-muted" />
+                    {dark ? "Светлая тема" : "Тёмная тема"}
+                  </button>
                 </>
               )}
-              {!admin && menuLink("/chat", "Поддержка", MessageCircle)}
-              {user && menuLink("/profile", "Профиль", User)}
-              {user?.role === "ADMIN" && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    closeMenu();
-                    openAdminPanel();
-                  }}
-                  className="flex w-full items-center gap-3 rounded-[14px] px-4 py-3.5 text-left text-base font-medium text-ns-text transition-colors hover:bg-ns-hover"
-                >
-                  <Settings size={20} className="shrink-0 text-ns-muted" strokeWidth={1.5} />
-                  Админ-панель
-                </button>
+              {phoneLayout && !user && (
+                <p className="px-4 py-2 text-sm text-ns-muted">
+                  Каталог, корзина и профиль — в нижнем меню.
+                </p>
               )}
-              <button
-                type="button"
-                onClick={() => toggle()}
-                className="flex w-full items-center gap-3 rounded-[14px] px-4 py-3.5 text-left text-base font-medium text-ns-text hover:bg-ns-hover"
-                aria-label={themeToggleAriaLabel(dark)}
-              >
-                <ThemeToggleIcon size={20} className="text-ns-muted" />
-                {dark ? "Светлая тема" : "Тёмная тема"}
-              </button>
             </nav>
             {!user && (
               <div className="shrink-0 space-y-2 border-t border-ns-border px-3 py-4">

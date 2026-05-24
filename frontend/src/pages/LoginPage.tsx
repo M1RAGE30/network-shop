@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { isAdminApp } from "../lib/appOrigins";
 import { redirectToAdminWithAuth } from "../lib/adminAuth";
@@ -11,6 +11,8 @@ import {
   authHeader,
   authInputCls,
   authLabel,
+  authForgotLink,
+  authForgotWrap,
   authLink,
   authPageWrap,
   authSubmitBtn,
@@ -132,7 +134,14 @@ export default function LoginPage() {
             )}
           </div>
           <div>
-            <label className={authLabel}>Пароль</label>
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <label className={authLabel + " mb-0"}>Пароль</label>
+              <div className={authForgotWrap + " mt-0"}>
+                <Link to="/forgot-password" className={authForgotLink}>
+                  Забыли пароль?
+                </Link>
+              </div>
+            </div>
             <div className="relative">
               <input
                 type={showPass ? "text" : "password"}

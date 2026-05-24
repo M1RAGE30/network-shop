@@ -8,6 +8,7 @@ import PhoneInput from "../components/PhoneInput";
 import { ShoppingCart, Package } from "lucide-react";
 import { useAuthStore } from "../store/authStore";
 import MediaImage from "../components/MediaImage";
+import { CheckoutPageSkeleton } from "../components/skeleton/Skeleton";
 
 interface FormState {
   address: string;
@@ -47,7 +48,7 @@ export default function CheckoutPage() {
     }));
   }, [user?.id]);
 
-  const { data: items = [] } = useQuery({
+  const { data: items = [], isPending: cartPending } = useQuery({
     queryKey: ["cart"],
     queryFn: () => api.get("/cart").then((r) => r.data),
   });
@@ -80,6 +81,10 @@ export default function CheckoutPage() {
     if (!isValid) return;
     orderMutation.mutate();
   };
+
+  if (cartPending) {
+    return <CheckoutPageSkeleton />;
+  }
 
   if (!items.length)
     return (

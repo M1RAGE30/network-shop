@@ -6,6 +6,7 @@ import { getSocket } from "../../lib/socket";
 import { useChatStore } from "../../store/chatStore";
 import { Send, MessageCircle, Trash2, ArrowLeft } from "lucide-react";
 import { pluralizeDialogs } from "../../lib/pluralize";
+import { AdminChatListSkeleton } from "../../components/skeleton/Skeleton";
 
 interface Message {
   id: number;
@@ -37,7 +38,7 @@ export default function AdminChatsPage() {
   const activeRoomRef = useRef<number | null>(null);
   const showChatRef = useRef(false);
 
-  const { data: rooms = [] } = useQuery<RoomPreview[]>({
+  const { data: rooms = [], isPending: roomsLoading } = useQuery<RoomPreview[]>({
     queryKey: ["admin-chats"],
     queryFn: () => api.get("/admin/chats").then((r) => r.data),
     refetchInterval: 8000,
@@ -173,20 +174,28 @@ export default function AdminChatsPage() {
           <p className="text-xs text-ns-muted mt-1">Диалоги с покупателями</p>
         </div>
         <div className="flex-1 overflow-y-auto">
-          {rooms.length === 0 && (
-            <div className="mx-4 mt-5 rounded-xl border border-dashed border-ns-border px-4 py-6 text-center">
+          {roomsLoading && rooms.length === 0 ? (
+            <div className="p-3">
+              <AdminChatListSkeleton rows={5} />
+            </div>
+          ) : rooms.length === 0 ? (
+            <div className="m-4 rounded-xl border border-dashed border-ns-border px-4 py-6 text-center">
               <p className="text-sm text-ns-text-secondary">Нет активных диалогов</p>
               <p className="text-xs text-ns-muted mt-1">Новые сообщения появятся здесь</p>
             </div>
-          )}
-          {rooms.map((room) => {
+          ) : (
+          rooms.map((room) => {
             const last = room.messages?.[0];
             const isActive = activeRoomId === room.id;
             return (
               <div
                 key={room.id}
                 onClick={() => handleOpenRoom(room.id)}
-                className={`flex items-center gap-3 px-4 py-3.5 cursor-pointer transition-colors group border-b border-ns-border/70 ${isActive ? "bg-ns-hover" : "hover:bg-ns-hover/70"}`}
+                className={`flex w-full items-center gap-3 px-5 py-3.5 cursor-pointer transition-colors group border-b border-ns-border/70 ${
+                  isActive
+                    ? "bg-ns-hover border-l-[3px] border-l-ns-accent pl-[calc(1.25rem-3px)]"
+                    : "hover:bg-ns-hover/70 border-l-[3px] border-l-transparent"
+                }`}
               >
                 <div className="flex-1 min-w-0">
                   <p
@@ -235,7 +244,8 @@ export default function AdminChatsPage() {
                 </div>
               </div>
             );
-          })}
+          })
+          )}
         </div>
       </div>
 

@@ -7,6 +7,7 @@ import { pluralizeUsers } from "../../lib/pluralize";
 import ConfirmDialog from "../../components/ConfirmDialog";
 import { inputCls, labelCls } from "../../lib/uiClasses";
 import { scrollToFormElement } from "../../lib/scrollToForm";
+import { AdminUsersListSkeleton } from "../../components/skeleton/Skeleton";
 
 interface UserRecord {
   id: number;
@@ -63,7 +64,7 @@ export default function AdminUsersPage() {
   });
   const editFormRef = useRef<HTMLDivElement>(null);
 
-  const { data: users = [] } = useQuery<UserRecord[]>({
+  const { data: users = [], isPending: usersLoading } = useQuery<UserRecord[]>({
     queryKey: ["admin-users"],
     queryFn: () => api.get("/users").then((r) => r.data),
   });
@@ -183,6 +184,9 @@ export default function AdminUsersPage() {
         </div>
       )}
 
+      {usersLoading ? (
+        <AdminUsersListSkeleton rows={6} />
+      ) : (
       <div className="aurora-card overflow-hidden">
         <div className="hidden lg:block overflow-x-auto">
           <table className="w-full text-sm">
@@ -323,6 +327,7 @@ export default function AdminUsersPage() {
           ))}
         </div>
       </div>
+      )}
 
       <ConfirmDialog
         open={confirmDelete.open}

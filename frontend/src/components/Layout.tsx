@@ -9,7 +9,6 @@ import MobileBottomNav from "./MobileBottomNav";
 export default function Layout() {
   const location = useLocation();
   const isHome = location.pathname === "/";
-  const hideFooter = location.pathname.startsWith("/builder/wifi");
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -33,11 +32,9 @@ export default function Layout() {
         )}
       </main>
 
-      {!hideFooter && (
-        <div className="relative z-10">
-          <Footer />
-        </div>
-      )}
+      <div className="relative z-10">
+        <Footer />
+      </div>
 
       <ToastContainer />
       <ChatButton />

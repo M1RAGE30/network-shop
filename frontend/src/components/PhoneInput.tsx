@@ -1,4 +1,7 @@
-﻿interface PhoneInputProps {
+import { authFieldError, authLabel } from "../lib/authFormStyles";
+import { inputCls } from "../lib/uiClasses";
+
+interface PhoneInputProps {
   value: string;
   onChange: (value: string) => void;
   error?: string;
@@ -25,9 +28,7 @@ export default function PhoneInput({
 
   return (
     <div>
-      <label className="block text-sm font-semibold text-ns-text mb-2">
-        Номер телефона
-      </label>
+      <label className={authLabel}>Номер телефона</label>
       <input
         type="tel"
         placeholder="+375 XX XXX-XX-XX"
@@ -36,15 +37,11 @@ export default function PhoneInput({
         onFocus={() => {
           if (!value) onChange("+375 ");
         }}
-        className={`w-full rounded-xl px-4 py-3 text-sm focus:outline-none transition-all bg-ns-input text-ns-text placeholder:text-ns-muted  ${
-          touched && error
-            ? "ring-2 ring-red-500"
-            : "focus:ring-2 focus:ring-ns-accent"
+        className={`${inputCls} ${
+          touched && error ? "ring-2 ring-ns-error" : ""
         }`}
       />
-      {touched && error && (
-        <p className="text-red-500 text-xs font-medium mt-1.5">{error}</p>
-      )}
+      {touched && error && <p className={authFieldError}>{error}</p>}
     </div>
   );
 }

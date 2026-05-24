@@ -15,20 +15,17 @@ const AdminBridgePage = lazy(() => import("./pages/AdminBridgePage"));
 const RegisterPage = lazy(() => import("./pages/RegisterPage"));
 const NotFoundPage = lazy(() => import("./pages/NotFoundPage"));
 const VerifyEmailPage = lazy(() => import("./pages/VerifyEmailPage"));
+const ForgotPasswordPage = lazy(() => import("./pages/ForgotPasswordPage"));
+const ResetPasswordPage = lazy(() => import("./pages/ResetPasswordPage"));
 const ChatPage = lazy(() => import("./pages/ChatPage"));
 const NetworkBuilderPage = lazy(
   () => import("./pages/builder/NetworkBuilderPage"),
 );
 const WifiBuilderPage = lazy(() => import("./pages/builder/WifiBuilderPage"));
 
-const PageLoader = () => (
-  <div className="flex items-center justify-center py-24">
-    <div
-      className="h-8 w-8 rounded-full border-2 border-ns-border border-t-ns-accent animate-spin"
-      aria-hidden
-    />
-  </div>
-);
+import { PageRouteSkeleton } from "./components/skeleton/Skeleton";
+
+const PageLoader = () => <PageRouteSkeleton />;
 
 export default function App() {
   return (
@@ -87,6 +84,22 @@ export default function App() {
           element={
             <Suspense fallback={<PageLoader />}>
               <VerifyEmailPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="forgot-password"
+          element={
+            <Suspense fallback={<PageLoader />}>
+              <ForgotPasswordPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="reset-password"
+          element={
+            <Suspense fallback={<PageLoader />}>
+              <ResetPasswordPage />
             </Suspense>
           }
         />

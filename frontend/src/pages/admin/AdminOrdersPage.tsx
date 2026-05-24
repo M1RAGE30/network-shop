@@ -13,6 +13,7 @@ import { pluralizeOrders } from "../../lib/pluralize";
 
 import OrderItemRow from "../../components/OrderItemRow";
 import OrderCardSummary from "../../components/OrderCardSummary";
+import { OrderListSkeleton } from "../../components/skeleton/Skeleton";
 import { orderStatusLabels } from "../../lib/orderStatus";
 
 
@@ -45,13 +46,11 @@ export default function AdminOrdersPage() {
 
 
 
-  const { data: orders = [] } = useQuery({
-
+  const { data: orders, isPending } = useQuery({
     queryKey: ["admin-orders"],
-
     queryFn: () => api.get("/orders").then((r) => r.data),
-
   });
+  const orderList = orders ?? [];
 
 
 
@@ -71,15 +70,15 @@ export default function AdminOrdersPage() {
 
   useEffect(() => {
 
-    if (orderFromUrl == null || orders.length === 0) return;
+    if (orderFromUrl == null || orderList.length === 0) return;
 
-    if (orders.some((o: { id: number }) => o.id === orderFromUrl)) {
+    if (orderList.some((o: { id: number }) => o.id === orderFromUrl)) {
 
       setExpanded(orderFromUrl);
 
     }
 
-  }, [orderFromUrl, orders]);
+  }, [orderFromUrl, orderList]);
 
 
 
@@ -99,7 +98,7 @@ export default function AdminOrdersPage() {
 
     return () => window.clearTimeout(t);
 
-  }, [expanded, orders.length]);
+  }, [expanded, orderList.length]);
 
 
 
@@ -145,33 +144,29 @@ export default function AdminOrdersPage() {
 
       <p className="text-sm sm:text-base font-semibold text-ns-muted">
 
-        Всего: {pluralizeOrders(orders.length)}
+        Всего: {isPending ? "…" : pluralizeOrders(orderList.length)}
 
       </p>
 
 
 
-      {orders.length === 0 ? (
-
-        <div className="ns-page-empty aurora-card flex-1 min-h-0 rounded-2xl">
-
+      {isPending ? (
+        <OrderListSkeleton count={4} />
+      ) : orderList.length === 0 ? (
+        <div className="py-16 text-center">
           <ShoppingBag
-
-            strokeWidth={1}
-
-            className="ns-page-empty__icon"
-
+            size={48}
+            strokeWidth={1.25}
+            className="mx-auto mb-4 text-ns-muted"
+            aria-hidden
           />
-
-          <p className="text-lg xl:text-xl text-ns-muted">Заказов пока нет</p>
-
+          <p className="text-lg text-ns-muted">Заказов пока нет</p>
         </div>
-
       ) : (
 
         <div className="space-y-3 sm:space-y-4">
 
-          {orders.map((order: any) => {
+          {orderList.map((order: any) => {
 
             const isOpen = expanded === order.id;
 

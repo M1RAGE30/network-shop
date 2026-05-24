@@ -108,6 +108,12 @@ export default function ProductCard({
   const isLowStock = product.stock > 0 && product.stock <= 5;
   const isOutOfStock = product.stock === 0;
 
+  const cardSpecs = product.specs
+    ? Object.entries(product.specs as Record<string, string>)
+        .filter(([key]) => key !== "Бренд")
+        .slice(0, 3)
+    : [];
+
   return (
     <Link
       to={`/catalog/${product.slug}`}
@@ -128,12 +134,16 @@ export default function ProductCard({
         )}
 
         {showFavoriteToggle && (
-          <div className="ns-card-fav absolute top-0 left-0 right-0 z-10 flex items-start justify-end p-3">
+          <div className="ns-card-fav absolute top-3 right-3 z-10">
             <button
               type="button"
-              onClick={handleFavorite}
+              onClick={(e) => {
+                handleFavorite(e);
+                e.currentTarget.blur();
+              }}
+              onPointerDown={(e) => e.stopPropagation()}
               disabled={shopLocked}
-              className={`ns-icon-round ns-fav-btn p-2 shadow-sm ${
+              className={`ns-icon-round ns-fav-btn min-h-11 min-w-11 p-2.5 shadow-sm touch-manipulation ${
                 shopLocked ? "cursor-not-allowed opacity-45" : "cursor-pointer"
               }`}
               aria-label={
@@ -171,38 +181,34 @@ export default function ProductCard({
         )}
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col p-2.5 sm:p-4">
-        <span className="ns-caption mb-1 mt-1 block truncate uppercase tracking-wider text-[11px] sm:mb-4 sm:mt-4 sm:text-xs">
+      <div className="flex min-h-0 flex-1 flex-col p-2.5 sm:p-4 text-left">
+        <span className="ns-caption mb-1 mt-1 block truncate uppercase tracking-wider text-[11px] md:mb-2 md:mt-2 md:text-xs">
           {product.brand.name}
         </span>
-        <p className="ns-heading-card mb-1 line-clamp-2 text-sm leading-snug sm:mb-2 sm:text-base">
+        <p className="ns-heading-card mb-1 line-clamp-2 text-sm leading-snug md:mb-2 md:text-base">
           {product.name}
         </p>
 
-        <div className="mb-auto h-[4.5rem] space-y-1 overflow-hidden hidden md:block">
-          {product.specs && Object.keys(product.specs).length > 0 && (
-            <>
-              {Object.entries(product.specs as Record<string, string>)
-                .slice(0, 3)
-                .map(([key, value]) => (
-                  <div
-                    key={key}
-                    className="flex min-w-0 items-start gap-1 text-[10px] leading-tight lg:text-[11px]"
-                  >
-                    <span className="max-w-[42%] shrink-0 truncate text-ns-muted">
-                      {key}:
-                    </span>
-                    <span className="min-w-0 flex-1 text-ns-text-secondary font-medium line-clamp-1">
-                      {value}
-                    </span>
-                  </div>
-                ))}
-            </>
-          )}
-        </div>
+        {cardSpecs.length > 0 && (
+          <div className="mb-2 hidden min-h-[3.25rem] space-y-1 overflow-hidden md:block">
+            {cardSpecs.map(([key, value]) => (
+              <div
+                key={key}
+                className="flex min-w-0 items-start gap-1 text-[10px] leading-tight lg:text-[11px]"
+              >
+                <span className="max-w-[42%] shrink-0 truncate text-ns-muted">
+                  {key}:
+                </span>
+                <span className="min-w-0 flex-1 text-ns-text-secondary font-medium line-clamp-1">
+                  {value}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
 
-        <div className="mt-auto pt-2 sm:mt-4 sm:pt-3">
-          <div className="mb-2 flex items-center justify-center sm:mb-3">
+        <div className="mt-auto pt-2 md:pt-1">
+          <div className="mb-2 flex items-center justify-center">
             <span className="text-sm font-semibold text-ns-text sm:text-lg">
               {formatPrice(product.price)}
             </span>
@@ -216,7 +222,7 @@ export default function ProductCard({
               onClick={(e) => e.preventDefault()}
             >
               <ShoppingCart size={14} strokeWidth={1.5} />
-              <span>Купить</span>
+              <span>В корзину</span>
             </button>
           ) : canShop && cartItem ? (
             <div
@@ -248,7 +254,7 @@ export default function ProductCard({
               className="ns-btn ns-btn-primary w-full text-xs disabled:opacity-30"
             >
               <ShoppingCart size={14} strokeWidth={1.5} />
-              <span>Купить</span>
+              <span>В корзину</span>
             </button>
           ) : null}
         </div>

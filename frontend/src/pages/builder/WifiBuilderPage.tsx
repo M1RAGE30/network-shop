@@ -22,6 +22,7 @@ import {
   wifiHeatmapRadiusPx,
 } from "../../lib/networkSelector";
 import { themeCanvasColors } from "../../lib/themeColors";
+import { inputCls, selectCls } from "../../lib/uiClasses";
 
 interface Product {
   id: number;
@@ -240,8 +241,8 @@ export default function WifiBuilderPage() {
             ctx.stroke();
             ctx.setLineDash([]);
 
-            const labelFont = 10;
-            ctx.font = `600 ${labelFont}px Inter, sans-serif`;
+            const labelFont = 12;
+            ctx.font = `700 ${labelFont}px Inter, system-ui, sans-serif`;
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
 
@@ -249,9 +250,9 @@ export default function WifiBuilderPage() {
             ctx.moveTo(px, py);
             ctx.lineTo(px + radiusPx, py);
             ctx.strokeStyle = dark
-              ? "rgba(250, 250, 250, 0.2)"
-              : "rgba(9, 9, 11, 0.15)";
-            ctx.lineWidth = 1;
+              ? "rgba(250, 250, 250, 0.45)"
+              : "rgba(9, 9, 11, 0.35)";
+            ctx.lineWidth = 1.5;
             ctx.setLineDash([3, 4]);
             ctx.stroke();
             ctx.setLineDash([]);
@@ -259,20 +260,28 @@ export default function WifiBuilderPage() {
             ZONE_BOUNDARY_RATIOS.forEach((ratio) => {
               const meters = Math.max(1, Math.round(radiusM * ratio));
               const dist = radiusPx * ratio;
-              const lx = clamp(px + dist, 28, CANVAS_W - 28);
-              const ly = clamp(py, 14, CANVAS_H - 14);
-              const label = `${meters}м`;
+              const lx = clamp(px + dist, 32, CANVAS_W - 32);
+              const ly = clamp(py, 18, CANVAS_H - 18);
+              const label = `${meters} м`;
               const tw = ctx.measureText(label).width;
+              const padX = 6;
+              const padY = 4;
+              const boxW = tw + padX * 2;
+              const boxH = labelFont + padY * 2;
               ctx.fillStyle = dark
-                ? "rgba(9,9,11,0.78)"
-                : "rgba(250,250,250,0.88)";
-              ctx.fillRect(
-                lx - tw / 2 - 4,
-                ly - labelFont / 2 - 3,
-                tw + 8,
-                labelFont + 6,
-              );
-              ctx.fillStyle = colors.label;
+                ? "rgba(9, 9, 11, 0.92)"
+                : "rgba(255, 255, 255, 0.96)";
+              ctx.strokeStyle = dark
+                ? "rgba(250, 250, 250, 0.35)"
+                : "rgba(9, 9, 11, 0.2)";
+              ctx.lineWidth = 1;
+              const bx = lx - boxW / 2;
+              const by = ly - boxH / 2;
+              ctx.beginPath();
+              ctx.roundRect(bx, by, boxW, boxH, 4);
+              ctx.fill();
+              ctx.stroke();
+              ctx.fillStyle = dark ? "#fafafa" : "#09090b";
               ctx.fillText(label, lx, ly);
             });
 
@@ -448,7 +457,7 @@ export default function WifiBuilderPage() {
                   max={1500}
                   value={targetArea}
                   onChange={(e) => setTargetArea(e.target.value)}
-                  className="w-full bg-ns-input rounded-xl px-4 py-3 text-sm text-ns-text focus:outline-none focus:ring-2 focus:ring-ns-accent"
+                  className={inputCls}
                 />
               </div>
               {recommendedDevice && (
@@ -515,7 +524,7 @@ export default function WifiBuilderPage() {
             <select
               value={selectedProductId ?? ""}
               onChange={(e) => setSelectedProductId(Number(e.target.value))}
-              className="w-full bg-ns-input rounded-xl px-4 py-3 text-sm text-ns-text focus:outline-none focus:ring-2 focus:ring-ns-accent appearance-none pr-10"
+              className={selectCls}
               style={{
                 backgroundImage:
                   "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1L6 6L11 1' stroke='%236e6e73' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E\")",

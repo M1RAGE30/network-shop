@@ -18,6 +18,8 @@ import { isAdmin, isCustomer } from "../lib/roles";
 import { useState } from "react";
 import { pluralizeReviews } from "../lib/pluralize";
 import MediaImage from "../components/MediaImage";
+import { ProductPageSkeleton } from "../components/skeleton/Skeleton";
+import { textareaCls } from "../lib/uiClasses";
 
 export default function ProductPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -89,18 +91,7 @@ export default function ProductPage() {
   });
 
   if (isLoading) {
-    return (
-      <div className="max-w-6xl mx-auto">
-        <div className="grid md:grid-cols-2 gap-8">
-          <div className="bg-ns-input rounded-3xl aspect-square animate-pulse" />
-          <div className="space-y-6">
-            <div className="h-4 bg-ns-input w-1/3 rounded animate-pulse" />
-            <div className="h-10 bg-ns-input w-2/3 rounded animate-pulse" />
-            <div className="h-12 bg-ns-input w-1/4 rounded animate-pulse" />
-          </div>
-        </div>
-      </div>
-    );
+    return <ProductPageSkeleton />;
   }
 
   if (!product)
@@ -226,7 +217,7 @@ export default function ProductPage() {
                 className="aurora-button flex-1 min-w-0 min-h-[var(--ns-height-btn)] flex items-center justify-center gap-2 text-sm font-medium opacity-45 cursor-not-allowed"
               >
                 <ShoppingCart size={18} strokeWidth={1.5} className="sm:w-5 sm:h-5" />
-                Купить
+                В корзину
               </button>
             ) : canShop && cartItem ? (
               <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
@@ -273,14 +264,14 @@ export default function ProductPage() {
                   strokeWidth={1.5}
                   className="sm:w-5 sm:h-5"
                 />{" "}
-                Купить
+                В корзину
               </button>
             ) : !user ? (
               <Link
                 to="/login"
                 className="aurora-button flex-1 min-w-0 flex items-center justify-center gap-2 text-sm font-medium transition-transform hover:scale-[1.01] active:scale-[0.99]"
               >
-                Войти, чтобы купить
+                Войти, чтобы добавить в корзину
               </Link>
             ) : null}
 
@@ -381,7 +372,7 @@ export default function ProductPage() {
             <textarea
               rows={4}
               placeholder="Расскажите о товаре..."
-              className="w-full rounded-2xl px-4 py-3 text-sm resize-none ns-chip text-ns-text placeholder:text-ns-muted  focus:outline-none transition-all"
+              className={textareaCls}
               value={comment}
               onChange={(e) => setComment(e.target.value)}
             />

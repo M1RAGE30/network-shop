@@ -23,35 +23,48 @@ const WHY = [
 export default function HomePage() {
   return (
     <div className="relative ns-reduce-motion">
-      <section className="ns-container ns-hero-section pb-16 md:pb-20 lg:pb-24">
-        <div className="flex w-full flex-col gap-12 lg:grid lg:grid-cols-2 lg:gap-16 lg:items-center">
-          <div className="ns-hero-stagger flex flex-col max-w-[620px] gap-6 lg:gap-8">
+      <section className="ns-container ns-hero-section ns-home-hero pb-10 sm:pb-16 md:pb-20 lg:pb-24">
+        <div className="ns-home-hero__layout">
+          <div className="ns-hero-stagger ns-home-hero__copy flex flex-col gap-5 sm:gap-6 lg:gap-8">
             <p className="ns-caption uppercase tracking-wide">Профессиональное сетевое оборудование</p>
-            <h1 className="ns-heading-hero max-w-[650px]">Сетевые решения для дома и бизнеса</h1>
-            <p className="ns-body-secondary max-w-[500px]">
+            <h1 className="ns-heading-hero">Сетевые решения для дома и бизнеса</h1>
+            <p className="ns-body-secondary">
               Маршрутизаторы, коммутаторы, точки доступа и кабельная инфраструктура —
               подбор оборудования, конструкторы топологии и доставка в одном магазине.
             </p>
-            <div className="flex flex-col gap-3 w-full sm:flex-row sm:flex-wrap pt-2 lg:pt-4">
-              <ButtonLink to="/catalog" variant="primary" className="px-8 justify-center">
+            <div className="ns-home-hero__actions pt-1 sm:pt-2 lg:pt-4">
+              <ButtonLink
+                to="/catalog"
+                variant="primary"
+                className="w-full min-[420px]:w-auto px-8 justify-center"
+              >
                 Каталог
               </ButtonLink>
-              <ButtonLink to="/builder/network" variant="secondary" className="px-8 justify-center">
+              <ButtonLink
+                to="/builder/network"
+                variant="secondary"
+                className="w-full min-[420px]:w-auto px-8 justify-center"
+              >
                 Конструктор сети
               </ButtonLink>
             </div>
           </div>
-          <div className="ns-hero-visual w-full max-w-[600px] mx-auto lg:justify-self-end lg:min-h-[500px]">
+          <div className="ns-hero-visual ns-home-hero__visual">
             <NetworkHeroVisual />
           </div>
         </div>
       </section>
 
-      <section className="ns-container ns-section-y">
-        <h2 className="ns-heading-section text-center mb-10 md:mb-12">Почему выбирают нас</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <section className="ns-container ns-section-y ns-home-why">
+        <h2 className="ns-heading-section text-center mb-8 sm:mb-10 md:mb-12">
+          Почему выбирают нас
+        </h2>
+        <div className="ns-home-why__grid">
           {WHY.map(({ icon: Icon, title, desc }) => (
-            <article key={title} className="ns-card flex flex-col ns-card-padding min-h-[240px]">
+            <article
+              key={title}
+              className="ns-card flex flex-col ns-card-padding min-h-0 sm:min-h-[220px] lg:min-h-[240px]"
+            >
               <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-[14px] bg-ns-hover text-ns-icon">
                 <Icon size={24} strokeWidth={1.5} />
               </div>

@@ -79,7 +79,9 @@ export default function MobileBottomNav() {
 
   return (
     <nav
-      className="ns-bottom-nav fixed bottom-0 inset-x-0 z-50 md:hidden pb-[env(safe-area-inset-bottom)]"
+      className={`ns-bottom-nav md:hidden ${
+        buildersOpen ? "ns-bottom-nav--builders-open" : ""
+      }`}
       aria-label="Нижняя навигация"
     >
       {buildersOpen && (
@@ -93,7 +95,7 @@ export default function MobileBottomNav() {
         />
       )}
 
-      <div className="ns-bottom-nav__bar relative z-50 flex h-[76px] items-stretch justify-around px-1">
+      <div className="ns-bottom-nav__bar relative z-50 flex items-stretch justify-around px-1">
         {navItems.map((item) => {
           if ("key" in item && item.key === "builders") {
             const active = item.match(location.pathname);

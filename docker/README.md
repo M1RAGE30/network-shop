@@ -42,6 +42,8 @@ docker compose --profile tools up -d --build
 
 Порты: основной магазин **5173**, админка **5174**, API **3000**.
 
+Письма (подтверждение email, сброс пароля): в **`backend/.env`** нужны `SMTP_*` и `SHOP_URL=http://localhost:5173` (ссылки ведут на витрину с хоста).
+
 Подсказки адреса (DaData): ключ задаётся в **`frontend/.env`**, не в `backend/.env`:
 
 ```env
