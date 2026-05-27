@@ -1,4 +1,5 @@
 ﻿import { useEffect } from "react";
+import { createPortal } from "react-dom";
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -42,7 +43,8 @@ export default function ConfirmDialog({
 
   if (!open) return null;
 
-  return (
+  return createPortal(
+    (
     <div className="fixed inset-0 z-[120] flex items-center justify-center px-4">
       <div
         className="absolute inset-0 bg-black/40 backdrop-blur-sm"
@@ -74,6 +76,8 @@ export default function ConfirmDialog({
         </div>
       </div>
     </div>
+    ),
+    document.body,
   );
 }
 

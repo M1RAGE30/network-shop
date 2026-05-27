@@ -387,6 +387,25 @@ function pickPatchCordForLength(products: Product[], requiredM: number): Product
   );
 }
 
+function shortDeviceReason(
+  kind: "router" | "switch" | "ap" | "adapter" | "patch",
+  params: Record<string, string | number>,
+): string {
+  if (kind === "router") {
+    return `Роутер: площадь ${params.area} м², клиентов ${params.clients}; баланс покрытия и скорости.`;
+  }
+  if (kind === "switch") {
+    return `Коммутатор: LAN-устройств ${params.lanDevices}, нужно портов ${params.portsNeeded}, в модели ${params.portsInModel}.`;
+  }
+  if (kind === "ap") {
+    return `Точки доступа: ${params.count} шт., закрывают зоны вне радиуса роутера на схеме.`;
+  }
+  if (kind === "adapter") {
+    return `USB Ethernet: добавлено ${params.count} шт. для клиентов без LAN.`;
+  }
+  return `Патч-корд: ${params.count} шт., рассчитано по схеме (макс. ${params.maxLen} м).`;
+}
+
 function buildSceneState(
   numbers: {
     width: number;
@@ -719,8 +738,7 @@ export default function NetworkBuilderPage() {
       items.push({
         product: router,
         quantity: 1,
-        reason:
-          "Основной маршрутизатор: площадь, нагрузка и насколько выбранная модель закрывает беспроводных клиентов с текущего места роутера на схеме.",
+        reason: shortDeviceReason("router", { area, clients: totalClients }),
       });
     }
 
@@ -734,16 +752,17 @@ export default function NetworkBuilderPage() {
     const baseLanPorts = lanDevices > 0 ? lanDevices + 1 : 0;
     const portHeadroom = Math.max(3, Math.ceil(baseLanPorts * 0.22));
     const portsNeeded = baseLanPorts + portHeadroom;
+    const minPortsRequired = baseLanPorts;
 
     if (baseLanPorts >= 1 && switches.length > 0) {
       const eligible = switches.filter(
-        (sw) => getPortCount(sw) >= portsNeeded,
+        (sw) => getPortCount(sw) >= minPortsRequired,
       );
       const pool = eligible.length > 0 ? eligible : switches;
       const sw = pickBest(
         pool,
         (switchCandidate) => {
-          let s =
+          const s =
             scoreSwitch(switchCandidate, {
               portsNeeded,
               preferManaged:
@@ -752,18 +771,27 @@ export default function NetworkBuilderPage() {
               office: form.spaceType === "office",
             }) + scoreSwitchLayoutFit(switchCandidate, scene);
           const ports = getPortCount(switchCandidate);
-          if (eligible.length === 0 && ports < portsNeeded) {
-            return s - (portsNeeded - ports) * 4;
+          if (eligible.length === 0 && ports < minPortsRequired) {
+            return s - (minPortsRequired - ports) * 5;
           }
           return s;
         },
       ) as Product | null;
       if (sw) {
+        const portsInModel = Math.max(1, getPortCount(sw));
+        const switchQty = Math.max(
+          1,
+          Math.ceil(minPortsRequired / portsInModel),
+        );
         const insertAt = router ? 1 : 0;
         items.splice(insertAt, 0, {
           product: sw,
-          quantity: 1,
-          reason: `Коммутатор: ПК ${numbers.wired}, принтеры/периферия ${numbers.printers}, точки доступа ${apsCount}; с запасом — не менее ${portsNeeded} портов (в карточке — ${getPortCount(sw)}). Дополнительно учтены расстояния на схеме до ТД и проводных устройств (PoE при длинных линиях к точкам).`,
+          quantity: switchQty,
+          reason: shortDeviceReason("switch", {
+            lanDevices,
+            portsNeeded,
+            portsInModel,
+          }),
         });
       }
     }
@@ -776,13 +804,11 @@ export default function NetworkBuilderPage() {
           scoreWifiConstructorAp(apCandidate, area, clientsPerApEst) +
           scoreApLayoutFit(apCandidate, scene, routerRadiusM),
       ) as Product | null;
-      const referenceCoverage = bestAp ? getCoverageM2(bestAp) : 100;
-      const apRadiusM = Math.max(2, Math.sqrt(referenceCoverage / Math.PI));
       if (bestAp && apsCount > 0) {
         items.push({
           product: bestAp,
           quantity: apsCount,
-          reason: `Точки доступа: радиус в расчёте ~${Math.round(apRadiusM)} м; модель подобрана с учётом того, насколько её зона закрывает беспроводных клиентов вне радиуса роутера относительно расположенных на плане ТД.`,
+          reason: shortDeviceReason("ap", { count: apsCount }),
         });
       }
     }
@@ -793,11 +819,11 @@ export default function NetworkBuilderPage() {
         (adapterCandidate) => scoreAdapter(adapterCandidate),
       ) as Product | null;
       if (adapter) {
+        const adapterQty = Math.max(1, Math.floor(numbers.wireless / 4));
         items.push({
           product: adapter,
-          quantity: Math.max(1, Math.floor(numbers.wireless / 4)),
-          reason:
-            "USB Ethernet: для ПК/ноутбуков без встроенного гигабитного LAN (часто тонкие клиенты).",
+          quantity: adapterQty,
+          reason: shortDeviceReason("adapter", { count: adapterQty }),
         });
       }
     }
@@ -823,7 +849,10 @@ export default function NetworkBuilderPage() {
         items.push({
           product: item.product,
           quantity: item.quantity,
-          reason: `Патч-корд: ${item.quantity} шт. для реальных проводных соединений на схеме; максимальная расчётная длина с запасом — ${item.maxLength.toFixed(1)} м.`,
+          reason: shortDeviceReason("patch", {
+            count: item.quantity,
+            maxLen: item.maxLength.toFixed(1),
+          }),
         });
       }
     }
@@ -842,7 +871,7 @@ export default function NetworkBuilderPage() {
     form.spaceType,
   ]);
 
-  const { recommendation, routerRadiusM, cableConnections } = kit;
+  const { recommendation } = kit;
 
   const totalPrice = recommendation.reduce(
     (s, i) => s + Number(i.product.price) * i.quantity,
@@ -1167,8 +1196,7 @@ export default function NetworkBuilderPage() {
     if (canvas && hadDrag) {
       try {
         canvas.releasePointerCapture(e.pointerId);
-      } catch {
-      }
+      } catch {}
     }
     dragRef.current = null;
     if (hadDrag && showCalculated) {
@@ -1266,7 +1294,7 @@ export default function NetworkBuilderPage() {
                       key={opt.id}
                       type="button"
                       onClick={() => update("spaceType", opt.id)}
-                      className={`flex-1 px-3 py-3 rounded-xl text-sm font-medium transition-colors ${
+                      className={`flex-1 h-[38px] sm:h-[40px] px-3 rounded-xl text-sm font-medium transition-colors ${
                         form.spaceType === opt.id
                           ? "bg-ns-accent text-ns-accent-fg"
                           : "ns-chip text-ns-text hover:bg-ns-hover"

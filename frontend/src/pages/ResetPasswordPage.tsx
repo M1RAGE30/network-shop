@@ -37,7 +37,7 @@ export default function ResetPasswordPage() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [done, setDone] = useState(false);
+  const [successRedirecting, setSuccessRedirecting] = useState(false);
 
   useEffect(() => {
     if (!token) {
@@ -67,8 +67,9 @@ export default function ResetPasswordPage() {
     setError("");
     try {
       await api.post("/auth/reset-password", { token, password });
-      setDone(true);
-      window.setTimeout(() => navigate("/login", { replace: true }), 2500);
+      setSuccessRedirecting(true);
+      window.setTimeout(() => navigate("/login", { replace: true }), 1800);
+      return;
     } catch (err: any) {
       setError(
         err.response?.data?.message || "Не удалось обновить пароль",
@@ -117,6 +118,26 @@ export default function ResetPasswordPage() {
     );
   }
 
+  if (successRedirecting) {
+    return (
+      <div className={authPageWrap}>
+        <div className={`${authCard} space-y-5 text-center`}>
+          <div className="flex justify-center">
+            <Loader2
+              className="h-9 w-9 animate-spin text-ns-muted"
+              strokeWidth={1.75}
+              aria-label="Переход на страницу входа"
+            />
+          </div>
+          <div className={authSuccessBox}>
+            Пароль успешно обновлён. Сейчас вы будете перенаправлены на страницу
+            входа.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={authPageWrap}>
       <div className={authCard}>
@@ -125,98 +146,90 @@ export default function ResetPasswordPage() {
           <p className={authSubtitle}>Придумайте новый пароль для входа</p>
         </div>
 
-        {done ? (
-          <div className={authSuccessBox}>
-            Пароль обновлён. Сейчас откроется страница входа…
+        <form onSubmit={handleSubmit} className={authForm} noValidate>
+          {error && <div className={authErrorBox}>{error}</div>}
+          <div>
+            <label className={authLabel}>Новый пароль</label>
+            <div className="relative">
+              <input
+                type={showPass ? "text" : "password"}
+                autoComplete="new-password"
+                className={
+                  authInputCls(!!touched.password && !!errors.password) +
+                  " pr-11"
+                }
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  setError("");
+                }}
+                onBlur={() => touch("password")}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPass((p) => !p)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-ns-muted hover:text-ns-text transition-colors"
+                aria-label={showPass ? "Скрыть пароль" : "Показать пароль"}
+              >
+                {showPass ? (
+                  <EyeOff size={18} strokeWidth={1.5} />
+                ) : (
+                  <Eye size={18} strokeWidth={1.5} />
+                )}
+              </button>
+            </div>
+            {touched.password && errors.password && (
+              <p className={authFieldError}>{errors.password}</p>
+            )}
           </div>
-        ) : (
-          <form onSubmit={handleSubmit} className={authForm} noValidate>
-            {error && <div className={authErrorBox}>{error}</div>}
-            <div>
-              <label className={authLabel}>Новый пароль</label>
-              <div className="relative">
-                <input
-                  type={showPass ? "text" : "password"}
-                  autoComplete="new-password"
-                  className={
-                    authInputCls(!!touched.password && !!errors.password) +
-                    " pr-11"
-                  }
-                  value={password}
-                  onChange={(e) => {
-                    setPassword(e.target.value);
-                    setError("");
-                  }}
-                  onBlur={() => touch("password")}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPass((p) => !p)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-ns-muted hover:text-ns-text transition-colors"
-                  aria-label={showPass ? "Скрыть пароль" : "Показать пароль"}
-                >
-                  {showPass ? (
-                    <EyeOff size={18} strokeWidth={1.5} />
-                  ) : (
-                    <Eye size={18} strokeWidth={1.5} />
-                  )}
-                </button>
-              </div>
-              {touched.password && errors.password && (
-                <p className={authFieldError}>{errors.password}</p>
-              )}
+          <div>
+            <label className={authLabel}>Подтверждение пароля</label>
+            <div className="relative">
+              <input
+                type={showConfirm ? "text" : "password"}
+                autoComplete="new-password"
+                className={
+                  authInputCls(
+                    !!touched.confirmPassword && !!errors.confirmPassword,
+                  ) + " pr-11"
+                }
+                value={confirmPassword}
+                onChange={(e) => {
+                  setConfirmPassword(e.target.value);
+                  setError("");
+                }}
+                onBlur={() => touch("confirmPassword")}
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirm((p) => !p)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-ns-muted hover:text-ns-text transition-colors"
+                aria-label={showConfirm ? "Скрыть пароль" : "Показать пароль"}
+              >
+                {showConfirm ? (
+                  <EyeOff size={18} strokeWidth={1.5} />
+                ) : (
+                  <Eye size={18} strokeWidth={1.5} />
+                )}
+              </button>
             </div>
-            <div>
-              <label className={authLabel}>Подтверждение пароля</label>
-              <div className="relative">
-                <input
-                  type={showConfirm ? "text" : "password"}
-                  autoComplete="new-password"
-                  className={
-                    authInputCls(
-                      !!touched.confirmPassword && !!errors.confirmPassword,
-                    ) + " pr-11"
-                  }
-                  value={confirmPassword}
-                  onChange={(e) => {
-                    setConfirmPassword(e.target.value);
-                    setError("");
-                  }}
-                  onBlur={() => touch("confirmPassword")}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirm((p) => !p)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-ns-muted hover:text-ns-text transition-colors"
-                  aria-label={
-                    showConfirm ? "Скрыть пароль" : "Показать пароль"
-                  }
-                >
-                  {showConfirm ? (
-                    <EyeOff size={18} strokeWidth={1.5} />
-                  ) : (
-                    <Eye size={18} strokeWidth={1.5} />
-                  )}
-                </button>
-              </div>
-              {touched.confirmPassword && errors.confirmPassword && (
-                <p className={authFieldError}>{errors.confirmPassword}</p>
-              )}
-            </div>
-            <button
-              type="submit"
-              disabled={loading || !password || !confirmPassword}
-              className={authSubmitBtn}
-            >
-              {loading ? "Сохранение..." : "Сохранить пароль"}
-            </button>
-            <p className={authFooter}>
-              <Link to="/login" className={authLink}>
-                Вернуться ко входу
-              </Link>
-            </p>
-          </form>
-        )}
+            {touched.confirmPassword && errors.confirmPassword && (
+              <p className={authFieldError}>{errors.confirmPassword}</p>
+            )}
+          </div>
+          <button
+            type="submit"
+            disabled={loading || !password || !confirmPassword}
+            className={authSubmitBtn}
+          >
+            {loading ? "Сохранение..." : "Обновить пароль"}
+          </button>
+          <p className={authFooter}>
+            <Link to="/login" className={authLink}>
+              Вернуться ко входу
+            </Link>
+          </p>
+        </form>
       </div>
     </div>
   );

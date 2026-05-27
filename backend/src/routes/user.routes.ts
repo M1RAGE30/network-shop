@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { authenticate, requireAdmin } from "../middleware/auth.middleware";
+import { authenticate, requireAdmin, AuthRequest } from "../middleware/auth.middleware";
 import prisma from "../lib/prisma";
 
 const router = Router();
@@ -21,7 +21,7 @@ router.get("/", async (_req, res) => {
   return res.json(users);
 });
 
-router.put("/:id/role", async (req, res) => {
+router.put("/:id/role", async (req: AuthRequest<{ id: string }>, res) => {
   const targetId = parseInt(req.params.id, 10);
   if (targetId === req.userId) {
     return res
@@ -44,7 +44,7 @@ router.put("/:id/role", async (req, res) => {
   }
 });
 
-router.put("/:id", async (req, res) => {
+router.put("/:id", async (req: AuthRequest<{ id: string }>, res) => {
   const targetId = parseInt(req.params.id, 10);
   if (targetId === req.userId) {
     return res
@@ -70,7 +70,7 @@ router.put("/:id", async (req, res) => {
   }
 });
 
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", async (req: AuthRequest<{ id: string }>, res) => {
   const targetId = parseInt(req.params.id, 10);
   if (targetId === req.userId) {
     return res

@@ -869,6 +869,34 @@
     margin-inline: 0;
   }
 
+  .ns-admin-stats-export {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 0.5rem;
+    width: fit-content;
+    max-width: 100%;
+  }
+
+  .ns-admin-stats-export .ns-admin-stats-export__date.ns-input:not(textarea) {
+    width: 11.5rem;
+    max-width: 11.5rem;
+    flex: 0 0 11.5rem;
+    min-width: 0;
+  }
+
+  @media (max-width: 639px) {
+    .ns-admin-stats-export {
+      width: 100%;
+    }
+
+    .ns-admin-stats-export .ns-admin-stats-export__date.ns-input:not(textarea) {
+      width: auto;
+      max-width: none;
+      flex: 1 1 0;
+    }
+  }
+
   .ns-page-narrow {
     width: 100%;
     max-width: var(--ns-page-narrow-max);
@@ -1073,16 +1101,33 @@
 
   .ns-category-rail__scroll {
     display: flex;
+    flex-wrap: wrap;
     gap: 8px;
-    overflow-x: auto;
-    scroll-snap-type: x proximity;
-    -webkit-overflow-scrolling: touch;
-    padding-bottom: 4px;
-    scrollbar-width: none;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
   }
 
-  .ns-category-rail__scroll::-webkit-scrollbar {
-    display: none;
+  @media (min-width: 1536px) {
+    .ns-category-rail__scroll {
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      scroll-snap-type: x proximity;
+      -webkit-overflow-scrolling: touch;
+      padding-bottom: 4px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--color-ns-border) transparent;
+    }
+
+    .ns-category-rail__scroll::-webkit-scrollbar {
+      display: block;
+      height: 6px;
+    }
+
+    .ns-category-rail__scroll::-webkit-scrollbar-thumb {
+      background: var(--color-ns-border);
+      border-radius: 999px;
+    }
   }
 
   .ns-category-rail__pill {
@@ -1393,7 +1438,6 @@
     transition: opacity 0.2s ease;
   }
 
-  /* Только мышь: сердечко по hover; на телефонах и планшетах — всегда видно */
   @media (hover: hover) and (pointer: fine) {
     .ns-card .ns-card-fav {
       opacity: 0;
@@ -1619,7 +1663,6 @@
       border-color 0.25s ease;
   }
 
-  /* Светлая тема: белая панель без тени */
   :root:not(.dark) .ns-bottom-nav:not(.ns-bottom-nav--builders-open) {
     background: #ffffff;
     border-top-color: rgba(9, 9, 11, 0.1);
@@ -1637,7 +1680,6 @@
     background-color: #09090b;
   }
 
-  /* Раскрыты конструкторы — цвет как у интерфейса (в обеих темах) */
   .ns-bottom-nav--builders-open {
     background: var(--color-ns-bg);
     border-top-color: var(--color-ns-border);
@@ -1679,23 +1721,25 @@
   }
 
   .ns-catalog-filter-sheet {
-    transform: translateY(100%);
+    transform: translate3d(0, 100%, 0);
     transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1);
     will-change: transform;
+    backface-visibility: hidden;
   }
 
   .ns-catalog-filter-sheet--open {
-    transform: translateY(0);
+    transform: translate3d(0, 0, 0);
   }
 
   .ns-catalog-filter-drawer {
-    transform: translateX(100%);
+    transform: translate3d(100%, 0, 0);
     transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1);
     will-change: transform;
+    backface-visibility: hidden;
   }
 
   .ns-catalog-filter-drawer--open {
-    transform: translateX(0);
+    transform: translate3d(0, 0, 0);
   }
 
   .ns-dropdown-up {
@@ -2015,6 +2059,10 @@ body.ns-overlay-open {
   touch-action: none;
 }
 
+body.catalog-filters-open {
+  overflow: hidden;
+}
+
 body.ns-overlay-open .ns-bottom-nav,
 body.catalog-filters-open .ns-bottom-nav {
   display: none;
@@ -2026,6 +2074,12 @@ body.catalog-filters-open .ns-bottom-nav {
 
 .ns-overlay-panel {
   z-index: 110;
+}
+
+.ns-catalog-filter-scroll {
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 
 .ns-mobile-nav {

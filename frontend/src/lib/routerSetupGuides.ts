@@ -130,7 +130,7 @@ function connectionStep(
   brand: BrandKey,
 ): string {
   if (ctx.has4g) {
-    return "В мастере настройки выберите подключение через SIM (4G/LTE), укажите APN оператора при необходимости и дождитесь регистрации в сети.";
+    return "В мастере выберите источник интернета: Ethernet (WAN) или SIM (4G/LTE). Для SIM при необходимости укажите APN оператора и дождитесь регистрации в сети.";
   }
   if (ctx.prefersPppoe) {
     return "Укажите тип WAN «PPPoE» и введите логин/пароль от договора интернета (их выдаёт провайдер).";
@@ -147,7 +147,7 @@ function connectionStep(
 function brandIntro(brand: BrandKey, product: RouterProductInput): string {
   const ui = BRAND_UI[brand];
   const app = ui.app ? ` или приложение ${ui.app}` : "";
-  return `Инструкция для ${product.name}. Панель: http://${ui.panel} (или ${ui.defaultIp})${app}. Шаги краткие — точные названия пунктов меню могут немного отличаться в вашей прошивке.`;
+  return `Краткая инструкция первичной настройки. Модель: ${product.name}. Панель: http://${ui.panel} (или ${ui.defaultIp})${app}. Названия пунктов могут немного отличаться в прошивке.`;
 }
 
 export function isRouterProduct(category?: { slug?: string } | null): boolean {
@@ -158,7 +158,7 @@ export function buildRouterSetupGuide(product: RouterProductInput): RouterSetupG
   const custom = product.specs?.["_setupGuide"];
   if (typeof custom === "string" && custom.trim()) {
     return {
-      title: `Настройка ${product.name}`,
+      title: `Быстрая настройка: ${product.name}`,
       intro: "Инструкция от производителя для этой модели.",
       steps: custom.split("\n").map((s) => s.trim()).filter(Boolean),
     };
@@ -170,8 +170,8 @@ export function buildRouterSetupGuide(product: RouterProductInput): RouterSetupG
 
   const steps: string[] = [
     ctx.has4g
-      ? "Вставьте SIM оператора в слот, при необходимости отключите PIN-код на SIM через телефон."
-      : "Подключите блок питания. Кабель провайдера вставьте в порт WAN / Internet (синий или отдельно подписанный).",
+      ? "Подключите питание. Для LTE-модели при необходимости вставьте SIM, а кабель провайдера (если есть) подключите в WAN / Internet."
+      : "Подключите питание и вставьте кабель провайдера в порт WAN / Internet (обычно синий или отдельно подписанный).",
     "Подождите 1–2 минуты, пока индикаторы стабилизируются (обычно загорается Wi‑Fi или Internet).",
     `На ПК или телефоне подключитесь к Wi‑Fi с заводской наклейкой или по кабелю LAN — откройте http://${ui.panel} или ${ui.defaultIp}.`,
     "Создайте пароль администратора панели и запустите мастер «Быстрая настройка» / Quick Setup.",
@@ -215,11 +215,11 @@ export function buildRouterSetupGuide(product: RouterProductInput): RouterSetupG
   }
 
   const tip = ctx.has4g
-    ? "Если нет интернета по SIM — проверьте APN, баланс и что антенны 4G затянуты."
-    : "Если страница панели не открывается — попробуйте другой браузер, режим инкогнито или сброс кнопкой Reset 10 сек.";
+    ? "Если нет интернета: проверьте источник WAN, APN/баланс SIM, плотность подключения антенн и статус в разделе Internet."
+    : "Если панель не открывается — проверьте подключение к роутеру, попробуйте другой браузер/инкогнито или сброс Reset на 10 сек.";
 
   return {
-    title: `Настройка ${product.name}`,
+    title: `Быстрая настройка: ${product.name}`,
     intro: brandIntro(brand, product),
     steps,
     tip,

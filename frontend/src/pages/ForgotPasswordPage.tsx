@@ -67,7 +67,7 @@ export default function ForgotPasswordPage() {
         {sent ? (
           <div className="space-y-5">
             <div className={authSuccessBox}>
-              Если аккаунт с таким email существует, на почту отправлена ссылка.
+              Ссылка для сброса пароля отправлена на почту.
               Проверьте входящие и папку «Спам». Ссылка действует 1 час.
             </div>
             <p className={authFooter}>
@@ -100,7 +100,7 @@ export default function ForgotPasswordPage() {
             </div>
             <button
               type="submit"
-              disabled={loading || !email.trim()}
+              disabled={loading || !isValid}
               className={`${authSubmitBtn} gap-2`}
             >
               {loading ? (

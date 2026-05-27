@@ -2,6 +2,10 @@ import { Router } from "express";
 import { authenticate, requireAdmin } from "../middleware/auth.middleware";
 import prisma from "../lib/prisma";
 import { AuthRequest } from "../middleware/auth.middleware";
+import {
+  buildAdminStatsExcelHtml,
+  type AdminStatsExportPayload,
+} from "../lib/adminStatsExport";
 
 const router = Router();
 router.use(authenticate, requireAdmin);
@@ -59,6 +63,197 @@ router.get("/stats", async (_req, res) => {
     ordersByStatus,
     recentOrders,
   });
+});
+
+router.get("/stats/export", async (req, res) => {
+  const date = String(req.query.date ?? "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return res
+      .status(400)
+      .json({ message: "Передайте дату в формате YYYY-MM-DD" });
+  }
+
+  const from = new Date(`${date}T00:00:00`);
+  const to = new Date(`${date}T23:59:59.999`);
+  if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
+    return res.status(400).json({ message: "Некорректная дата" });
+  }
+
+  const dayRange = { createdAt: { gte: from, lte: to } };
+
+  const [
+    orders,
+    newUsers,
+    reviews,
+    messages,
+    usersTotal,
+    productsTotal,
+    totalOrders,
+    chatsUnread,
+    pendingOrders,
+    statusGroupsDay,
+    statusGroupsAll,
+    revenueDay,
+    revenueAll,
+    categoryGroups,
+    lowStock,
+    orderItemsDay,
+  ] = await Promise.all([
+    prisma.order.findMany({
+      where: dayRange,
+      orderBy: { createdAt: "asc" },
+      include: {
+        user: { select: { name: true, email: true } },
+        items: {
+          select: {
+            quantity: true,
+            price: true,
+            product: { select: { name: true } },
+          },
+        },
+      },
+    }),
+    prisma.user.findMany({
+      where: dayRange,
+      orderBy: { createdAt: "asc" },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        isEmailVerified: true,
+        createdAt: true,
+      },
+    }),
+    prisma.review.findMany({
+      where: dayRange,
+      orderBy: { createdAt: "asc" },
+      include: {
+        user: { select: { name: true, email: true } },
+        product: { select: { name: true } },
+      },
+    }),
+    prisma.message.findMany({
+      where: dayRange,
+      orderBy: { createdAt: "asc" },
+      include: {
+        user: { select: { name: true, role: true } },
+      },
+    }),
+    prisma.user.count(),
+    prisma.product.count(),
+    prisma.order.count(),
+    prisma.message.count({
+      where: { isRead: false, user: { role: "USER" } },
+    }),
+    prisma.order.count({ where: { status: "PENDING" } }),
+    prisma.order.groupBy({
+      by: ["status"],
+      where: dayRange,
+      _count: { id: true },
+    }),
+    prisma.order.groupBy({
+      by: ["status"],
+      _count: { id: true },
+    }),
+    prisma.order.aggregate({
+      _sum: { totalAmount: true },
+      where: { status: "DELIVERED", ...dayRange },
+    }),
+    prisma.order.aggregate({
+      _sum: { totalAmount: true },
+      where: { status: "DELIVERED" },
+    }),
+    prisma.product.groupBy({
+      by: ["categoryId"],
+      _count: { id: true },
+    }),
+    prisma.product.findMany({
+      where: { stock: { lte: 5 } },
+      orderBy: [{ stock: "asc" }, { name: "asc" }],
+      take: 200,
+      select: {
+        id: true,
+        name: true,
+        stock: true,
+        price: true,
+        category: { select: { name: true } },
+        brand: { select: { name: true } },
+      },
+    }),
+    prisma.orderItem.findMany({
+      where: { order: dayRange },
+      select: {
+        quantity: true,
+        price: true,
+        product: { select: { name: true } },
+      },
+    }),
+  ]);
+
+  const ordersByStatusDay = Object.fromEntries(
+    statusGroupsDay.map((row) => [row.status, row._count.id]),
+  );
+  const ordersByStatusAll = Object.fromEntries(
+    statusGroupsAll.map((row) => [row.status, row._count.id]),
+  );
+
+  const categories = await prisma.category.findMany({
+    select: { id: true, name: true },
+  });
+  const categoryNameById = new Map(categories.map((c) => [c.id, c.name]));
+  const productsByCategory = categoryGroups
+    .map((row) => ({
+      categoryName: categoryNameById.get(row.categoryId) ?? "—",
+      count: row._count.id,
+    }))
+    .sort((a, b) => a.categoryName.localeCompare(b.categoryName, "ru"));
+
+  const soldMap = new Map<string, { quantity: number; revenue: number }>();
+  for (const item of orderItemsDay) {
+    const name = item.product?.name ?? "—";
+    const prev = soldMap.get(name) ?? { quantity: 0, revenue: 0 };
+    const lineTotal = Number(item.price) * item.quantity;
+    soldMap.set(name, {
+      quantity: prev.quantity + item.quantity,
+      revenue: prev.revenue + lineTotal,
+    });
+  }
+  const topSold = [...soldMap.entries()]
+    .map(([productName, stats]) => ({ productName, ...stats }))
+    .sort((a, b) => b.quantity - a.quantity || b.revenue - a.revenue);
+
+  const payload: AdminStatsExportPayload = {
+    date,
+    summary: {
+      ordersDay: orders.length,
+      revenueDay: Number(revenueDay._sum.totalAmount ?? 0),
+      newUsersDay: newUsers.length,
+      reviewsDay: reviews.length,
+      messagesDay: messages.length,
+      ordersByStatusDay,
+      totalOrders,
+      totalUsers: usersTotal,
+      totalProducts: productsTotal,
+      revenueAll: Number(revenueAll._sum.totalAmount ?? 0),
+      pendingOrders,
+      unreadChats: chatsUnread,
+      ordersByStatusAll,
+    },
+    orders,
+    newUsers,
+    reviews,
+    messages,
+    productsByCategory,
+    lowStock,
+    topSold,
+  };
+
+  const html = buildAdminStatsExcelHtml(payload);
+  const filename = `admin-stats-${date}.xls`;
+  res.setHeader("Content-Type", "application/vnd.ms-excel; charset=utf-8");
+  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+  return res.send("\uFEFF" + html);
 });
 
 router.get("/chats/unread", async (_req, res) => {

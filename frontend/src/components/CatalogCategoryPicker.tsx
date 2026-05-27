@@ -44,7 +44,7 @@ export default function CatalogCategoryPicker({
   }
 
   return (
-    <nav className="hidden sm:block mb-6" aria-label="Категории">
+    <nav className="hidden sm:block mb-6 min-w-0 max-w-full" aria-label="Категории">
       <p className="ns-label mb-2">Категория</p>
       <div className="ns-category-rail__scroll">
         {categories.map((c) => {

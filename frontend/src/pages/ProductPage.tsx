@@ -10,6 +10,8 @@ import {
   Plus,
   Package,
   BookOpen,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import RouterSetupGuideSection from "../components/RouterSetupGuideSection";
 import { isRouterProduct } from "../lib/routerSetupGuides";
@@ -20,6 +22,7 @@ import { pluralizeReviews } from "../lib/pluralize";
 import MediaImage from "../components/MediaImage";
 import { ProductPageSkeleton } from "../components/skeleton/Skeleton";
 import { textareaCls } from "../lib/uiClasses";
+import ConfirmDialog from "../components/ConfirmDialog";
 
 export default function ProductPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -29,6 +32,8 @@ export default function ProductPage() {
   const navigate = useNavigate();
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
+  const [reviewMode, setReviewMode] = useState<"create" | "edit">("create");
+  const [reviewDeleteId, setReviewDeleteId] = useState<number | null>(null);
 
   const { data: product, isLoading } = useQuery({
     queryKey: ["product", slug],
@@ -86,7 +91,18 @@ export default function ProductPage() {
       api.post(`/reviews/product/${product.id}`, { rating, comment }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["product", slug] });
+      setReviewMode("create");
+    },
+  });
+
+  const deleteReview = useMutation({
+    mutationFn: (reviewId: number) => api.delete(`/reviews/${reviewId}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["product", slug] });
+      setReviewDeleteId(null);
+      setReviewMode("create");
       setComment("");
+      setRating(5);
     },
   });
 
@@ -115,6 +131,15 @@ export default function ProductPage() {
       : location.hash === "#setup" && isRouter
         ? "setup"
         : "specs";
+  const ownReview =
+    user?.role === "USER"
+      ? product.reviews.find((r: any) => r.userId === user.id) ?? null
+      : null;
+  const canManageOwnReview = Boolean(canShop && ownReview);
+  const showReviewForm = canShop && (!ownReview || reviewMode === "edit");
+  const visibleReviews = ownReview
+    ? product.reviews.filter((r: any) => r.id !== ownReview.id)
+    : product.reviews;
 
   return (
     <div className="max-w-[1280px] mx-auto space-y-7 sm:space-y-9 px-3 sm:px-4 lg:px-6 py-6 sm:py-8">
@@ -349,14 +374,57 @@ export default function ProductPage() {
           )}
         </h2>
 
-        {canShop && (
+        {canManageOwnReview && (
+          <div className="mb-5 ns-chip rounded-2xl p-5 sm:p-6">
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <p className="text-sm font-semibold text-ns-text">Ваш отзыв</p>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRating(ownReview.rating);
+                    setComment(ownReview.comment ?? "");
+                    setReviewMode("edit");
+                  }}
+                  className="ns-action-icon text-ns-text"
+                  aria-label="Редактировать отзыв"
+                >
+                  <Pencil size={16} strokeWidth={1.5} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setReviewDeleteId(ownReview.id)}
+                  className="ns-action-icon ns-action-icon--danger"
+                  aria-label="Удалить отзыв"
+                >
+                  <Trash2 size={16} strokeWidth={1.5} />
+                </button>
+              </div>
+            </div>
+            <div className="flex gap-0.5 mb-3">
+              {[1, 2, 3, 4, 5].map((s) => (
+                <Star
+                  key={s}
+                  size={14}
+                  strokeWidth={1.5}
+                  className={ownReview.rating >= s ? "ns-star" : "text-ns-muted"}
+                />
+              ))}
+            </div>
+            {ownReview.comment && (
+              <p className="text-sm text-ns-muted leading-relaxed">{ownReview.comment}</p>
+            )}
+          </div>
+        )}
+
+        {showReviewForm && (
           <div className="mb-8 ns-chip rounded-2xl p-5 sm:p-6">
             <p className="text-sm font-semibold text-ns-text mb-4">
-              Оставить отзыв
+              {reviewMode === "edit" ? "Редактировать отзыв" : "Оставить отзыв"}
             </p>
             <div className="flex gap-1 mb-4">
               {[1, 2, 3, 4, 5].map((s) => (
-                <button key={s} onClick={() => setRating(s)}>
+                <button key={s} type="button" onClick={() => setRating(s)}>
                   <Star
                     size={28}
                     strokeWidth={1.5}
@@ -381,18 +449,31 @@ export default function ProductPage() {
               disabled={!comment.trim() || addReview.isPending}
               className="aurora-button mt-4 px-6 text-sm font-medium transition-transform hover:scale-[1.01] disabled:opacity-30"
             >
-              Опубликовать
+              {reviewMode === "edit" ? "Сохранить изменения" : "Опубликовать"}
             </button>
+            {reviewMode === "edit" && (
+              <button
+                type="button"
+                onClick={() => {
+                  setReviewMode("create");
+                  setRating(ownReview?.rating ?? 5);
+                  setComment(ownReview?.comment ?? "");
+                }}
+                className="ns-btn ns-btn-secondary mt-4 ml-2 text-sm"
+              >
+                Отмена
+              </button>
+            )}
           </div>
         )}
 
-        {product.reviews.length === 0 ? (
+        {visibleReviews.length === 0 && !ownReview ? (
           <p className="text-sm text-ns-muted">
             Отзывов пока нет. Будьте первым.
           </p>
         ) : (
           <div className="space-y-4">
-            {product.reviews.map((r: any) => (
+            {visibleReviews.map((r: any) => (
               <div
                 key={r.id}
                 className="ns-chip rounded-2xl p-5 sm:p-6"
@@ -421,12 +502,36 @@ export default function ProductPage() {
                     {r.comment}
                   </p>
                 )}
+                {(admin || (canShop && user?.id === r.userId)) && (
+                  <div className="mt-3 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setReviewDeleteId(r.id)}
+                      className="ns-action-icon ns-action-icon--danger"
+                      aria-label="Удалить отзыв"
+                    >
+                      <Trash2 size={16} strokeWidth={1.5} />
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>
         )}
         </section>
       )}
+
+      <ConfirmDialog
+        open={reviewDeleteId != null}
+        title="Удалить отзыв?"
+        message="После удаления отзыв будет невозможно восстановить."
+        confirmText={deleteReview.isPending ? "Удаление..." : "Удалить"}
+        onCancel={() => setReviewDeleteId(null)}
+        onConfirm={() => {
+          if (reviewDeleteId == null) return;
+          deleteReview.mutate(reviewDeleteId);
+        }}
+      />
 
       {activeTab === "setup" && isRouter && (
         <RouterSetupGuideSection

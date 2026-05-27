@@ -332,14 +332,20 @@ export default function Navbar() {
             </button>
           )}
           {!user && (
-            <button
-              type="button"
-              onClick={() => setMenuOpen(true)}
-              className={iconBtn}
-              aria-label="Меню"
-            >
-              <Menu size={24} strokeWidth={1.5} />
-            </button>
+            <div className="flex items-center gap-1 sm:gap-1.5">
+              <Link
+                to="/login"
+                className="ns-btn ns-btn-ghost text-xs py-1.5 px-2 sm:px-2.5 whitespace-nowrap"
+              >
+                Вход
+              </Link>
+              <Link
+                to="/register"
+                className="ns-btn ns-btn-primary text-xs py-1.5 px-2 sm:px-2.5 whitespace-nowrap"
+              >
+                Регистрация
+              </Link>
+            </div>
           )}
         </div>
       </header>
@@ -409,13 +415,8 @@ export default function Navbar() {
                   </button>
                 </>
               )}
-              {phoneLayout && !user && (
-                <p className="px-4 py-2 text-sm text-ns-muted">
-                  Каталог, корзина и профиль — в нижнем меню.
-                </p>
-              )}
             </nav>
-            {!user && (
+            {!user && !phoneLayout && (
               <div className="shrink-0 space-y-2 border-t border-ns-border px-3 py-4">
                 <Link
                   to="/login"

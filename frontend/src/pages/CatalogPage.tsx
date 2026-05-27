@@ -139,7 +139,7 @@ export default function CatalogPage() {
     return () => window.clearTimeout(timer);
   }, [search, searchParams, setSearchParams]);
 
-  useBodyScrollLock(filtersOpen, "catalog-filters-open ns-overlay-open");
+  useBodyScrollLock(filtersOpen, "catalog-filters-open");
 
   const applyFilters = () => {
     const minPrice = minPriceDraftRef.current.trim();

@@ -10,7 +10,7 @@ export const authSubmitBtn = "ns-btn ns-btn-primary w-full mt-3";
 export const authFooter =
   "text-sm text-center text-ns-text-secondary pt-2";
 export const authLink =
-  "text-ns-text underline underline-offset-2 font-medium hover:underline transition-colors";
+  "font-semibold text-ns-accent no-underline hover:text-ns-accent-hover transition-colors";
 export const authErrorBox =
   "rounded-[var(--radius-card)] bg-red-50/70 px-4 py-3 text-sm font-medium text-red-600 dark:bg-red-900/10 dark:text-red-400";
 export const authSuccessBox =
@@ -18,7 +18,7 @@ export const authSuccessBox =
 export const authFieldError = "mt-1.5 text-sm font-medium text-ns-error";
 export const authForgotWrap = "flex justify-end -mt-1";
 export const authForgotLink =
-  "text-sm font-medium text-ns-text-secondary hover:text-ns-text underline underline-offset-2 transition-colors";
+  "text-sm font-semibold text-ns-accent no-underline hover:text-ns-accent-hover transition-colors";
 
 export const authInputCls = (hasError: boolean) =>
   `ns-input w-full text-sm ${hasError ? "ring-2 ring-red-500" : ""}`;

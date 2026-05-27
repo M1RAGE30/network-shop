@@ -10,6 +10,8 @@ type CatalogFilterOverlayProps = {
   children: React.ReactNode;
 };
 
+const PANEL_TRANSITION_MS = 320;
+
 export default function CatalogFilterOverlay({
   open,
   onClose,
@@ -23,15 +25,27 @@ export default function CatalogFilterOverlay({
   useEffect(() => {
     if (open) {
       setMounted(true);
-      const id = requestAnimationFrame(() => {
-        requestAnimationFrame(() => setVisible(true));
-      });
-      return () => cancelAnimationFrame(id);
+      return;
     }
     setVisible(false);
-    const t = window.setTimeout(() => setMounted(false), 320);
-    return () => window.clearTimeout(t);
+    const fallback = window.setTimeout(() => setMounted(false), PANEL_TRANSITION_MS);
+    return () => window.clearTimeout(fallback);
   }, [open]);
+
+  useEffect(() => {
+    if (!mounted || !open) return;
+
+    setVisible(false);
+    const id = requestAnimationFrame(() => {
+      requestAnimationFrame(() => setVisible(true));
+    });
+    return () => cancelAnimationFrame(id);
+  }, [mounted, open]);
+
+  const onPanelTransitionEnd = (e: React.TransitionEvent<HTMLElement>) => {
+    if (e.propertyName !== "transform") return;
+    if (!open) setMounted(false);
+  };
 
   if (!mounted) return null;
 
@@ -72,7 +86,8 @@ export default function CatalogFilterOverlay({
           aria-label="Закрыть фильтры"
         />
         <div
-          className={`ns-catalog-filter-sheet relative flex max-h-[min(92dvh,720px)] flex-col rounded-t-[20px] border-t border-ns-border bg-ns-bg-secondary ${
+          onTransitionEnd={onPanelTransitionEnd}
+          className={`ns-overlay-panel ns-catalog-filter-sheet relative z-[110] flex max-h-[min(92dvh,720px)] flex-col rounded-t-[20px] border-t border-ns-border bg-ns-bg-secondary ${
             visible ? "ns-catalog-filter-sheet--open" : ""
           }`}
           role="dialog"
@@ -80,7 +95,7 @@ export default function CatalogFilterOverlay({
           aria-label="Фильтры каталога"
         >
           {header}
-          <div className="scrollbar-none min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4">
+          <div className="ns-catalog-filter-scroll scrollbar-none min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4">
             {children}
           </div>
           {footer}
@@ -97,7 +112,8 @@ export default function CatalogFilterOverlay({
           aria-label="Закрыть фильтры"
         />
         <aside
-          className={`ns-catalog-filter-drawer absolute right-0 top-0 flex h-full w-[min(100%,22rem)] flex-col border-l border-ns-border bg-ns-bg-secondary ${
+          onTransitionEnd={onPanelTransitionEnd}
+          className={`ns-overlay-panel ns-catalog-filter-drawer absolute right-0 top-0 z-[110] flex h-full w-[min(100%,22rem)] flex-col border-l border-ns-border bg-ns-bg-secondary ${
             visible ? "ns-catalog-filter-drawer--open" : ""
           }`}
           role="dialog"
@@ -105,7 +121,7 @@ export default function CatalogFilterOverlay({
           aria-label="Фильтры каталога"
         >
           {header}
-          <div className="scrollbar-none min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4">
+          <div className="ns-catalog-filter-scroll scrollbar-none min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4">
             {children}
           </div>
           {footer}

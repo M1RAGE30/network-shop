@@ -30,9 +30,7 @@ export default function AdminPage() {
   const { dark, toggle } = useThemeStore();
   const isChats = location.pathname.startsWith("/admin/chats");
   const isFullHeightView =
-    isChats ||
-    location.pathname === "/admin" ||
-    location.pathname === "/admin/orders";
+    isChats || location.pathname === "/admin/orders";
 
   const isActive = (to: string, end?: boolean) =>
     end
@@ -81,7 +79,7 @@ export default function AdminPage() {
         </div>
       </aside>
 
-      <div className="ns-admin-shell__main overflow-x-hidden">
+      <div className="ns-admin-shell__main min-w-0 overflow-x-clip">
         <nav className="flex w-full gap-2 overflow-x-auto border-b border-ns-border px-2 py-2 scrollbar-none lg:hidden">
           {NAV.map(({ to, label, end }) => (
             <Link

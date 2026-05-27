@@ -1,5 +1,10 @@
 ﻿import { useEffect, useMemo, useRef, useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  keepPreviousData,
+} from "@tanstack/react-query";
 import api from "../../lib/api";
 import { formatPrice } from "../../lib/format";
 import { Pencil, Trash2, Plus, X } from "lucide-react";
@@ -94,7 +99,7 @@ export default function AdminProductsPage() {
   const productFormRef = useRef<HTMLDivElement>(null);
   const toast = useToastStore((s) => s.show);
 
-  const { data: productsData, isLoading: productsLoading } = useQuery({
+  const { data: productsData, isPending: productsPending } = useQuery({
     queryKey: ["admin-products", searchQuery, categoryFilter, listPage],
     queryFn: () =>
       api
@@ -109,11 +114,12 @@ export default function AdminProductsPage() {
           },
         })
         .then((r) => r.data),
+    placeholderData: keepPreviousData,
   });
 
+  const productsLoading = productsPending && !productsData;
   const listTotal = productsData?.total ?? 0;
   const listPages = productsData?.pages ?? 1;
-  const shownCount = productsData?.products?.length ?? 0;
   const { data: categories = [] } = useQuery({
     queryKey: ["categories"],
     queryFn: () => api.get("/categories").then((r) => r.data),
@@ -141,8 +147,10 @@ export default function AdminProductsPage() {
   }, [searchQuery, categoryFilter]);
 
   useEffect(() => {
-    if (listPage > listPages) setListPage(Math.max(1, listPages));
-  }, [listPage, listPages]);
+    if (!productsData) return;
+    const pages = productsData.pages ?? 1;
+    if (listPage > pages) setListPage(pages);
+  }, [productsData, listPage]);
 
   const createCategoryMutation = useMutation({
     mutationFn: (payload: { name: string; slug?: string }) =>
@@ -706,8 +714,7 @@ export default function AdminProductsPage() {
           {!productsLoading && listTotal > 0 && listPages > 1 && (
             <span className="font-normal text-ns-text-secondary">
               {" "}
-              · стр. {listPage} из {listPages} (по {ADMIN_PRODUCTS_PAGE_SIZE} на
-              странице)
+              · стр. {listPage} из {listPages}
             </span>
           )}
         </p>
@@ -783,6 +790,7 @@ export default function AdminProductsPage() {
                           type="button"
                           onClick={() => openEdit(p)}
                           className="ns-action-icon text-ns-text"
+                          aria-label="Редактировать"
                         >
                           <Pencil size={16} strokeWidth={1.5} />
                         </button>
@@ -795,7 +803,8 @@ export default function AdminProductsPage() {
                               name: p.name,
                             });
                           }}
-                          className="ns-action-icon ns-action-icon--square text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30"
+                          className="ns-action-icon ns-action-icon--danger text-red-600 dark:text-red-400"
+                          aria-label="Удалить"
                         >
                           <Trash2 size={16} strokeWidth={1.5} />
                         </button>
@@ -830,11 +839,12 @@ export default function AdminProductsPage() {
                     {p.brand?.name} · {formatPrice(p.price)}
                   </p>
                 </div>
-                <div className="flex gap-1 shrink-0">
+                <div className="flex gap-2 shrink-0">
                   <button
                     type="button"
                     onClick={() => openEdit(p)}
                     className="ns-action-icon text-ns-text"
+                    aria-label="Редактировать"
                   >
                     <Pencil size={16} strokeWidth={1.5} />
                   </button>
@@ -843,7 +853,8 @@ export default function AdminProductsPage() {
                     onClick={() => {
                       setConfirmDelete({ open: true, id: p.id, name: p.name });
                     }}
-                    className="ns-action-icon ns-action-icon--square text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30"
+                    className="ns-action-icon ns-action-icon--danger text-red-600 dark:text-red-400"
+                    aria-label="Удалить"
                   >
                     <Trash2 size={16} strokeWidth={1.5} />
                   </button>

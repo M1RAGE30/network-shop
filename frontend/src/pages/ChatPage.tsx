@@ -107,7 +107,7 @@ export default function ChatPage() {
           <ArrowLeft size={18} strokeWidth={1.75} />
         </button>
         <h1 className="font-display text-4xl sm:text-5xl font-semibold text-ns-text tracking-tight">
-          Чат с поддержкой
+          Чат поддержки
         </h1>
       </div>
       {roomLoading ? (

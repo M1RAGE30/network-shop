@@ -56,4 +56,29 @@ router.post(
   },
 );
 
+router.delete(
+  "/:reviewId",
+  authenticate,
+  [param("reviewId").isInt({ min: 1 })],
+  async (req: AuthRequest<{ reviewId: string }>, res: Response) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty())
+      return res.status(400).json({ errors: errors.array() });
+
+    const reviewId = parseInt(req.params.reviewId, 10);
+    const review = await prisma.review.findUnique({
+      where: { id: reviewId },
+      select: { id: true, userId: true },
+    });
+    if (!review) return res.status(404).json({ message: "Отзыв не найден" });
+
+    if (req.userRole !== "ADMIN" && review.userId !== req.userId) {
+      return res.status(403).json({ message: "Недостаточно прав" });
+    }
+
+    await prisma.review.delete({ where: { id: reviewId } });
+    return res.status(204).send();
+  },
+);
+
 export default router;

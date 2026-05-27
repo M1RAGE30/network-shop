@@ -263,7 +263,7 @@ export default function ProfilePage() {
               id="profile-email-hint"
               className="mt-1.5 text-sm text-ns-text-secondary"
             >
-              Изменить email нельзя
+              Изменить эл. почту нельзя
             </p>
           </div>
           <div className="sm:col-span-2">

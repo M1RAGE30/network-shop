@@ -36,6 +36,7 @@ export const register = async (req: Request, res: Response) => {
 
   const { email, password, name } = req.body;
   const normalizedEmail = String(email).trim().toLowerCase();
+  const trimmedName = String(name).trim();
 
   const existing = await prisma.user.findUnique({
     where: { email: normalizedEmail },
@@ -43,13 +44,19 @@ export const register = async (req: Request, res: Response) => {
   if (existing)
     return res.status(409).json({ message: "Email уже используется" });
 
+  const existingByName = await prisma.user.findFirst({
+    where: { name: trimmedName },
+  });
+  if (existingByName)
+    return res.status(409).json({ message: "Данное имя уже занято" });
+
   const hashed = await bcrypt.hash(password, 10);
 
   const user = await prisma.user.create({
     data: {
       email: normalizedEmail,
       password: hashed,
-      name,
+      name: trimmedName,
     },
   });
 
@@ -102,7 +109,24 @@ export const verifyEmail = async (req: Request, res: Response) => {
   }
 
   if (user.isEmailVerified) {
-    return res.json({ message: "Email уже подтверждён" });
+    const token = jwt.sign(
+      { id: user.id, role: user.role },
+      process.env.JWT_SECRET!,
+      { expiresIn: "7d" },
+    );
+    return res.json({
+      message: "Email уже подтверждён",
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        phone: user.phone,
+        address: user.address,
+        avatarUrl: user.avatarUrl,
+      },
+      token,
+    });
   }
 
   if (!user.verifyToken || user.verifyToken !== code) {
@@ -116,7 +140,7 @@ export const verifyEmail = async (req: Request, res: Response) => {
     });
   }
 
-  await prisma.user.update({
+  const updated = await prisma.user.update({
     where: { id: user.id },
     data: {
       isEmailVerified: true,
@@ -125,7 +149,25 @@ export const verifyEmail = async (req: Request, res: Response) => {
     },
   });
 
-  return res.json({ message: "Теперь вы можете войти в свой аккаунт." });
+  const token = jwt.sign(
+    { id: updated.id, role: updated.role },
+    process.env.JWT_SECRET!,
+    { expiresIn: "7d" },
+  );
+
+  return res.json({
+    message: "Email подтверждён",
+    user: {
+      id: updated.id,
+      email: updated.email,
+      name: updated.name,
+      role: updated.role,
+      phone: updated.phone,
+      address: updated.address,
+      avatarUrl: updated.avatarUrl,
+    },
+    token,
+  });
 };
 
 export const login = async (req: Request, res: Response) => {
@@ -280,21 +322,28 @@ export const forgotPassword = async (req: Request, res: Response) => {
     where: { email: normalizedEmail },
   });
 
-  if (user?.isEmailVerified) {
-    const token = crypto.randomBytes(32).toString("hex");
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        passwordResetToken: token,
-        passwordResetExpiry: new Date(Date.now() + PASSWORD_RESET_TTL_MS),
-      },
-    });
-    await sendPasswordResetEmail(normalizedEmail, token);
+  if (!user) {
+    return res.status(404).json({ message: "Пользователь с такой эл. почтой не найден" });
   }
 
+  if (!user.isEmailVerified) {
+    return res.status(400).json({
+      message: "Эл. почта не подтверждена. Подтвердите email и повторите попытку.",
+    });
+  }
+
+  const token = crypto.randomBytes(32).toString("hex");
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      passwordResetToken: token,
+      passwordResetExpiry: new Date(Date.now() + PASSWORD_RESET_TTL_MS),
+    },
+  });
+  await sendPasswordResetEmail(normalizedEmail, token);
+
   return res.json({
-    message:
-      "Если аккаунт с таким email существует, на почту отправлена ссылка для сброса пароля.",
+    message: "Ссылка для сброса пароля отправлена на почту. Ссылка действует 1 час.",
   });
 };
 
@@ -335,6 +384,14 @@ export const resetPassword = async (req: Request, res: Response) => {
     return res.status(400).json({
       message: "Ссылка недействительна или истекла. Запросите сброс пароля снова.",
       code: "RESET_EXPIRED",
+    });
+  }
+
+  const isSameAsCurrent = await bcrypt.compare(String(password), user.password);
+  if (isSameAsCurrent) {
+    return res.status(400).json({
+      message: "Новый пароль не должен совпадать со старым",
+      code: "PASSWORD_SAME_AS_OLD",
     });
   }
 

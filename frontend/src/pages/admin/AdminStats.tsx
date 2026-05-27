@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
   ShoppingBag,
@@ -7,6 +8,7 @@ import {
   Wallet,
   Clock,
   ArrowRight,
+  Download,
 } from "lucide-react";
 import api from "../../lib/api";
 import { formatPrice } from "../../lib/format";
@@ -30,6 +32,34 @@ export default function AdminStats() {
     queryKey: ["admin-stats"],
     queryFn: () => api.get("/admin/stats").then((r) => r.data),
   });
+  const [exportDate, setExportDate] = useState(
+    () => new Date().toISOString().slice(0, 10),
+  );
+  const [exporting, setExporting] = useState(false);
+
+  const exportStats = async () => {
+    if (!exportDate) return;
+    setExporting(true);
+    try {
+      const response = await api.get("/admin/stats/export", {
+        params: { date: exportDate },
+        responseType: "blob",
+      });
+      const blob = new Blob([response.data], {
+        type: "application/vnd.ms-excel;charset=utf-8",
+      });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `admin-stats-${exportDate}.xls`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const metrics = [
     {
@@ -71,6 +101,29 @@ export default function AdminStats() {
 
   return (
     <div className="flex min-h-0 w-full flex-1 flex-col space-y-4 sm:space-y-5 xl:space-y-6">
+      <div className="min-w-0">
+        <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-ns-muted">
+          Детальный отчёт за день
+        </label>
+        <div className="ns-admin-stats-export">
+          <input
+            type="date"
+            value={exportDate}
+            onChange={(e) => setExportDate(e.target.value)}
+            className="ns-input ns-admin-stats-export__date"
+          />
+          <button
+            type="button"
+            onClick={exportStats}
+            disabled={!exportDate || exporting}
+            className="ns-btn ns-btn-secondary shrink-0"
+          >
+            <Download size={16} strokeWidth={1.75} />
+            {exporting ? "Выгрузка..." : "Скачать отчёт"}
+          </button>
+        </div>
+      </div>
+
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 xl:gap-5">
         {metrics.map(({ label, value, icon: Icon, hint }) => (
           <div

@@ -2,7 +2,6 @@
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import api from "../lib/api";
 import {
-  authCard,
   authCodeInput,
   authErrorBox,
   authForm,
@@ -14,7 +13,8 @@ import {
   authSubtitle,
   authTitle,
 } from "../lib/authFormStyles";
-import { CheckCircle2, Loader2, XCircle } from "lucide-react";
+import { useAuthStore } from "../store/authStore";
+import { Loader2, XCircle } from "lucide-react";
 
 const RESEND_COOLDOWN_SEC = 60;
 const CODE_LENGTH = 6;
@@ -33,12 +33,11 @@ export default function VerifyEmailPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
   const navigate = useNavigate();
+  const { setAuth } = useAuthStore();
   const email = searchParams.get("email")?.trim().toLowerCase() || "";
 
   const [code, setCode] = useState("");
-  const [status, setStatus] = useState<"form" | "loading" | "success" | "error">(
-    "form",
-  );
+  const [status, setStatus] = useState<"form" | "loading">("form");
   const [message, setMessage] = useState("");
   const [resendNotice, setResendNotice] = useState("");
   const [resending, setResending] = useState(false);
@@ -107,8 +106,14 @@ export default function VerifyEmailPage() {
     setStatus("loading");
     setMessage("");
     try {
-      await api.post("/auth/verify-email", { email, code });
-      setStatus("success");
+      const { data } = await api.post("/auth/verify-email", { email, code });
+      if (data.user && data.token) {
+        setAuth(data.user, data.token);
+        navigate("/", { replace: true });
+        return;
+      }
+      setMessage("Не удалось выполнить вход после подтверждения");
+      setStatus("form");
     } catch (err: any) {
       setStatus("form");
       setMessage(err.response?.data?.message || "Ошибка подтверждения");
@@ -130,27 +135,10 @@ export default function VerifyEmailPage() {
     );
   }
 
-  if (status === "success") {
-    return (
-      <div className={`${authPageWrap} text-center space-y-5`}>
-        <div className="w-16 h-16 rounded-full bg-ns-success/15 flex items-center justify-center mx-auto">
-          <CheckCircle2 size={36} className="text-ns-success" strokeWidth={1.5} />
-        </div>
-        <h1 className="text-2xl font-semibold text-ns-text">Email подтверждён</h1>
-        <p className="text-ns-text-secondary text-sm">
-          Теперь вы можете войти в свой аккаунт.
-        </p>
-        <Link to="/login" className="ns-btn ns-btn-primary px-8">
-          Войти
-        </Link>
-      </div>
-    );
-  }
-
   return (
-    <div className={authPageWrap}>
-      <div className={authCard}>
-        <div className={`${authHeader} !mb-6`}>
+    <div className={`${authPageWrap} py-10 sm:py-12`}>
+      <div className="ns-card-static p-8 pb-6 sm:p-10 sm:px-10">
+        <div className={`${authHeader} !mb-5`}>
           <h1 className={authTitle}>Подтверждение email</h1>
           <p className={`${authSubtitle} leading-relaxed`}>
             Введите шестизначный код из письма.
@@ -163,7 +151,7 @@ export default function VerifyEmailPage() {
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className={`${authForm} !space-y-4`}>
+        <form onSubmit={handleSubmit} className={`${authForm} !space-y-3`}>
           {message && (
             <div className={authErrorBox} role="alert">
               {message}
@@ -209,12 +197,12 @@ export default function VerifyEmailPage() {
             )}
           </button>
 
-          <div className="space-y-2 pt-2 border-t border-ns-border/60">
+          <div className="pt-3 border-t border-ns-border/60 space-y-1">
             <button
               type="button"
               onClick={handleResend}
               disabled={resending || resendCooldown > 0}
-              className="w-full text-sm font-medium text-ns-text-secondary hover:text-ns-text underline underline-offset-2 transition-colors disabled:cursor-not-allowed disabled:opacity-50 disabled:no-underline disabled:hover:text-ns-text-secondary"
+              className="w-full text-sm font-semibold text-ns-accent no-underline hover:text-ns-accent-hover transition-colors disabled:cursor-not-allowed disabled:opacity-50 disabled:text-ns-muted disabled:hover:text-ns-muted"
             >
               {resending
                 ? "Отправляем код…"
@@ -223,7 +211,7 @@ export default function VerifyEmailPage() {
                   : "Отправить код повторно"}
             </button>
             <p
-              className="min-h-[1.125rem] text-xs text-center text-ns-muted transition-opacity duration-200"
+              className="text-xs text-center text-ns-muted transition-opacity duration-200 min-h-0"
               aria-live="polite"
             >
               {resendNotice}

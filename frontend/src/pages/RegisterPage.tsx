@@ -62,6 +62,7 @@ export default function RegisterPage() {
   const [showPass, setShowPass] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [serverError, setServerError] = useState("");
+  const [nameTakenError, setNameTakenError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const errors: FieldErrors = {
@@ -78,6 +79,7 @@ export default function RegisterPage() {
   const handleChange = (f: keyof typeof form, v: string) => {
     setForm((p) => ({ ...p, [f]: v }));
     setServerError("");
+    if (f === "name") setNameTakenError("");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -101,7 +103,15 @@ export default function RegisterPage() {
         { replace: true, state: { codeSent: true } },
       );
     } catch (err: any) {
-      setServerError(err.response?.data?.message || "Ошибка регистрации");
+      const msg = err.response?.data?.message || "Ошибка регистрации";
+      if (msg === "Данное имя уже занято") {
+        setNameTakenError(msg);
+        setServerError("");
+        setTouched((p) => ({ ...p, name: true }));
+      } else {
+        setNameTakenError("");
+        setServerError(msg);
+      }
     } finally {
       setLoading(false);
     }
@@ -120,14 +130,16 @@ export default function RegisterPage() {
             <label className={authLabel}>Имя</label>
             <input
               type="text"
-              className={authInputCls(!!touched.name && !!errors.name)}
+              className={authInputCls(
+                !!(touched.name && errors.name) || !!nameTakenError,
+              )}
               value={form.name}
               onChange={(e) => handleChange("name", e.target.value)}
               onBlur={() => touch("name")}
               placeholder="Иван Иванов"
             />
-            {touched.name && errors.name && (
-              <p className={authFieldError}>{errors.name}</p>
+            {((touched.name && errors.name) || nameTakenError) && (
+              <p className={authFieldError}>{errors.name || nameTakenError}</p>
             )}
           </div>
           <div>
