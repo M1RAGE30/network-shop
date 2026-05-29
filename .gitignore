@@ -1,0 +1,63 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-admin/
+backend/dist/
+frontend/dist/
+
+# Prisma Client (schema: backend/prisma/schema.prisma → backend/generated)
+generated/
+backend/generated/
+
+# Uploaded product images (runtime)
+uploads/
+backend/uploads/
+
+# Environment — secrets stay local; examples are committed
+.env
+.env.*
+!.env.example
+!**/.env.example
+
+# Vite / tooling caches
+.vite/
+.cache/
+.eslintcache
+*.tsbuildinfo
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# IDE / editor
+.idea/
+.vscode/
+.cursor/
+
+# Local temp & agent assets (not part of the app)
+assets/
+.tmp*
+*.tmp
+
+# Legacy VS / keys
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.pem
+*.key
