@@ -12,7 +12,10 @@ import CatalogFilterOverlay from "../components/CatalogFilterOverlay";
 import {
   countAppliedCatalogFilters,
   formatSpecFilterLabel,
+  getExcludedSpecKeysForCategory,
   parseSpecFilters,
+  sortSpecFilterValues,
+  stripExcludedSpecFilters,
 } from "../lib/catalogFilters";
 
 const CATEGORY_SPEC_FILTERS: Record<
@@ -50,9 +53,9 @@ const CATEGORY_SPEC_FILTERS: Record<
     { key: "MIMO", label: "MIMO" },
   ],
   "usb-adapters": [
-    { key: "Интерфейс подключения", label: "Интерфейс" },
-    { key: "Скорость передачи данных", label: "Скорость" },
-    { key: "Цвет", label: "Цвет" },
+    { key: "Интерфейсы устройства", label: "Интерфейсы" },
+    { key: "Стандарты", label: "Стандарты" },
+    { key: "Индикаторы", label: "Индикаторы" },
   ],
   storage: [
     { key: "Тип", label: "Тип" },
@@ -80,7 +83,11 @@ export default function CatalogPage() {
   const [search, setSearch] = useState(searchParams.get("search") || "");
   const [brandFilter, setBrandFilter] = useState(searchParams.get("brand") || "");
   const [draftSpecFilters, setDraftSpecFilters] = useState<Record<string, string>>(
-    () => parseSpecFilters(searchParams.get("specs")),
+    () =>
+      stripExcludedSpecFilters(
+        searchParams.get("category") || "",
+        parseSpecFilters(searchParams.get("specs")),
+      ),
   );
   const [priceError, setPriceError] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -88,12 +95,25 @@ export default function CatalogPage() {
   const maxPriceDraftRef = useRef(searchParams.get("maxPrice") || "");
   const selectedCategory = searchParams.get("category") || "";
   const specFilters = useMemo(
-    () => parseSpecFilters(searchParams.get("specs")),
-    [searchParams],
+    () =>
+      stripExcludedSpecFilters(
+        selectedCategory,
+        parseSpecFilters(searchParams.get("specs")),
+      ),
+    [searchParams, selectedCategory],
   );
   const productQueryParams = useMemo(() => {
     const entries = [...searchParams.entries()].filter(([key]) => key !== "limit");
-    const next = Object.fromEntries(entries);
+    const next = Object.fromEntries(entries) as Record<string, string>;
+    const category = next.category ?? "";
+    if (category && next.specs) {
+      const cleaned = stripExcludedSpecFilters(
+        category,
+        parseSpecFilters(next.specs),
+      );
+      if (Object.keys(cleaned).length) next.specs = JSON.stringify(cleaned);
+      else delete next.specs;
+    }
     next.limit = String(CATALOG_PAGE_SIZE);
     return next;
   }, [searchParams]);
@@ -106,9 +126,26 @@ export default function CatalogPage() {
   }, [searchParams, setSearchParams]);
 
   useEffect(() => {
+    const category = searchParams.get("category") || "";
+    if (!category || !searchParams.get("specs")) return;
+    const raw = parseSpecFilters(searchParams.get("specs"));
+    const cleaned = stripExcludedSpecFilters(category, raw);
+    if (JSON.stringify(raw) === JSON.stringify(cleaned)) return;
+    const next = new URLSearchParams(searchParams);
+    if (Object.keys(cleaned).length) next.set("specs", JSON.stringify(cleaned));
+    else next.delete("specs");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  useEffect(() => {
     setSearch(searchParams.get("search") || "");
     setBrandFilter(searchParams.get("brand") || "");
-    setDraftSpecFilters(parseSpecFilters(searchParams.get("specs")));
+    setDraftSpecFilters(
+      stripExcludedSpecFilters(
+        searchParams.get("category") || "",
+        parseSpecFilters(searchParams.get("specs")),
+      ),
+    );
     minPriceDraftRef.current = searchParams.get("minPrice") || "";
     maxPriceDraftRef.current = searchParams.get("maxPrice") || "";
     document
@@ -156,8 +193,8 @@ export default function CatalogPage() {
     if (brandFilter) next.set("brand", brandFilter);
     if (minPrice) next.set("minPrice", minPrice);
     if (maxPrice) next.set("maxPrice", maxPrice);
-    if (Object.keys(draftSpecFilters).length)
-      next.set("specs", JSON.stringify(draftSpecFilters));
+    const specs = stripExcludedSpecFilters(selectedCategory, draftSpecFilters);
+    if (Object.keys(specs).length) next.set("specs", JSON.stringify(specs));
     next.set("sort", searchParams.get("sort") || "newest");
     setSearchParams(next);
     setFiltersOpen(false);
@@ -239,7 +276,9 @@ export default function CatalogPage() {
       const name = product.brand?.name;
       if (typeof name === "string" && name.trim()) names.add(name.trim());
     });
-    return Array.from(names).sort((a, b) => a.localeCompare(b, "ru"));
+    return Array.from(names).sort((a, b) =>
+      a.localeCompare(b, "ru", { numeric: true, sensitivity: "base" }),
+    );
   }, [categoryProducts]);
 
   useEffect(() => {
@@ -250,6 +289,7 @@ export default function CatalogPage() {
   const activeSpecFilters = useMemo(() => {
     const preferred = CATEGORY_SPEC_FILTERS[selectedCategory] ?? [];
     const preferredKeys = new Set(preferred.map((filter) => filter.key));
+    const categoryExcluded = getExcludedSpecKeysForCategory(selectedCategory);
     const dynamic = new Map<string, Set<string>>();
 
     categoryProducts.forEach((product: any) => {
@@ -257,7 +297,13 @@ export default function CatalogPage() {
       if (!specs || typeof specs !== "object") return;
 
       Object.entries(specs as Record<string, unknown>).forEach(([key, value]) => {
-        if (preferredKeys.has(key) || EXCLUDED_DYNAMIC_SPEC_KEYS.has(key)) return;
+        if (
+          preferredKeys.has(key) ||
+          EXCLUDED_DYNAMIC_SPEC_KEYS.has(key) ||
+          categoryExcluded.has(key)
+        ) {
+          return;
+        }
         if (typeof value !== "string" || !value.trim()) return;
         if (!dynamic.has(key)) dynamic.set(key, new Set());
         dynamic.get(key)!.add(value.trim());
@@ -266,7 +312,13 @@ export default function CatalogPage() {
 
     const extra = Array.from(dynamic.entries())
       .filter(([, values]) => values.size > 1 && values.size <= 30)
-      .sort((a, b) => b[1].size - a[1].size)
+      .sort(([keyA], [keyB]) =>
+        formatSpecFilterLabel(keyA).localeCompare(
+          formatSpecFilterLabel(keyB),
+          "ru",
+          { sensitivity: "base" },
+        ),
+      )
       .slice(0, Math.max(0, 12 - preferred.length))
       .map(([key]) => ({ key, label: formatSpecFilterLabel(key) }));
 
@@ -280,9 +332,7 @@ export default function CatalogPage() {
         const value = product.specs?.[key];
         if (typeof value === "string" && value.trim()) values.add(value.trim());
       });
-      result[key] = Array.from(values).sort((a, b) =>
-        a.localeCompare(b, "ru"),
-      );
+      result[key] = sortSpecFilterValues(key, Array.from(values));
     });
     return result;
   }, [activeSpecFilters, categoryProducts]);
