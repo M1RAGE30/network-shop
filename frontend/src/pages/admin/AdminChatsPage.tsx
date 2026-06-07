@@ -163,9 +163,9 @@ export default function AdminChatsPage() {
   };
 
   return (
-    <div className="flex min-h-0 flex-1 gap-3">
+    <div className="flex h-full min-h-0 flex-1 items-stretch gap-3 overflow-hidden">
       <div
-        className={`${showChat ? "hidden md:flex" : "flex"} ns-card-static w-full md:w-80 md:shrink-0 flex-col overflow-hidden rounded-2xl border border-ns-border`}
+        className={`${showChat ? "hidden md:flex" : "flex"} ns-card-static h-full min-h-0 w-full md:w-80 md:shrink-0 flex-col overflow-hidden rounded-2xl border border-ns-border`}
       >
         <div className="px-5 py-4 border-b border-ns-border">
           <p className="text-sm font-semibold text-ns-text">
@@ -173,7 +173,7 @@ export default function AdminChatsPage() {
           </p>
           <p className="text-xs text-ns-muted mt-1">Диалоги с покупателями</p>
         </div>
-        <div className="flex-1 overflow-y-auto">
+        <div className="min-h-0 flex-1 overflow-y-auto">
           {roomsLoading && rooms.length === 0 ? (
             <div className="p-3">
               <AdminChatListSkeleton rows={5} />
@@ -249,7 +249,9 @@ export default function AdminChatsPage() {
         </div>
       </div>
 
-      <div className={`${showChat ? "flex" : "hidden md:flex"} flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-ns-border bg-ns-bg-secondary`}>
+      <div
+        className={`${showChat ? "flex" : "hidden md:flex"} ns-card-static h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-ns-border`}
+      >
         {!activeRoom ? (
           <div className="flex-1 flex flex-col items-center justify-center gap-3">
             <MessageCircle
@@ -280,7 +282,7 @@ export default function AdminChatsPage() {
               </p>
             </div>
 
-            <div className="flex-1 overflow-y-auto overflow-x-hidden px-5 py-4 space-y-3">
+            <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-5 py-4 space-y-3">
               {messages.map((msg) => {
                 const isAdmin = msg.user.role === "ADMIN";
                 return (

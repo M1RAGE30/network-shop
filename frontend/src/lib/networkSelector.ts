@@ -61,14 +61,31 @@ export function getBandCount(product: ProductSelectorInput): number {
 }
 
 export function getCoverageM2(product: ProductSelectorInput): number {
-  const text = allSpecText(product);
-  const m2 =
-    extractNumberNear(text, /(\d{2,4})\s*m2/) ??
-    extractNumberNear(text, /(\d{2,4})\s*м2/) ??
-    extractNumberNear(text, /(\d{2,4})\s*кв/);
-  if (m2) return m2;
+  const specs = product.specs ?? {};
+  for (const [key, value] of Object.entries(specs)) {
+    if (!/покрыт|площад/i.test(key)) continue;
+    const match = normalized(String(value)).match(
+      /(\d{1,4})\s*(?:м2|m2|м²|кв\.?\s*м)/,
+    );
+    if (match) {
+      return Math.min(450, Math.max(25, Number(match[1])));
+    }
+  }
   const antennas = getAntennaCount(product);
-  return 70 + antennas * 20;
+  return Math.min(280, Math.max(60, 55 + antennas * 16));
+}
+
+export function wifiRadiusM(
+  product: ProductSelectorInput,
+  roomWidth?: number,
+  roomLength?: number,
+): number {
+  const fromCoverage = Math.max(2, Math.sqrt(getCoverageM2(product) / Math.PI));
+  if (!roomWidth || !roomLength) {
+    return Math.round(fromCoverage * 10) / 10;
+  }
+  const cap = Math.max(roomWidth, roomLength) * 0.5;
+  return Math.round(Math.min(fromCoverage, cap) * 10) / 10;
 }
 
 export function getAntennaCount(product: ProductSelectorInput): number {
@@ -295,6 +312,7 @@ export function scoreWifiConstructorRouter(
   product: ProductSelectorInput,
   areaM2: number,
   totalClients: number,
+  spaceType: "office" | "home" = "home",
 ): number {
   const area = Math.max(10, Math.min(1500, areaM2));
   const cov = getCoverageM2(product);
@@ -305,15 +323,18 @@ export function scoreWifiConstructorRouter(
     totalClients: Math.max(2, totalClients),
     wiredClients: Math.max(1, Math.round(totalClients * 0.22)),
     area,
-    spaceType: area > 160 ? "office" : "home",
+    spaceType,
   });
-  return fit + value + tech * 0.32;
+  const officeBonus = spaceType === "office" && hasPoe(product) ? 4 : 0;
+  const homeValueBonus = spaceType === "home" ? Math.min(6, value * 0.15) : 0;
+  return fit + value + tech * 0.32 + officeBonus + homeValueBonus;
 }
 
 export function scoreWifiConstructorAp(
   product: ProductSelectorInput,
   areaM2: number,
   clientsPerAp: number,
+  spaceType: "office" | "home" = "home",
 ): number {
   const area = Math.max(10, Math.min(1500, areaM2));
   const cov = getCoverageM2(product);
@@ -322,9 +343,10 @@ export function scoreWifiConstructorAp(
   const value = Math.min(24, (Math.sqrt(cov) * 13) / Math.sqrt(price));
   const tech = scoreAccessPoint(product, {
     clientsPerAp: Math.max(2, clientsPerAp),
-    areaPerAp: Math.max(25, area),
-    office: area > 140,
+    areaPerAp: Math.max(25, area / Math.max(1, Math.ceil(area / 90))),
+    office: spaceType === "office",
   });
-  return fit + value + tech * 0.3;
+  const officePoeBonus = spaceType === "office" && hasPoe(product) ? 5 : 0;
+  return fit + value + tech * 0.3 + officePoeBonus;
 }
 

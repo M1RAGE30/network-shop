@@ -3,5 +3,5 @@ const formatter = new Intl.NumberFormat("ru-BY", {
   maximumFractionDigits: 2,
 });
 
-export const formatPrice = (value: number | string): string =>
-  `${formatter.format(Number(value))} BYN`;
+export const formatAmount = (value: number | string): string =>
+  formatter.format(Number(value));

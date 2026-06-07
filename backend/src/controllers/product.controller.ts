@@ -1,5 +1,7 @@
 import { Request, Response } from "express";
 import prisma from "../lib/prisma";
+import { matchesSpecFilters } from "../lib/specFilterMatch";
+import { normalizeProductSpecs } from "../lib/specNormalize";
 import { AuthRequest } from "../middleware/auth.middleware";
 
 const ALLOWED_PRODUCT_FIELDS = [
@@ -29,6 +31,12 @@ const pickProductFields = (body: Record<string, unknown>) =>
       body[k as ProductField],
     ]),
   );
+
+function withNormalizedSpecs<T extends { specs: unknown }>(product: T): T {
+  const normalized = normalizeProductSpecs(product.specs);
+  if (!normalized) return product;
+  return { ...product, specs: normalized };
+}
 
 function buildProductWhere(
   query: Record<string, string>,
@@ -64,21 +72,6 @@ function parseSpecFilters(specs?: string): Record<string, string> {
   } catch {
     return {};
   }
-}
-
-function matchesSpecFilters(
-  specs: unknown,
-  specFilters: Record<string, string>,
-): boolean {
-  if (!Object.keys(specFilters).length) return true;
-  const productSpecs =
-    specs && typeof specs === "object"
-      ? (specs as Record<string, unknown>)
-      : {};
-  return Object.entries(specFilters).every(([key, value]) => {
-    const specValue = productSpecs[key];
-    return typeof specValue === "string" && specValue === value;
-  });
 }
 
 function resolveSort(sort: string) {
@@ -125,7 +118,7 @@ export const getProducts = async (req: AuthRequest, res: Response) => {
       prisma.product.count({ where }),
     ]);
     return res.json({
-      products,
+      products: products.map(withNormalizedSpecs),
       total,
       page: pageNum,
       pages: Math.ceil(total / take),
@@ -162,7 +155,7 @@ export const getProducts = async (req: AuthRequest, res: Response) => {
   );
 
   return res.json({
-    products,
+    products: products.map(withNormalizedSpecs),
     total,
     page: pageNum,
     pages: Math.ceil(total / take),
@@ -186,7 +179,7 @@ export const getProductFilterMeta = async (req: AuthRequest, res: Response) => {
 
   return res.json({
     products: rows.map((row) => ({
-      specs: row.specs,
+      specs: normalizeProductSpecs(row.specs) ?? row.specs,
       brand: row.brand,
     })),
   });
@@ -205,7 +198,7 @@ export const getProduct = async (
     },
   });
   if (!product) return res.status(404).json({ message: "Not found" });
-  return res.json(product);
+  return res.json(withNormalizedSpecs(product));
 };
 
 export const createProduct = async (req: Request, res: Response) => {

@@ -1,8 +1,8 @@
-﻿import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ShoppingCart, Heart, Minus, Plus } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "../lib/api";
-import { formatPrice } from "../lib/format";
+import { Price } from "./Price";
 import MediaImage from "./MediaImage";
 import { useAuthStore } from "../store/authStore";
 import { isAdmin, isCustomer } from "../lib/roles";
@@ -119,13 +119,13 @@ export default function ProductCard({
       to={`/catalog/${product.slug}`}
       className="ns-card group flex min-h-0 w-full min-w-0 flex-col overflow-hidden md:min-h-[380px]"
     >
-      <div className="ns-card-media relative flex aspect-[4/3] w-full shrink-0 items-center justify-center overflow-hidden max-md:aspect-square">
+      <div className="ns-card-media relative aspect-square w-full shrink-0 overflow-hidden">
         {product.imageUrl ? (
           <MediaImage
             src={product.imageUrl}
             alt={product.name}
             loading="lazy"
-            className="h-full w-full object-contain object-center"
+            className="h-full w-full"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-ns-muted text-4xl">
@@ -181,8 +181,8 @@ export default function ProductCard({
         )}
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col p-2.5 sm:p-4 text-left">
-        <span className="ns-caption mb-1 mt-1 block truncate uppercase tracking-wider text-[11px] md:mb-2 md:mt-2 md:text-xs">
+      <div className="flex min-h-0 flex-1 flex-col px-2.5 pb-2.5 pt-1.5 text-left sm:px-4 sm:pb-4 sm:pt-2">
+        <span className="ns-caption mb-1 block truncate uppercase tracking-wider text-[11px] md:mb-1.5 md:text-xs">
           {product.brand.name}
         </span>
         <p className="ns-heading-card mb-1 line-clamp-2 text-sm leading-snug md:mb-2 md:text-base">
@@ -209,8 +209,8 @@ export default function ProductCard({
 
         <div className="mt-auto pt-2 md:pt-1">
           <div className="mb-2 flex items-center justify-center">
-            <span className="text-sm font-semibold text-ns-text sm:text-lg">
-              {formatPrice(product.price)}
+            <span className="text-base font-semibold text-ns-text sm:text-lg">
+              <Price value={product.price} />
             </span>
           </div>
 

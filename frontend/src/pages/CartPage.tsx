@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Minus, Plus, ShoppingCart, Trash2, Package } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../lib/api";
-import { formatPrice } from "../lib/format";
+import { Price } from "../components/Price";
 import MediaImage from "../components/MediaImage";
 import { CartPageSkeleton } from "../components/skeleton/Skeleton";
 
@@ -94,7 +94,7 @@ export default function CartPage() {
                     {item.product.brand?.name || "—"}
                   </p>
                   <p className="text-sm font-semibold text-ns-text mt-1.5 tabular-nums">
-                    {formatPrice(item.product.price)}
+                    <Price value={item.product.price} />
                     <span className="text-xs font-normal text-ns-muted ml-1">
                       за шт.
                     </span>
@@ -154,7 +154,7 @@ export default function CartPage() {
             Итого к оплате
           </p>
           <p className="text-3xl font-semibold text-ns-text mb-6">
-            {formatPrice(total)}
+            <Price value={total} />
           </p>
           <button
             onClick={() => navigate("/orders/new")}

@@ -1,7 +1,7 @@
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "../lib/api";
-import { formatPrice } from "../lib/format";
+import { Price } from "../components/Price";
 import {
   ShoppingCart,
   Heart,
@@ -213,7 +213,7 @@ export default function ProductPage() {
 
           <div className="py-2">
             <p className="aurora-text text-4xl sm:text-5xl font-semibold">
-              {formatPrice(product.price)}
+              <Price value={product.price} />
             </p>
           </div>
 

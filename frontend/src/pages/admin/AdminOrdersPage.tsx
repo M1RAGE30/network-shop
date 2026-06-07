@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import api from "../../lib/api";
 
-import { formatPrice } from "../../lib/format";
+import { Price } from "../../components/Price";
 
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -349,7 +349,7 @@ export default function AdminOrdersPage() {
 
                       <span className="text-lg font-semibold text-ns-text tabular-nums">
 
-                        {formatPrice(order.totalAmount)}
+                        <Price value={order.totalAmount} />
 
                       </span>
 

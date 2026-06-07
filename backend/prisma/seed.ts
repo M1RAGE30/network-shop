@@ -4,6 +4,7 @@ import bcrypt from "bcrypt";
 import * as fs from "fs";
 import * as path from "path";
 import { createMysqlAdapter } from "../src/lib/db-adapter";
+import { normalizeProductSpecs } from "../src/lib/specNormalize";
 
 const prisma = new PrismaClient({ adapter: createMysqlAdapter() });
 
@@ -137,7 +138,8 @@ async function seedFromJson(jsonPath: string) {
         (item.brand?.trim() ? brandsMap.get(item.brand) : null) ?? unknownBrand;
       const specs: Prisma.InputJsonValue | typeof Prisma.JsonNull =
         item.specifications && Object.keys(item.specifications).length > 0
-          ? item.specifications
+          ? (normalizeProductSpecs(item.specifications) ??
+            item.specifications)
           : Prisma.JsonNull;
 
       await prisma.product.upsert({
@@ -175,6 +177,28 @@ async function seedFromJson(jsonPath: string) {
   console.log(`Imported: ${imported}, skipped: ${skipped}, errors: ${errors}`);
 }
 
+async function normalizeExistingProductSpecs() {
+  const products = await prisma.product.findMany({
+    select: { id: true, specs: true },
+  });
+  let updated = 0;
+
+  for (const product of products) {
+    const normalized = normalizeProductSpecs(product.specs);
+    if (!normalized) continue;
+    if (JSON.stringify(product.specs) === JSON.stringify(normalized)) continue;
+    await prisma.product.update({
+      where: { id: product.id },
+      data: { specs: normalized },
+    });
+    updated += 1;
+  }
+
+  if (updated > 0) {
+    console.log(`Normalized specs for ${updated} products`);
+  }
+}
+
 async function main() {
   await seedAdmin();
 
@@ -184,6 +208,7 @@ async function main() {
     console.log(
       `Skip seed: ${productCount} products already in DB (FORCE_SEED=true to re-import)`,
     );
+    await normalizeExistingProductSpecs();
     return;
   }
 
@@ -199,6 +224,7 @@ async function main() {
   }
 
   await seedFromJson(jsonPath);
+  await normalizeExistingProductSpecs();
   console.log("Seed complete.");
 }
 

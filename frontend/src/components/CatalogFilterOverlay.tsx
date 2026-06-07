@@ -85,20 +85,22 @@ export default function CatalogFilterOverlay({
           onClick={onClose}
           aria-label="Закрыть фильтры"
         />
-        <div
-          onTransitionEnd={onPanelTransitionEnd}
-          className={`ns-overlay-panel ns-catalog-filter-sheet relative z-[110] flex max-h-[min(92dvh,720px)] flex-col rounded-t-[20px] border-t border-ns-border bg-ns-bg-secondary ${
-            visible ? "ns-catalog-filter-sheet--open" : ""
-          }`}
-          role="dialog"
-          aria-modal="true"
-          aria-label="Фильтры каталога"
-        >
-          {header}
-          <div className="ns-catalog-filter-scroll scrollbar-none min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4">
-            {children}
+        <div className="relative z-[110] w-full px-3">
+          <div
+            onTransitionEnd={onPanelTransitionEnd}
+            className={`ns-overlay-panel ns-catalog-filter-sheet flex max-h-[min(92dvh,720px)] w-full flex-col rounded-t-[20px] border border-b-0 border-ns-border bg-ns-bg-secondary pb-[env(safe-area-inset-bottom,0px)] ${
+              visible ? "ns-catalog-filter-sheet--open" : ""
+            }`}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Фильтры каталога"
+          >
+            {header}
+            <div className="ns-catalog-filter-scroll scrollbar-none min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4">
+              {children}
+            </div>
+            {footer}
           </div>
-          {footer}
         </div>
       </div>
 

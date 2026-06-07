@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import api from "../lib/api";
@@ -9,72 +9,47 @@ import { productCountLabel } from "../lib/pluralize";
 import { useBodyScrollLock } from "../lib/useBodyScrollLock";
 import CatalogCategoryPicker from "../components/CatalogCategoryPicker";
 import CatalogFilterOverlay from "../components/CatalogFilterOverlay";
+import { BYNSymbol } from "../components/BYNSymbol";
 import {
   countAppliedCatalogFilters,
-  formatSpecFilterLabel,
-  getExcludedSpecKeysForCategory,
+  formatSpecFilterOption,
+  normalizeSpecDisplayValue,
   parseSpecFilters,
   sortSpecFilterValues,
   stripExcludedSpecFilters,
 } from "../lib/catalogFilters";
+import { inputCls, labelCls, selectCls } from "../lib/uiClasses";
 
-const CATEGORY_SPEC_FILTERS: Record<
-  string,
-  Array<{ key: string; label: string }>
-> = {
+const CATEGORY_SPEC_FILTERS: Record<string, string[]> = {
   routers: [
-    { key: "Стандарты беспроводной связи", label: "Wi-Fi стандарт" },
-    { key: "Диапазон частот", label: "Диапазон" },
-    { key: "Поддержка сотовой связи", label: "Сотовая связь" },
-    { key: "Всего LAN-портов", label: "LAN-порты" },
-    { key: "Количество антенн", label: "Количество антенн" },
-    { key: "MIMO", label: "MIMO" },
-    { key: "Порты USB", label: "USB" },
-    { key: "Цвет", label: "Цвет" },
+    "Стандарты беспроводной связи",
+    "Диапазон частот",
+    "Всего LAN-портов",
+    "Поддержка сотовой связи",
+    "Цвет",
   ],
   switches: [
-    { key: "Количество портов", label: "Порты" },
-    { key: "Всего портов", label: "Порты" },
-    { key: "Скорость портов", label: "Скорость" },
-    { key: "Управляемый", label: "Управление" },
-    { key: "PoE", label: "PoE" },
+    "Количество портов Ethernet",
+    "Тип коммутатора",
+    "Скорость пересылки пакетов",
+    "Цвет",
   ],
   "access-points": [
-    { key: "Стандарты беспроводной связи", label: "Wi-Fi стандарт" },
-    { key: "Диапазон частот", label: "Диапазон" },
-    { key: "MIMO", label: "MIMO" },
-    { key: "PoE", label: "PoE" },
-    { key: "Цвет", label: "Цвет" },
+    "Стандарты беспроводной связи",
+    "Диапазон частот",
+    "Количество антенн",
+    "Тип",
   ],
   "wifi-adapters": [
-    { key: "Стандарты беспроводной связи", label: "Wi-Fi стандарт" },
-    { key: "Интерфейс подключения", label: "Интерфейс" },
-    { key: "Диапазон частот", label: "Диапазон" },
-    { key: "MIMO", label: "MIMO" },
+    "Стандарты беспроводной связи",
+    "Диапазон частот",
+    "Максимальная скорость связи",
+    "Количество антенн",
   ],
-  "usb-adapters": [
-    { key: "Интерфейсы устройства", label: "Интерфейсы" },
-    { key: "Стандарты", label: "Стандарты" },
-    { key: "Индикаторы", label: "Индикаторы" },
-  ],
-  storage: [
-    { key: "Тип", label: "Тип" },
-    { key: "Интерфейс", label: "Интерфейс" },
-    { key: "Количество отсеков", label: "Отсеки" },
-  ],
-  "patch-cords": [
-    { key: "Тип", label: "Тип" },
-    { key: "Длина кабеля", label: "Длина" },
-    { key: "Категория кабеля", label: "Категория" },
-    { key: "Цвет", label: "Цвет" },
-  ],
+  "usb-adapters": ["Интерфейсы устройства", "Стандарты"],
+  storage: ["Форм-фактор", "Интерфейс дисков", "Количество жестких дисков"],
+  "patch-cords": ["Длина кабеля", "Цвет"],
 };
-
-const EXCLUDED_DYNAMIC_SPEC_KEYS = new Set([
-  "Бренд",
-  "Гарантия",
-  "Страна происхождения (производства)",
-]);
 
 const CATALOG_PAGE_SIZE = 20;
 
@@ -94,6 +69,26 @@ export default function CatalogPage() {
   const minPriceDraftRef = useRef(searchParams.get("minPrice") || "");
   const maxPriceDraftRef = useRef(searchParams.get("maxPrice") || "");
   const selectedCategory = searchParams.get("category") || "";
+
+  const { data: categories } = useQuery({
+    queryKey: ["categories"],
+    queryFn: () => api.get("/categories").then((r) => r.data),
+  });
+
+  const { data: categoryProductsData } = useQuery({
+    queryKey: ["category-filter-meta", selectedCategory],
+    queryFn: () =>
+      api
+        .get("/products/filter-meta", {
+          params: { category: selectedCategory },
+        })
+        .then((r) => r.data),
+    enabled: !!selectedCategory,
+    staleTime: 1000 * 60 * 5,
+  });
+
+  const categoryProducts = categoryProductsData?.products ?? [];
+
   const specFilters = useMemo(
     () =>
       stripExcludedSpecFilters(
@@ -102,6 +97,7 @@ export default function CatalogPage() {
       ),
     [searchParams, selectedCategory],
   );
+
   const productQueryParams = useMemo(() => {
     const entries = [...searchParams.entries()].filter(([key]) => key !== "limit");
     const next = Object.fromEntries(entries) as Record<string, string>;
@@ -207,23 +203,6 @@ export default function CatalogPage() {
     enabled: !!selectedCategory,
   });
 
-  const { data: categories } = useQuery({
-    queryKey: ["categories"],
-    queryFn: () => api.get("/categories").then((r) => r.data),
-  });
-
-  const { data: categoryProductsData } = useQuery({
-    queryKey: ["category-filter-meta", selectedCategory],
-    queryFn: () =>
-      api
-        .get("/products/filter-meta", {
-          params: { category: selectedCategory },
-        })
-        .then((r) => r.data),
-    enabled: !!selectedCategory,
-    staleTime: 1000 * 60 * 5,
-  });
-
   useEffect(() => {
     if (selectedCategory || !categories?.length) return;
     const next = new URLSearchParams(searchParams);
@@ -269,7 +248,6 @@ export default function CatalogPage() {
     setDraftSpecFilters({});
     setSearchParams(selectedCategory ? { category: selectedCategory } : {});
   };
-  const categoryProducts = categoryProductsData?.products ?? [];
   const categoryBrands = useMemo(() => {
     const names = new Set<string>();
     categoryProducts.forEach((product: any) => {
@@ -287,50 +265,20 @@ export default function CatalogPage() {
   }, [selectedCategory, categoryBrands, brandFilter]);
 
   const activeSpecFilters = useMemo(() => {
-    const preferred = CATEGORY_SPEC_FILTERS[selectedCategory] ?? [];
-    const preferredKeys = new Set(preferred.map((filter) => filter.key));
-    const categoryExcluded = getExcludedSpecKeysForCategory(selectedCategory);
-    const dynamic = new Map<string, Set<string>>();
-
-    categoryProducts.forEach((product: any) => {
-      const specs = product.specs;
-      if (!specs || typeof specs !== "object") return;
-
-      Object.entries(specs as Record<string, unknown>).forEach(([key, value]) => {
-        if (
-          preferredKeys.has(key) ||
-          EXCLUDED_DYNAMIC_SPEC_KEYS.has(key) ||
-          categoryExcluded.has(key)
-        ) {
-          return;
-        }
-        if (typeof value !== "string" || !value.trim()) return;
-        if (!dynamic.has(key)) dynamic.set(key, new Set());
-        dynamic.get(key)!.add(value.trim());
-      });
-    });
-
-    const extra = Array.from(dynamic.entries())
-      .filter(([, values]) => values.size > 1 && values.size <= 30)
-      .sort(([keyA], [keyB]) =>
-        formatSpecFilterLabel(keyA).localeCompare(
-          formatSpecFilterLabel(keyB),
-          "ru",
-          { sensitivity: "base" },
-        ),
-      )
-      .slice(0, Math.max(0, 12 - preferred.length))
-      .map(([key]) => ({ key, label: formatSpecFilterLabel(key) }));
-
-    return [...preferred, ...extra];
-  }, [categoryProducts, selectedCategory]);
+    return (CATEGORY_SPEC_FILTERS[selectedCategory] ?? []).map((key) => ({
+      key,
+      label: key,
+    }));
+  }, [selectedCategory]);
   const specOptions = useMemo(() => {
     const result: Record<string, string[]> = {};
     activeSpecFilters.forEach(({ key }) => {
       const values = new Set<string>();
       categoryProducts.forEach((product: any) => {
         const value = product.specs?.[key];
-        if (typeof value === "string" && value.trim()) values.add(value.trim());
+        if (typeof value === "string" && value.trim()) {
+          values.add(normalizeSpecDisplayValue(value));
+        }
       });
       result[key] = sortSpecFilterValues(key, Array.from(values));
     });
@@ -342,10 +290,7 @@ export default function CatalogPage() {
   );
   const hasFilters = appliedFiltersCount > 0;
 
-  const fieldCls =
-    "w-full rounded-xl px-4 py-2.5 text-sm text-ns-text placeholder:text-ns-muted";
-  const selectCls =
-    `${fieldCls} pr-10 appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2012%2012%22%3E%3Cpath%20fill%3D%22%236e6e73%22%20d%3D%22M10.293%203.293L6%207.586%201.707%203.293A1%201%200%2000.293%204.707l5%205a1%201%200%20001.414%200l5-5a1%201%200%2010-1.414-1.414z%22%2F%3E%3C%2Fsvg%3E')] bg-[length:12px_12px] bg-[position:right_1rem_center] bg-no-repeat`;
+  const filterSelectCls = `${selectCls} bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2012%2012%22%3E%3Cpath%20fill%3D%22%236e6e73%22%20d%3D%22M10.293%203.293L6%207.586%201.707%203.293A1%201%200%2000.293%204.707l5%205a1%201%200%20001.414%200l5-5a1%201%200%2010-1.414-1.414z%22%2F%3E%3C%2Fsvg%3E')] bg-[length:12px_12px] bg-[position:right_1rem_center] bg-no-repeat`;
 
   const FilterFields = ({ variant }: { variant: "sidebar" | "overlay" }) => (
     <div className="space-y-5">
@@ -364,11 +309,9 @@ export default function CatalogPage() {
         </div>
       )}
       <div>
-        <label className="block text-xs font-semibold text-ns-muted mb-2">
-          Бренд
-        </label>
+        <label className={labelCls}>Бренд</label>
         <select
-          className={selectCls}
+          className={filterSelectCls}
               value={brandFilter}
               onChange={(e) => setBrandFilter(e.target.value)}
         >
@@ -381,36 +324,34 @@ export default function CatalogPage() {
         </select>
       </div>
       {activeSpecFilters
-        .filter(({ key }) => specOptions[key]?.length)
+        .filter(({ key }) => (specOptions[key]?.length ?? 0) > 1)
         .map(({ key, label }) => (
           <div key={key}>
-            <label className="block text-xs font-semibold text-ns-muted mb-2">
-              {label}
-            </label>
+            <label className={labelCls}>{label}</label>
             <select
-              className={selectCls}
+              className={filterSelectCls}
               value={draftSpecFilters[key] || ""}
               onChange={(e) => updateSpecFilter(key, e.target.value)}
             >
               <option value="">Любой вариант</option>
               {specOptions[key].map((value) => (
                 <option key={value} value={value}>
-                  {value}
+                  {formatSpecFilterOption(key, value)}
                 </option>
               ))}
             </select>
           </div>
         ))}
       <div>
-        <label className="block text-xs font-semibold text-ns-muted mb-2">
-          Цена, BYN
+        <label className={labelCls}>
+          Цена, <BYNSymbol />
         </label>
         <div className="flex gap-2">
           <input
             type="number"
             min="0"
             placeholder="от"
-            className={`${fieldCls} ${priceError ? "ring-2 ring-red-500" : ""}`}
+            className={`${inputCls} ${priceError ? "ring-2 ring-red-500" : ""}`}
             defaultValue={searchParams.get("minPrice") || ""}
             data-catalog-min-price
             onChange={(e) => {
@@ -421,7 +362,7 @@ export default function CatalogPage() {
             type="number"
             min="0"
             placeholder="до"
-            className={`${fieldCls} ${priceError ? "ring-2 ring-red-500" : ""}`}
+            className={`${inputCls} ${priceError ? "ring-2 ring-red-500" : ""}`}
             defaultValue={searchParams.get("maxPrice") || ""}
             data-catalog-max-price
             onChange={(e) => {
@@ -478,7 +419,9 @@ export default function CatalogPage() {
       <div className="ns-catalog-layout">
         <aside className="ns-catalog-filters">
           <div className="ns-catalog-filters-panel ns-card-static sticky top-24 rounded-[20px] p-5 xl:p-6 max-h-[calc(100vh-7rem)] overflow-y-auto scrollbar-none">
-            <FilterFields variant="sidebar" />
+            <div className="mx-auto w-full max-w-[260px]">
+              <FilterFields variant="sidebar" />
+            </div>
           </div>
         </aside>
 

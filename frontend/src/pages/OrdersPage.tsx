@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { ShoppingBag } from "lucide-react";
 import api from "../lib/api";
-import { formatPrice } from "../lib/format";
+import { Price } from "../components/Price";
 import OrderItemRow from "../components/OrderItemRow";
 import OrderCardSummary from "../components/OrderCardSummary";
 import { OrderListSkeleton } from "../components/skeleton/Skeleton";
@@ -85,7 +85,7 @@ export default function OrdersPage() {
                   <div className="px-4 py-4 sm:px-5 sm:pb-5 space-y-4">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-sm">
                       <div className="min-w-0">
-                        <p className="text-xs font-semibold text-ns-muted mb-1">
+                        <p className="text-sm sm:text-xs font-semibold text-ns-muted mb-1">
                           Адрес
                         </p>
                         <p className="font-medium text-ns-text break-words">
@@ -95,7 +95,7 @@ export default function OrdersPage() {
 
                       {currentOrder.phone && (
                         <div className="min-w-0">
-                          <p className="text-xs font-semibold text-ns-muted mb-1">
+                          <p className="text-sm sm:text-xs font-semibold text-ns-muted mb-1">
                             Телефон
                           </p>
                           <p className="font-medium text-ns-text">
@@ -106,7 +106,7 @@ export default function OrdersPage() {
 
                       {currentOrder.comment && (
                         <div className="sm:col-span-2 min-w-0">
-                          <p className="text-xs font-semibold text-ns-muted mb-1">
+                          <p className="text-sm sm:text-xs font-semibold text-ns-muted mb-1">
                             Комментарий
                           </p>
                           <p className="font-medium text-ns-text break-words">
@@ -145,7 +145,7 @@ export default function OrdersPage() {
                         Итого
                       </span>
                       <span className="text-lg font-semibold text-ns-text tabular-nums">
-                        {formatPrice(order.totalAmount)}
+                        <Price value={order.totalAmount} />
                       </span>
                     </div>
 

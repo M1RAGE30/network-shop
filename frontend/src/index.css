@@ -1,7 +1,64 @@
-@import "@fontsource-variable/inter";
-@import "@fontsource-variable/manrope";
 @import "tailwindcss";
 @import "./styles/design-tokens.css";
+
+@font-face {
+  font-family: "nbrb";
+  src:
+    url("/fonts/nbrb.woff2") format("woff2"),
+    url("/fonts/nbrb.ttf") format("truetype"),
+    url("/fonts/nbrb.woff") format("woff");
+  unicode-range: U+E901, U+42, U+59, U+4E;
+}
+
+.nbrb-icon {
+  font-family: "nbrb" !important;
+  speak: none;
+  font-style: normal;
+  font-weight: normal;
+  font-variant: normal;
+  text-transform: none;
+  line-height: 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: normal;
+  -webkit-font-feature-settings: "liga";
+  -moz-font-feature-settings: "liga=1";
+  -moz-font-feature-settings: "liga";
+  -ms-font-feature-settings: "liga" 1;
+  font-feature-settings: "liga";
+  -webkit-font-variant-ligatures: discretionary-ligatures;
+  font-variant-ligatures: discretionary-ligatures;
+  display: inline-block;
+  flex-shrink: 0;
+  font-size: 1.1em;
+  line-height: 1;
+  vertical-align: -0.06em;
+}
+
+.ns-price {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.14em;
+  line-height: 1;
+}
+
+.ns-price__amount {
+  line-height: 1;
+}
+
+.ns-price__symbol.nbrb-icon {
+  font-size: 0.95em;
+  line-height: 1;
+  height: 1em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: 0;
+}
+
+.nbrb-icon-byn::before {
+  content: "\e901";
+}
 
 @variant dark (&:where(.dark, .dark *));
 
@@ -192,6 +249,14 @@
       background 0.2s ease;
   }
 
+  @media (max-width: 639px) {
+    input:not([type="checkbox"]):not([type="radio"]),
+    select,
+    textarea {
+      font-size: 16px;
+    }
+  }
+
   input:not([type="checkbox"]):not([type="radio"]):hover,
   select:hover {
     background: var(--ns-input-hover);
@@ -274,12 +339,16 @@
   }
 
   .ns-card .ns-card-media img {
-    object-fit: cover;
-    object-position: center;
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    object-position: center bottom;
   }
 
   .ns-card:hover .ns-card-media img {
     transform: scale(1.02);
+    transform-origin: center bottom;
   }
 
   .ns-card-static {
@@ -636,6 +705,27 @@
     color: var(--color-ns-muted);
   }
 
+  @media (max-width: 639px) {
+    .ns-caption {
+      font-size: 15px;
+      line-height: 22px;
+    }
+
+    .ns-text-small {
+      font-size: 15px;
+      line-height: 20px;
+    }
+
+    .ns-body-secondary {
+      font-size: 16px;
+      line-height: 26px;
+    }
+
+    .ns-badge {
+      font-size: 0.875rem;
+    }
+  }
+
   .ns-section-y {
     padding-block: var(--ns-space-section);
   }
@@ -869,6 +959,20 @@
     margin-inline: 0;
   }
 
+  .ns-admin-product-form .ns-admin-product-form__textarea {
+    min-height: 5.5rem;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    line-height: 1.45;
+  }
+
+  @media (min-width: 1280px) {
+    .ns-admin-product-form .ns-admin-product-form__textarea {
+      min-height: 6.25rem;
+      font-size: 0.9375rem;
+    }
+  }
+
   .ns-admin-stats-export {
     display: flex;
     flex-wrap: nowrap;
@@ -1097,6 +1201,24 @@
     max-width: min(100%, 16rem);
     flex-shrink: 0;
     margin-left: auto;
+  }
+
+  @media (max-width: 639px) {
+    .ns-catalog-toolbar {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .ns-catalog-toolbar__count {
+      white-space: normal;
+    }
+
+    .ns-catalog-toolbar__sort {
+      width: 100%;
+      min-width: 0;
+      max-width: none;
+      margin-left: 0;
+    }
   }
 
   .ns-category-rail__scroll {
@@ -1968,8 +2090,8 @@
   }
 
   .ns-net-builder__canvas-shell {
-    padding: 10px;
-    border-radius: 14px;
+    padding: 4px;
+    border-radius: 10px;
     background: var(--color-ns-chip-bg);
     border: 1px solid var(--color-ns-border);
   }

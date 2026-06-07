@@ -18,12 +18,12 @@ export function ProductCardSkeleton() {
       className="ns-card flex min-h-0 w-full min-w-0 flex-col overflow-hidden md:min-h-[380px]"
       aria-hidden
     >
-      <div className="ns-card-media relative flex aspect-[4/3] w-full shrink-0 overflow-hidden max-md:aspect-square">
+      <div className="ns-card-media relative aspect-square w-full shrink-0 overflow-hidden">
         <Skeleton className="h-full w-full rounded-none" />
         <Skeleton className="absolute top-3 right-3 h-11 w-11 rounded-full md:opacity-0" />
       </div>
-      <div className="flex min-h-0 flex-1 flex-col p-2.5 sm:p-4 text-left">
-        <Skeleton className="mb-1 mt-1 h-3 w-1/3 md:mb-2 md:mt-2" />
+      <div className="flex min-h-0 flex-1 flex-col px-2.5 pb-2.5 pt-1.5 text-left sm:px-4 sm:pb-4 sm:pt-2">
+        <Skeleton className="mb-1 h-3 w-1/3 md:mb-1.5" />
         <Skeleton className="mb-1 h-4 w-full md:mb-2 md:h-5" />
         <Skeleton className="mb-1 hidden h-4 w-4/5 md:block" />
         <div className="mb-2 hidden min-h-[3.25rem] space-y-1 md:block">

@@ -1,5 +1,5 @@
 import { ChevronDown } from "lucide-react";
-import { formatPrice } from "../lib/format";
+import { Price } from "./Price";
 import {
   formatOrderDate,
   orderStatusBadgeClass,
@@ -38,15 +38,15 @@ export default function OrderCardSummary({
             {orderStatusLabels[status] ?? status}
           </span>
         </div>
-        <p className="text-xs text-ns-muted mt-1 line-clamp-2">
+        <p className="text-sm sm:text-xs text-ns-muted mt-1 line-clamp-2">
           {subtitle ? `${subtitle} · ` : ""}
           {formatOrderDate(createdAt)}
         </p>
       </div>
 
       <div className="flex shrink-0 items-center gap-2 sm:gap-2.5">
-        <span className="text-sm sm:text-base font-semibold text-ns-text tabular-nums whitespace-nowrap">
-          {formatPrice(totalAmount)}
+        <span className="text-base sm:text-base font-semibold text-ns-text tabular-nums whitespace-nowrap">
+          <Price value={totalAmount} />
         </span>
         <span
           className="inline-flex h-9 w-9 items-center justify-center text-ns-muted"

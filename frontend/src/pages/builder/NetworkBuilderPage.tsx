@@ -1,9 +1,9 @@
-﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 import { Package, ShoppingCart } from "lucide-react";
 import api from "../../lib/api";
-import { formatPrice } from "../../lib/format";
+import { Price } from "../../components/Price";
 import { useAuthStore } from "../../store/authStore";
 import { isCustomer } from "../../lib/roles";
 import MediaImage from "../../components/MediaImage";
@@ -17,8 +17,11 @@ import {
   getCoverageM2,
   getPortCount,
   hasPoe,
+  wifiRadiusM,
   type ProductSelectorInput,
 } from "../../lib/networkSelector";
+import { sortBuilderProducts } from "../../lib/builderProducts";
+import { productSpecSummary } from "../../lib/productSpecSummary";
 import { inputCls as fieldCls, labelCls } from "../../lib/uiClasses";
 import { themeCanvasColors } from "../../lib/themeColors";
 import { useThemeStore } from "../../store/themeStore";
@@ -112,15 +115,21 @@ function writeSavedBuilder(value: SavedBuilderState) {
   } catch {}
 }
 
-function radiusFromCoverageM(product: ProductSelectorInput): number {
-  return Math.max(2, Math.sqrt(getCoverageM2(product) / Math.PI));
+function radiusFromCoverageM(
+  product: ProductSelectorInput,
+  roomWidth: number,
+  roomLength: number,
+): number {
+  return wifiRadiusM(product, roomWidth, roomLength);
 }
 
 function scoreRouterLayoutFit(
   product: ProductSelectorInput,
   scene: SceneState,
+  roomWidth: number,
+  roomLength: number,
 ): number {
-  const r = radiusFromCoverageM(product);
+  const r = radiusFromCoverageM(product, roomWidth, roomLength);
   const phones = scene.clients.filter((c) => c.type === "📱");
   if (phones.length === 0) return 5;
   let sum = 0;
@@ -136,8 +145,10 @@ function scoreApLayoutFit(
   product: ProductSelectorInput,
   scene: SceneState,
   routerRadiusM: number,
+  roomWidth: number,
+  roomLength: number,
 ): number {
-  const rAp = radiusFromCoverageM(product);
+  const rAp = radiusFromCoverageM(product, roomWidth, roomLength);
   const phones = scene.clients.filter((c) => c.type === "📱");
   if (phones.length === 0) return 6;
   const outside = phones.filter(
@@ -195,8 +206,8 @@ const SCHEME_LEGEND: { mark: string; label: string }[] = [
 
 function fetchCategoryProducts(slug: string) {
   return api
-    .get("/products", { params: { category: slug, limit: 100, sort: "price-asc" } })
-    .then((r) => r.data.products as Product[]);
+    .get("/products", { params: { category: slug, limit: 100, sort: "name-asc" } })
+    .then((r) => sortBuilderProducts(r.data.products as Product[]));
 }
 
 function clampInt(value: string, min: number, max: number): number {
@@ -387,23 +398,41 @@ function pickPatchCordForLength(products: Product[], requiredM: number): Product
   );
 }
 
-function shortDeviceReason(
-  kind: "router" | "switch" | "ap" | "adapter" | "patch",
-  params: Record<string, string | number>,
-): string {
-  if (kind === "router") {
-    return `Роутер: площадь ${params.area} м², клиентов ${params.clients}; баланс покрытия и скорости.`;
+function pickBalancedKit<T extends Product>(
+  pool: T[],
+  score: (product: T) => number,
+  closeGap = 3,
+): T | null {
+  if (pool.length === 0) return null;
+  let best = pool[0];
+  let bestScore = score(best);
+  for (let i = 1; i < pool.length; i++) {
+    const candidate = pool[i];
+    const candidateScore = score(candidate);
+    if (candidateScore > bestScore + 1e-6) {
+      best = candidate;
+      bestScore = candidateScore;
+      continue;
+    }
+    if (Math.abs(candidateScore - bestScore) <= closeGap) {
+      const candidatePrice = Number(candidate.price);
+      const bestPrice = Number(best.price);
+      if (
+        candidatePrice < bestPrice ||
+        (candidatePrice === bestPrice && candidate.id < best.id)
+      ) {
+        best = candidate;
+        bestScore = candidateScore;
+      }
+    }
   }
-  if (kind === "switch") {
-    return `Коммутатор: LAN-устройств ${params.lanDevices}, нужно портов ${params.portsNeeded}, в модели ${params.portsInModel}.`;
-  }
-  if (kind === "ap") {
-    return `Точки доступа: ${params.count} шт., закрывают зоны вне радиуса роутера на схеме.`;
-  }
-  if (kind === "adapter") {
-    return `USB Ethernet: добавлено ${params.count} шт. для клиентов без LAN.`;
-  }
-  return `Патч-корд: ${params.count} шт., рассчитано по схеме (макс. ${params.maxLen} м).`;
+  return best;
+}
+
+function routerCandidatesForArea(routers: Product[], area: number): Product[] {
+  const minCoverage = Math.max(30, area * 0.42);
+  const filtered = routers.filter((router) => getCoverageM2(router) >= minCoverage);
+  return filtered.length > 0 ? filtered : routers;
 }
 
 function buildSceneState(
@@ -423,8 +452,8 @@ function buildSceneState(
   const totalWired = numbers.wired + numbers.printers;
   const totalClients = totalWired + numbers.wireless;
 
-  const routerProduct = pickBest(
-    routers,
+  const routerProduct = pickBalancedKit(
+    routerCandidatesForArea(routers, area),
     (r) =>
       scoreRouter(r, {
         totalClients,
@@ -432,10 +461,10 @@ function buildSceneState(
         area,
         spaceType,
       }),
-  ) as Product | null;
+  );
 
   const routerRadiusM = routerProduct
-    ? Math.max(2, Math.sqrt(getCoverageM2(routerProduct) / Math.PI))
+    ? wifiRadiusM(routerProduct, numbers.width, numbers.length)
     : 7;
 
   const router = clampToRoom(
@@ -452,10 +481,11 @@ function buildSceneState(
     const bestAp = pickBest(
       aps,
       (apCandidate) =>
-        scoreWifiConstructorAp(apCandidate, area, clientsPerApEst),
+        scoreWifiConstructorAp(apCandidate, area, clientsPerApEst, spaceType),
     ) as Product | null;
-    const referenceCoverage = bestAp ? getCoverageM2(bestAp) : 100;
-    apRadiusM = Math.max(2, Math.sqrt(referenceCoverage / Math.PI));
+    apRadiusM = bestAp
+      ? wifiRadiusM(bestAp, numbers.width, numbers.length)
+      : 5;
   }
 
   const needsSwitch =
@@ -494,10 +524,12 @@ function getRoomGeometry(
   const cssWidth = canvas.clientWidth;
   const cssHeight = canvas.clientHeight;
   if (cssWidth < 8 || cssHeight < 8) return null;
-  const padding = 32;
+  const padX = 18;
+  const padTop = 26;
+  const padBottom = 14;
   const roomRatio = numbers.width / numbers.length;
-  const availW = cssWidth - padding * 2;
-  const availH = cssHeight - padding * 2;
+  const availW = cssWidth - padX * 2;
+  const availH = cssHeight - padTop - padBottom;
   let roomW = availW;
   let roomH = availW / roomRatio;
   if (roomH > availH) {
@@ -505,7 +537,7 @@ function getRoomGeometry(
     roomW = availH * roomRatio;
   }
   const rx = (cssWidth - roomW) / 2;
-  const ry = (cssHeight - roomH) / 2;
+  const ry = padTop + (availH - roomH) / 2;
   return { rx, ry, roomW, roomH, ppm: roomW / numbers.width };
 }
 
@@ -637,26 +669,33 @@ export default function NetworkBuilderPage() {
         prev ?? buildSceneState(numbers, area, form.spaceType, routers, aps);
       const totalWired = numbers.wired + numbers.printers;
       const totalClients = totalWired + numbers.wireless;
-      const routerProduct = pickBest(
-        routers,
+      const routerProduct = pickBalancedKit(
+        routerCandidatesForArea(routers, area),
         (routerCandidate) =>
-          scoreWifiConstructorRouter(routerCandidate, area, totalClients) +
-          scoreRouterLayoutFit(routerCandidate, base),
-      ) as Product | null;
+          scoreWifiConstructorRouter(
+            routerCandidate,
+            area,
+            totalClients,
+            form.spaceType,
+          ) + scoreRouterLayoutFit(
+            routerCandidate,
+            base,
+            numbers.width,
+            numbers.length,
+          ),
+      );
       const nextRouterRadiusM = routerProduct
-        ? Math.max(2, Math.sqrt(getCoverageM2(routerProduct) / Math.PI))
+        ? wifiRadiusM(routerProduct, numbers.width, numbers.length)
         : base.routerRadiusM;
       const clientsPerApEst = Math.max(
         2,
         Math.ceil(numbers.wireless / Math.max(1, Math.ceil(area / 80))),
       );
-      let bestAp = pickBest(
-        aps,
-        (apCandidate) =>
-          scoreWifiConstructorAp(apCandidate, area, clientsPerApEst),
-      ) as Product | null;
+      let bestAp = pickBalancedKit(aps, (apCandidate) =>
+        scoreWifiConstructorAp(apCandidate, area, clientsPerApEst, form.spaceType),
+      );
       let nextApRadiusM = bestAp
-        ? Math.max(2, Math.sqrt(getCoverageM2(bestAp) / Math.PI))
+        ? wifiRadiusM(bestAp, numbers.width, numbers.length)
         : base.apRadiusM;
       let apMarkers =
         numbers.wireless > 0 && aps.length > 0
@@ -675,14 +714,18 @@ export default function NetworkBuilderPage() {
           routerRadiusM: nextRouterRadiusM,
           apRadiusM: nextApRadiusM,
         };
-        bestAp = pickBest(
-          aps,
-          (apCandidate) =>
-            scoreWifiConstructorAp(apCandidate, area, clientsPerApEst) +
-            scoreApLayoutFit(apCandidate, sceneDraft, nextRouterRadiusM),
-        ) as Product | null;
+        bestAp = pickBalancedKit(aps, (apCandidate) =>
+          scoreWifiConstructorAp(apCandidate, area, clientsPerApEst, form.spaceType) +
+          scoreApLayoutFit(
+            apCandidate,
+            sceneDraft,
+            nextRouterRadiusM,
+            numbers.width,
+            numbers.length,
+          ),
+        );
         nextApRadiusM = bestAp
-          ? Math.max(2, Math.sqrt(getCoverageM2(bestAp) / Math.PI))
+          ? wifiRadiusM(bestAp, numbers.width, numbers.length)
           : nextApRadiusM;
         apMarkers = computeApMarkers(
           base.clients,
@@ -727,30 +770,43 @@ export default function NetworkBuilderPage() {
     const totalWired = numbers.wired + numbers.printers;
     const totalClients = totalWired + numbers.wireless;
 
-    const router = pickBest(
-      routers,
+    const router = pickBalancedKit(
+      routerCandidatesForArea(routers, area),
       (routerCandidate) =>
-        scoreWifiConstructorRouter(routerCandidate, area, totalClients) +
-        scoreRouterLayoutFit(routerCandidate, scene),
-    ) as Product | null;
+        scoreWifiConstructorRouter(
+          routerCandidate,
+          area,
+          totalClients,
+          form.spaceType,
+        ) +
+        scoreRouterLayoutFit(
+          routerCandidate,
+          scene,
+          numbers.width,
+          numbers.length,
+        ),
+    );
+
+    const routerRadiusM = router
+      ? wifiRadiusM(router, numbers.width, numbers.length)
+      : 7;
 
     if (router) {
       items.push({
         product: router,
         quantity: 1,
-        reason: shortDeviceReason("router", { area, clients: totalClients }),
+        reason: productSpecSummary(router),
       });
     }
-
-    const routerRadiusM = router
-      ? Math.max(2, Math.sqrt(getCoverageM2(router) / Math.PI))
-      : 7;
 
     const apsCount = scene.apMarkers.length;
     const cableConnections = computeCableConnections(scene);
     const lanDevices = numbers.wired + numbers.printers + apsCount;
     const baseLanPorts = lanDevices > 0 ? lanDevices + 1 : 0;
-    const portHeadroom = Math.max(3, Math.ceil(baseLanPorts * 0.22));
+    const portHeadroom =
+      form.spaceType === "office"
+        ? Math.max(2, Math.ceil(baseLanPorts * 0.25))
+        : Math.max(1, Math.ceil(baseLanPorts * 0.12));
     const portsNeeded = baseLanPorts + portHeadroom;
     const minPortsRequired = baseLanPorts;
 
@@ -759,24 +815,23 @@ export default function NetworkBuilderPage() {
         (sw) => getPortCount(sw) >= minPortsRequired,
       );
       const pool = eligible.length > 0 ? eligible : switches;
-      const sw = pickBest(
-        pool,
-        (switchCandidate) => {
-          const s =
-            scoreSwitch(switchCandidate, {
-              portsNeeded,
-              preferManaged:
-                numbers.wired + numbers.printers >= 10 ||
-                form.spaceType === "office",
-              office: form.spaceType === "office",
-            }) + scoreSwitchLayoutFit(switchCandidate, scene);
-          const ports = getPortCount(switchCandidate);
-          if (eligible.length === 0 && ports < minPortsRequired) {
-            return s - (minPortsRequired - ports) * 5;
-          }
-          return s;
-        },
-      ) as Product | null;
+      const sw = pickBalancedKit(pool, (switchCandidate) => {
+        const ports = getPortCount(switchCandidate);
+        let s =
+          scoreSwitch(switchCandidate, {
+            portsNeeded,
+            preferManaged:
+              form.spaceType === "office" ||
+              numbers.wired + numbers.printers >= 8,
+            office: form.spaceType === "office",
+          }) + scoreSwitchLayoutFit(switchCandidate, scene);
+        if (ports < minPortsRequired) {
+          s -= (minPortsRequired - ports) * 14;
+        } else if (ports < portsNeeded) {
+          s -= (portsNeeded - ports) * 4;
+        }
+        return s;
+      });
       if (sw) {
         const portsInModel = Math.max(1, getPortCount(sw));
         const switchQty = Math.max(
@@ -787,43 +842,42 @@ export default function NetworkBuilderPage() {
         items.splice(insertAt, 0, {
           product: sw,
           quantity: switchQty,
-          reason: shortDeviceReason("switch", {
-            lanDevices,
-            portsNeeded,
-            portsInModel,
-          }),
+          reason: productSpecSummary(sw),
         });
       }
     }
 
     if (numbers.wireless > 0 && aps.length > 0) {
       const clientsPerApEst = Math.max(2, Math.ceil(numbers.wireless / 3));
-      const bestAp = pickBest(
-        aps,
-        (apCandidate) =>
-          scoreWifiConstructorAp(apCandidate, area, clientsPerApEst) +
-          scoreApLayoutFit(apCandidate, scene, routerRadiusM),
-      ) as Product | null;
+      const bestAp = pickBalancedKit(aps, (apCandidate) =>
+        scoreWifiConstructorAp(apCandidate, area, clientsPerApEst, form.spaceType) +
+        scoreApLayoutFit(
+          apCandidate,
+          scene,
+          routerRadiusM,
+          numbers.width,
+          numbers.length,
+        ),
+      );
       if (bestAp && apsCount > 0) {
         items.push({
           product: bestAp,
           quantity: apsCount,
-          reason: shortDeviceReason("ap", { count: apsCount }),
+          reason: productSpecSummary(bestAp),
         });
       }
     }
 
     if (form.spaceType === "office" && numbers.wireless >= 4) {
-      const adapter = pickBest(
-        adapters,
-        (adapterCandidate) => scoreAdapter(adapterCandidate),
-      ) as Product | null;
+      const adapter = pickBalancedKit(adapters, (adapterCandidate) =>
+        scoreAdapter(adapterCandidate),
+      );
       if (adapter) {
         const adapterQty = Math.max(1, Math.floor(numbers.wireless / 4));
         items.push({
           product: adapter,
           quantity: adapterQty,
-          reason: shortDeviceReason("adapter", { count: adapterQty }),
+          reason: productSpecSummary(adapter),
         });
       }
     }
@@ -849,10 +903,7 @@ export default function NetworkBuilderPage() {
         items.push({
           product: item.product,
           quantity: item.quantity,
-          reason: shortDeviceReason("patch", {
-            count: item.quantity,
-            maxLen: item.maxLength.toFixed(1),
-          }),
+          reason: productSpecSummary(item.product),
         });
       }
     }
@@ -1105,9 +1156,9 @@ export default function NetworkBuilderPage() {
       ctx.fillStyle = labelColor;
       ctx.font = "12px Inter, sans-serif";
       ctx.textAlign = "center";
-      ctx.fillText(`${numbers.width} м`, rx + roomW / 2, ry - 12);
+      ctx.fillText(`${numbers.width} м`, rx + roomW / 2, ry - 10);
       ctx.save();
-      ctx.translate(rx - 12, ry + roomH / 2);
+      ctx.translate(rx - 14, ry + roomH / 2);
       ctx.rotate(-Math.PI / 2);
       ctx.fillText(`${numbers.length} м`, 0, 0);
       ctx.restore();
@@ -1333,17 +1384,24 @@ export default function NetworkBuilderPage() {
             </div>
           </div>
 
-          <div className="aurora-card rounded-2xl p-3 sm:p-4 space-y-3">
+          <div className="aurora-card rounded-2xl p-2.5 sm:p-3 space-y-2">
             <p className="ns-net-builder__section-label mb-0">Схема</p>
             {!showCalculated && hasScene && (
               <p className="ns-net-builder__hint -mt-1">
-                Положение устройств на схеме меняется перетаскиванием
+                Перетаскивайте устройства на схеме
               </p>
             )}
-            <div className="ns-net-builder__canvas-shell">
+            <div
+              className="ns-net-builder__canvas-shell w-full"
+              style={{
+                aspectRatio: `${Math.max(1, numbers.width)} / ${Math.max(1, numbers.length)}`,
+                maxHeight: "min(54vh, 480px)",
+                minHeight: "260px",
+              }}
+            >
               <canvas
                 ref={canvasRef}
-                className={`w-full h-[360px] sm:h-[520px] lg:h-[640px] rounded-[10px] touch-none bg-ns-elevated ${hasScene ? "cursor-grab active:cursor-grabbing" : ""}`}
+                className={`h-full w-full rounded-lg touch-none bg-ns-elevated ${hasScene ? "cursor-grab active:cursor-grabbing" : ""}`}
                 onPointerDown={onPointerDown}
                 onPointerMove={onPointerMove}
                 onPointerUp={onPointerUp}
@@ -1383,8 +1441,8 @@ export default function NetworkBuilderPage() {
               </div>
             )}
             {showCalculated && recommendation.length > 0 && (
-              <p className="ns-net-builder__hint mb-2.5">
-                Изменения на схеме пересчитывают комплект
+              <p className="ns-net-builder__hint mb-2">
+                Схема пересчитывает комплект
               </p>
             )}
             <div className="space-y-2">
@@ -1417,7 +1475,7 @@ export default function NetworkBuilderPage() {
                         × {item.quantity}
                       </span>
                       <span className="font-semibold text-ns-text">
-                        {formatPrice(Number(item.product.price) * item.quantity)}
+                        <Price value={Number(item.product.price) * item.quantity} />
                       </span>
                     </div>
                   </div>
@@ -1431,7 +1489,7 @@ export default function NetworkBuilderPage() {
                     Итого
                   </span>
                   <span className="text-base font-semibold text-ns-text tabular-nums">
-                    {formatPrice(totalPrice)}
+                    <Price value={totalPrice} />
                   </span>
                 </div>
               </div>

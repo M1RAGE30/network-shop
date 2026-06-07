@@ -1,4 +1,4 @@
-﻿import { Routes, Route, Link, useLocation } from "react-router-dom";
+import { Routes, Route, Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
   Package,
@@ -40,7 +40,11 @@ export default function AdminPage() {
         : location.pathname === to;
 
   return (
-    <div className="ns-admin-shell flex min-h-dvh w-full">
+    <div
+      className={`ns-admin-shell flex w-full ${
+        isChats ? "h-dvh max-h-dvh overflow-hidden" : "min-h-dvh"
+      }`}
+    >
       <aside className="ns-admin-shell__sidebar hidden lg:flex">
         <nav className="flex-1 space-y-1 overflow-y-auto p-3 pt-4 scrollbar-none">
           {NAV.map(({ to, label, icon: Icon, end }) => (
@@ -79,7 +83,11 @@ export default function AdminPage() {
         </div>
       </aside>
 
-      <div className="ns-admin-shell__main min-w-0 overflow-x-clip">
+      <div
+        className={`ns-admin-shell__main min-w-0 overflow-x-clip ${
+          isChats ? "h-dvh max-h-dvh overflow-hidden" : ""
+        }`}
+      >
         <nav className="flex w-full gap-2 overflow-x-auto border-b border-ns-border px-2 py-2 scrollbar-none lg:hidden">
           {NAV.map(({ to, label, end }) => (
             <Link
@@ -97,20 +105,30 @@ export default function AdminPage() {
         </nav>
 
         <div
-          className={`ns-admin-content w-full min-w-0 flex-1 max-lg:pb-24 p-3 sm:p-4 lg:p-6 xl:p-8 ${
+          className={`ns-admin-content w-full min-w-0 flex-1 p-3 sm:p-4 lg:p-6 xl:p-8 ${
+            isChats ? "max-lg:pb-3" : "max-lg:pb-24"
+          } ${
             isFullHeightView
               ? "flex min-h-0 flex-col overflow-hidden"
               : "overflow-auto"
           }`}
         >
-          <Routes>
-            <Route index element={<AdminStats />} />
-            <Route path="orders" element={<AdminOrdersPage />} />
-            <Route path="products" element={<AdminProductsPage />} />
-            <Route path="users" element={<AdminUsersPage />} />
-            <Route path="chats" element={<AdminChatsPage />} />
-            <Route path="chats/:roomId" element={<AdminChatsPage />} />
-          </Routes>
+          <div
+            className={
+              isChats
+                ? "flex min-h-0 flex-1 flex-col overflow-hidden"
+                : "contents"
+            }
+          >
+            <Routes>
+              <Route index element={<AdminStats />} />
+              <Route path="orders" element={<AdminOrdersPage />} />
+              <Route path="products" element={<AdminProductsPage />} />
+              <Route path="users" element={<AdminUsersPage />} />
+              <Route path="chats" element={<AdminChatsPage />} />
+              <Route path="chats/:roomId" element={<AdminChatsPage />} />
+            </Routes>
+          </div>
         </div>
         <AdminMobileFab />
       </div>

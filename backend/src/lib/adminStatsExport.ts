@@ -156,7 +156,7 @@ export function buildAdminStatsExcelHtml(payload: AdminStatsExportPayload): stri
     const itemsSummary = order.items
       .map(
         (i) =>
-          `${i.product?.name ?? "—"} × ${i.quantity} (${formatMoney(i.price)} BYN)`,
+          `${i.product?.name ?? "—"} × ${i.quantity} (${formatMoney(i.price)} б.р.)`,
       )
       .join("; ");
     return [
@@ -212,7 +212,7 @@ export function buildAdminStatsExcelHtml(payload: AdminStatsExportPayload): stri
       "1. Показатели за выбранный день",
       kvTable([
         ["Заказов создано", summary.ordersDay],
-        ["Выручка по доставленным (DELIVERED)", `${formatMoney(summary.revenueDay)} BYN`],
+        ["Выручка по доставленным (DELIVERED)", `${formatMoney(summary.revenueDay)} б.р.`],
         ["Новых пользователей", summary.newUsersDay],
         ["Отзывов", summary.reviewsDay],
         ["Сообщений в чатах", summary.messagesDay],
@@ -224,7 +224,7 @@ export function buildAdminStatsExcelHtml(payload: AdminStatsExportPayload): stri
         ["Всего заказов", summary.totalOrders],
         ["Всего пользователей", summary.totalUsers],
         ["Всего товаров", summary.totalProducts],
-        ["Выручка (доставленные, всего)", `${formatMoney(summary.revenueAll)} BYN`],
+        ["Выручка (доставленные, всего)", `${formatMoney(summary.revenueAll)} б.р.`],
         ["Заказов в ожидании (PENDING)", summary.pendingOrders],
         ["Непрочитанных сообщений в чатах", summary.unreadChats],
       ]),
@@ -248,7 +248,7 @@ export function buildAdminStatsExcelHtml(payload: AdminStatsExportPayload): stri
               "Адрес",
               "Комментарий",
               "Позиций",
-              "Сумма (BYN)",
+              "Сумма, б.р.",
               "Состав",
             ],
             orderRows,
@@ -332,7 +332,7 @@ export function buildAdminStatsExcelHtml(payload: AdminStatsExportPayload): stri
       "11. Товары с низким остатком (≤ 5 шт.)",
       payload.lowStock.length
         ? table(
-            ["ID", "Название", "Категория", "Бренд", "Остаток", "Цена (BYN)"],
+            ["ID", "Название", "Категория", "Бренд", "Остаток", "Цена, б.р."],
             payload.lowStock.map((p) => [
               p.id,
               p.name,
@@ -348,7 +348,7 @@ export function buildAdminStatsExcelHtml(payload: AdminStatsExportPayload): stri
       "12. Топ продаж за день (по количеству)",
       payload.topSold.length
         ? table(
-            ["Товар", "Продано шт.", "Сумма (BYN)"],
+            ["Товар", "Продано шт.", "Сумма, б.р."],
             payload.topSold.map((row) => [
               row.productName,
               row.quantity,

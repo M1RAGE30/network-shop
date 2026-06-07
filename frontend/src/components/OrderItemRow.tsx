@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { Package } from "lucide-react";
-import { formatPrice } from "../lib/format";
+import { Price } from "./Price";
 import MediaImage from "./MediaImage";
 
 interface OrderItemRowProps {
@@ -44,7 +44,7 @@ export default function OrderItemRow({
           {productName}
         </p>
         <p className="text-xs text-ns-muted mt-1 tabular-nums">
-          {quantity} шт. · {formatPrice(unitPrice)} за шт.
+          {quantity} шт. · <Price value={unitPrice} /> за шт.
         </p>
       </div>
     </>

@@ -39,3 +39,7 @@ export function pluralizeReviews(count: number): string {
 export function pluralizeDialogs(count: number): string {
   return `${count} ${pluralize(count, "диалог", "диалога", "диалогов")}`;
 }
+
+export function pendingOrdersHint(count: number): string {
+  return `${count} ${pluralize(count, "ожидает", "ожидают", "ожидают")}`;
+}

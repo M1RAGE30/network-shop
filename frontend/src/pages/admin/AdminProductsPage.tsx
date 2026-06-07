@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   useQuery,
   useMutation,
@@ -6,12 +6,13 @@ import {
   keepPreviousData,
 } from "@tanstack/react-query";
 import api from "../../lib/api";
-import { formatPrice } from "../../lib/format";
+import { Price } from "../../components/Price";
+import { BYNSymbol } from "../../components/BYNSymbol";
 import { Pencil, Trash2, Plus, X } from "lucide-react";
 import { pluralizeProducts } from "../../lib/pluralize";
 import ConfirmDialog from "../../components/ConfirmDialog";
 import MediaImage from "../../components/MediaImage";
-import { inputCls, selectCls, labelCls, textareaCls } from "../../lib/uiClasses";
+import { inputCls, selectCls, textareaCls, labelCls } from "../../lib/uiClasses";
 import { categoryDisplayName } from "../../lib/categoryName";
 import { authErrorBox } from "../../lib/authFormStyles";
 import { scrollToFormElement } from "../../lib/scrollToForm";
@@ -322,7 +323,9 @@ export default function AdminProductsPage() {
         }}
       />
       {formErrors[key] && (
-        <p className="mt-1.5 text-xs font-medium text-red-500">{formErrors[key]}</p>
+        <p className="mt-1.5 text-sm sm:text-xs font-medium text-red-500">
+          {formErrors[key]}
+        </p>
       )}
     </div>
   );
@@ -407,32 +410,50 @@ export default function AdminProductsPage() {
       {showForm && (
         <div
           ref={productFormRef}
-          className="aurora-card scroll-mt-4 rounded-3xl p-8 space-y-6"
+          className="ns-admin-product-form aurora-card scroll-mt-4 rounded-2xl p-4 sm:p-5 xl:p-6 space-y-4"
         >
-          <div className="flex items-center justify-between pb-4">
-            <p className="text-xl font-semibold text-ns-text">
+          <div className="flex items-center justify-between gap-3 pb-1">
+            <p className="text-base sm:text-lg font-semibold text-ns-text">
               {editId ? "Редактировать товар" : "Новый товар"}
             </p>
             <button
               onClick={() => setShowForm(false)}
-              className="ns-action-icon text-ns-text"
+              className="ns-action-icon text-ns-text shrink-0"
             >
-              <X size={20} strokeWidth={1.5} />
+              <X size={18} strokeWidth={1.5} />
             </button>
           </div>
           {Object.keys(formErrors).length > 0 && (
-            <div className={authErrorBox} role="alert">
+            <div className={`${authErrorBox} text-sm`} role="alert">
               Заполните все обязательные поля перед сохранением
             </div>
           )}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
             {field("name", "Название")}
             {field("slug", "URL", "text", "авто")}
-            {field("price", "Цена (BYN)", "number")}
+            <div>
+              <label className={labelCls}>
+                Цена (<BYNSymbol />)
+              </label>
+              <input
+                type="number"
+                className={`${inputCls} ${formErrors.price ? "ring-2 ring-red-500" : ""}`}
+                value={form.price}
+                onChange={(e) => {
+                  clearFieldError("price");
+                  setForm((p) => ({ ...p, price: e.target.value }));
+                }}
+              />
+              {formErrors.price && (
+                <p className="mt-1.5 text-sm sm:text-xs font-medium text-red-500">
+                  {formErrors.price}
+                </p>
+              )}
+            </div>
             {field("stock", "Остаток", "number")}
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1.5">
               <div className="flex items-center justify-between gap-2">
                 <label className={labelCls}>Категория</label>
                 <button
@@ -441,7 +462,7 @@ export default function AdminProductsPage() {
                     setShowNewCategory((v) => !v);
                     setShowNewBrand(false);
                   }}
-                  className="text-xs font-semibold text-ns-text-secondary hover:text-ns-text"
+                  className="text-sm sm:text-xs font-semibold text-ns-text-secondary hover:text-ns-text"
                 >
                   {showNewCategory ? "Отмена" : "+ Новая категория"}
                 </button>
@@ -475,12 +496,12 @@ export default function AdminProductsPage() {
                 </svg>
               </div>
               {formErrors.categoryId && (
-                <p className="text-xs font-medium text-red-500">
+                <p className="text-sm sm:text-xs font-medium text-red-500">
                   {formErrors.categoryId}
                 </p>
               )}
               {showNewCategory && (
-                <div className="space-y-3 rounded-xl border border-ns-border bg-ns-elevated/50 p-4">
+                <div className="space-y-2 rounded-xl border border-ns-border bg-ns-elevated/50 p-3">
                   <div>
                     <label className={labelCls}>Название категории</label>
                     <input
@@ -523,7 +544,7 @@ export default function AdminProductsPage() {
                 </div>
               )}
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <div className="flex items-center justify-between gap-2">
                 <label className={labelCls}>Бренд</label>
                 <button
@@ -532,7 +553,7 @@ export default function AdminProductsPage() {
                     setShowNewBrand((v) => !v);
                     setShowNewCategory(false);
                   }}
-                  className="text-xs font-semibold text-ns-text-secondary hover:text-ns-text"
+                  className="text-sm sm:text-xs font-semibold text-ns-text-secondary hover:text-ns-text"
                 >
                   {showNewBrand ? "Отмена" : "+ Новый бренд"}
                 </button>
@@ -566,12 +587,12 @@ export default function AdminProductsPage() {
                 </svg>
               </div>
               {formErrors.brandId && (
-                <p className="text-xs font-medium text-red-500">
+                <p className="text-sm sm:text-xs font-medium text-red-500">
                   {formErrors.brandId}
                 </p>
               )}
               {showNewBrand && (
-                <div className="space-y-3 rounded-xl border border-ns-border bg-ns-elevated/50 p-4">
+                <div className="space-y-2 rounded-xl border border-ns-border bg-ns-elevated/50 p-3">
                   <div>
                     <label className={labelCls}>Название бренда</label>
                     <input
@@ -601,92 +622,101 @@ export default function AdminProductsPage() {
               )}
             </div>
           </div>
-          <div>
-            <label className={labelCls}>Описание</label>
-            <textarea
-              rows={6}
-              className={textareaCls}
-              value={form.description}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, description: e.target.value }))
-              }
-            />
-          </div>
-          <div>
-            <label className={labelCls}>Характеристики (JSON)</label>
-            <textarea
-              rows={8}
-              placeholder={'{"Порты": "24"}'}
-              className={`${textareaCls} font-mono ${formErrors.specs ? "ring-2 ring-red-500" : ""}`}
-              value={form.specs}
-              onChange={(e) => {
-                clearFieldError("specs");
-                setForm((p) => ({ ...p, specs: e.target.value }));
-              }}
-            />
-            {formErrors.specs && (
-              <p className="mt-1.5 text-xs font-medium text-red-500">
-                {formErrors.specs}
-              </p>
-            )}
-          </div>
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
             <div>
-              <label className={labelCls}>Ссылка на изображение</label>
-              <input
-                type="url"
-                placeholder="https://example.com/image.jpg"
-                className={inputCls}
-                value={form.imageUrl}
-                onChange={(e) => {
-                  setImageFile(null);
-                  setForm((p) => ({ ...p, imageUrl: e.target.value }));
-                }}
+              <label className={labelCls}>Описание</label>
+              <textarea
+                rows={4}
+                className={`${textareaCls} ns-admin-product-form__textarea`}
+                value={form.description}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, description: e.target.value }))
+                }
               />
             </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <input
-                id="admin-product-image-upload"
-                type="file"
-                accept="image/*"
-                className="hidden"
+            <div>
+              <label className={labelCls}>Характеристики (JSON)</label>
+              <textarea
+                rows={4}
+                placeholder={'{"Порты": "24"}'}
+                className={`${textareaCls} ns-admin-product-form__textarea font-mono ${formErrors.specs ? "ring-2 ring-red-500" : ""}`}
+                value={form.specs}
                 onChange={(e) => {
-                  setImageFile(e.target.files?.[0] ?? null);
-                  e.target.value = "";
+                  clearFieldError("specs");
+                  setForm((p) => ({ ...p, specs: e.target.value }));
                 }}
               />
-              <label
-                htmlFor="admin-product-image-upload"
-                className="ns-btn ns-btn-secondary cursor-pointer text-sm"
-              >
-                Выбрать файл
-              </label>
-              <span className="text-sm text-ns-muted min-w-0 truncate">
-                {imageFile?.name || "Файл не выбран"}
-              </span>
-              {(previewImageSrc || imageFile) && (
-                <button
-                  type="button"
-                  onClick={resetImageInputs}
-                  className="text-sm font-medium text-ns-text-secondary hover:text-ns-text"
-                >
-                  Убрать фото
-                </button>
-              )}
-            </div>
-            <div className="flex min-h-[10rem] max-h-80 items-center justify-center overflow-hidden rounded-xl border border-ns-border bg-ns-hover/40 p-4">
-              {previewImageSrc ? (
-                <MediaImage
-                  src={previewImageSrc}
-                  alt="Предпросмотр"
-                  className="max-h-72 max-w-full w-auto object-contain"
-                />
-              ) : (
-                <span className="text-sm text-ns-muted">Предпросмотр появится здесь</span>
+              {formErrors.specs && (
+                <p className="mt-1.5 text-sm sm:text-xs font-medium text-red-500">
+                  {formErrors.specs}
+                </p>
               )}
             </div>
           </div>
-          <div className="flex gap-3 pt-2">
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_12rem] xl:grid-cols-[minmax(0,1fr)_14rem] gap-3 lg:items-stretch">
+            <div className="space-y-2 min-w-0 lg:pb-0">
+              <div>
+                <label className={labelCls}>Ссылка на изображение</label>
+                <input
+                  type="url"
+                  placeholder="https://example.com/image.jpg"
+                  className={inputCls}
+                  value={form.imageUrl}
+                  onChange={(e) => {
+                    setImageFile(null);
+                    setForm((p) => ({ ...p, imageUrl: e.target.value }));
+                  }}
+                />
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  id="admin-product-image-upload"
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    setImageFile(e.target.files?.[0] ?? null);
+                    e.target.value = "";
+                  }}
+                />
+                <label
+                  htmlFor="admin-product-image-upload"
+                  className="ns-btn ns-btn-secondary cursor-pointer text-sm py-2 px-3"
+                >
+                  Выбрать файл
+                </label>
+                <span className="text-xs sm:text-sm text-ns-muted min-w-0 truncate">
+                  {imageFile?.name || "Файл не выбран"}
+                </span>
+                {(previewImageSrc || imageFile) && (
+                  <button
+                    type="button"
+                    onClick={resetImageInputs}
+                    className="text-xs sm:text-sm font-medium text-ns-text-secondary hover:text-ns-text"
+                  >
+                    Убрать
+                  </button>
+                )}
+              </div>
+            </div>
+            <div className="flex min-h-[9rem] min-w-0 flex-col sm:min-h-[9.5rem] lg:min-h-0">
+              <label className={labelCls}>Предпросмотр</label>
+              <div className="flex min-h-[7.5rem] flex-1 items-center justify-center overflow-hidden rounded-xl border border-ns-border bg-ns-hover/40 p-2 sm:min-h-[8rem]">
+                {previewImageSrc ? (
+                  <MediaImage
+                    src={previewImageSrc}
+                    alt="Предпросмотр"
+                    className="max-h-full max-w-full w-auto object-contain"
+                  />
+                ) : (
+                  <span className="text-xs sm:text-sm text-ns-muted text-center px-2">
+                    Нет изображения
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2 pt-1">
             <button
               type="button"
               onClick={handleSave}
@@ -707,7 +737,7 @@ export default function AdminProductsPage() {
       )}
 
       <div>
-        <p className="text-xs font-semibold text-ns-muted mb-3">
+        <p className="text-xs xl:text-sm font-semibold text-ns-muted mb-3">
           {searchQuery
             ? `Найдено: ${pluralizeProducts(listTotal)}`
             : pluralizeProducts(listTotal)}
@@ -723,13 +753,13 @@ export default function AdminProductsPage() {
         ) : (
         <div className="aurora-card rounded-3xl overflow-hidden">
           <div className="hidden md:block overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="ns-admin-products-table w-full text-sm xl:text-[15px]">
               <thead className="ns-table-head">
                 <tr>
                   {["Товар", "Категория", "Цена", "Остаток", ""].map((h) => (
                     <th
                       key={h}
-                      className={`px-6 py-4 text-xs font-semibold text-ns-text ${h === "Цена" || h === "Остаток" ? "text-right" : "text-left"}`}
+                      className={`px-4 py-3 xl:px-5 xl:py-3.5 text-xs xl:text-sm font-semibold text-ns-text ${h === "Цена" || h === "Остаток" ? "text-right" : "text-left"}`}
                     >
                       {h}
                     </th>
@@ -742,9 +772,9 @@ export default function AdminProductsPage() {
                     key={p.id}
                     className="ns-row-hover transition-colors"
                   >
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-3 xl:px-5 xl:py-3.5">
                       <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 bg-ns-input rounded-xl flex items-center justify-center shrink-0">
+                        <div className="w-11 h-11 xl:w-12 xl:h-12 bg-ns-input rounded-xl flex items-center justify-center shrink-0">
                           {p.imageUrl ? (
                             <MediaImage
                               src={p.imageUrl}
@@ -758,22 +788,22 @@ export default function AdminProductsPage() {
                           )}
                         </div>
                         <div>
-                          <p className="font-semibold text-ns-text">
+                          <p className="font-semibold text-ns-text leading-snug">
                             {p.name}
                           </p>
-                          <p className="text-xs text-ns-muted">
+                          <p className="text-xs xl:text-[13px] text-ns-muted">
                             {p.brand?.name}
                           </p>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-ns-muted">
+                    <td className="px-4 py-3 xl:px-5 xl:py-3.5 text-ns-muted">
                       {categoryDisplayName(p.category?.name)}
                     </td>
-                    <td className="px-6 py-4 text-right font-semibold text-ns-text">
-                      {formatPrice(p.price)}
+                    <td className="px-4 py-3 xl:px-5 xl:py-3.5 text-right font-semibold text-ns-text tabular-nums">
+                      <Price value={p.price} />
                     </td>
-                    <td className="px-6 py-4 text-right">
+                    <td className="px-4 py-3 xl:px-5 xl:py-3.5 text-right">
                       <span
                         className={`text-xs font-semibold px-3 py-1.5 rounded-full tabular-nums ${
                           p.stock > 0
@@ -784,7 +814,7 @@ export default function AdminProductsPage() {
                         {p.stock}
                       </span>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-3 xl:px-5 xl:py-3.5">
                       <div className="flex items-center justify-end gap-2">
                         <button
                           type="button"
@@ -836,7 +866,7 @@ export default function AdminProductsPage() {
                     {p.name}
                   </p>
                   <p className="text-sm text-ns-muted">
-                    {p.brand?.name} · {formatPrice(p.price)}
+                    {p.brand?.name} · <Price value={p.price} />
                   </p>
                 </div>
                 <div className="flex gap-2 shrink-0">

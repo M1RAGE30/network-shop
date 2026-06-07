@@ -11,13 +11,14 @@ import {
   Download,
 } from "lucide-react";
 import api from "../../lib/api";
-import { formatPrice } from "../../lib/format";
+import { Price } from "../../components/Price";
 import {
   formatOrderDate,
   orderStatusBadgeClass,
   orderStatusLabels,
 } from "../../lib/orderStatus";
 import { AdminStatsSkeleton } from "../../components/skeleton/Skeleton";
+import { pendingOrdersHint } from "../../lib/pluralize";
 
 const STATUS_ORDER = [
   "PENDING",
@@ -67,7 +68,7 @@ export default function AdminStats() {
       value: data?.totalOrders,
       icon: ShoppingBag,
       hint: data?.pendingOrders
-        ? `${data.pendingOrders} ожидают`
+        ? pendingOrdersHint(data.pendingOrders)
         : undefined,
     },
     {
@@ -82,9 +83,13 @@ export default function AdminStats() {
     },
     {
       label: "Выручка",
-      value: data?.revenue != null ? formatPrice(data.revenue) : "0,00 BYN",
+      value:
+        data?.revenue != null ? (
+          <Price value={data.revenue} />
+        ) : (
+          <Price value={0} />
+        ),
       icon: Wallet,
-      hint: "Доставленные заказы",
     },
   ];
 
@@ -223,7 +228,7 @@ export default function AdminStats() {
                     </div>
                     <div className="shrink-0 text-right">
                       <p className="text-sm font-semibold text-ns-text tabular-nums">
-                        {formatPrice(order.totalAmount)}
+                        <Price value={order.totalAmount} />
                       </p>
                       <span
                         className={`mt-1 inline-block ${

@@ -5,6 +5,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import AdminApp from "./AdminApp";
 import ToastContainer from "../components/ToastContainer";
 import { bootstrapTheme } from "../lib/themeBootstrap";
+import "@fontsource-variable/inter/index.css";
+import "@fontsource-variable/manrope/index.css";
 import "../index.css";
 
 bootstrapTheme();

@@ -3,7 +3,7 @@ const globals = require("globals");
 const tseslint = require("typescript-eslint");
 
 module.exports = tseslint.config(
-  { ignores: ["dist/**", "eslint.config.js", "postcss.config.js"] },
+  { ignores: ["dist/**", "dist-admin/**", "eslint.config.js", "postcss.config.js"] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {

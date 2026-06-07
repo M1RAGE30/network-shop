@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { X, Minus, Plus, Trash2, ShoppingCart, Package } from "lucide-react";
 import api from "../lib/api";
-import { formatPrice } from "../lib/format";
+import { Price } from "./Price";
 import { useAuthStore } from "../store/authStore";
 import { isCustomer } from "../lib/roles";
 import MediaImage from "./MediaImage";
@@ -155,7 +155,7 @@ export default function CartDrawer({ open, onClose }: CartDrawerProps) {
                         {item.product.name}
                       </p>
                       <p className="text-base font-semibold text-ns-text mt-2">
-                        {formatPrice(item.product.price)}
+                        <Price value={item.product.price} />
                       </p>
                     </div>
                   </Link>
@@ -207,7 +207,7 @@ export default function CartDrawer({ open, onClose }: CartDrawerProps) {
                   Итого
                 </span>
                 <span className="font-semibold text-ns-text text-2xl">
-                  {formatPrice(total)}
+                  <Price value={total} />
                 </span>
               </div>
               <button

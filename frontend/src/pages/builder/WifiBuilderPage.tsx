@@ -1,4 +1,4 @@
-﻿import {
+import {
   useDeferredValue,
   useEffect,
   useMemo,
@@ -9,30 +9,26 @@ import { Link, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ImageUp, Wifi, ShoppingCart, Trash2, Plus } from "lucide-react";
 import api from "../../lib/api";
-import { formatPrice } from "../../lib/format";
+import { Price } from "../../components/Price";
 import { useAuthStore } from "../../store/authStore";
 import { isCustomer } from "../../lib/roles";
 import { useThemeStore } from "../../store/themeStore";
 import MediaImage from "../../components/MediaImage";
 import {
   pickBest,
-  scoreWifiConstructorAp,
   scoreWifiConstructorRouter,
   wifiCoverageRadiusM,
   wifiHeatmapRadiusPx,
 } from "../../lib/networkSelector";
 import { themeCanvasColors } from "../../lib/themeColors";
-import { inputCls, selectCls } from "../../lib/uiClasses";
-
-interface Product {
-  id: number;
-  name: string;
-  slug: string;
-  price: number;
-  imageUrl: string | null;
-  brand: { name: string };
-  specs?: Record<string, string> | null;
-}
+import { inputCls } from "../../lib/uiClasses";
+import {
+  type BuilderProduct,
+  filterWifiBuilderRouters,
+  sortBuilderProducts,
+} from "../../lib/builderProducts";
+import { productSpecSummary } from "../../lib/productSpecSummary";
+import BuilderDevicePicker from "../../components/BuilderDevicePicker";
 
 interface PlacedPoint {
   id: string;
@@ -46,12 +42,36 @@ const CANVAS_H = 480;
 
 const ZONE_BOUNDARY_RATIOS = [0.3, 0.55, 0.8, 1] as const;
 
+const WIFI_STORAGE_KEY = "wifi-builder-state-v1";
+
+interface SavedWifiBuilderState {
+  planUrl: string | null;
+  points: PlacedPoint[];
+  selectedProductId: number | null;
+  targetArea: string;
+}
+
+function readSavedWifiBuilder(): SavedWifiBuilderState | null {
+  try {
+    const raw = window.localStorage.getItem(WIFI_STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as SavedWifiBuilderState) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeSavedWifiBuilder(value: SavedWifiBuilderState) {
+  try {
+    window.localStorage.setItem(WIFI_STORAGE_KEY, JSON.stringify(value));
+  } catch {}
+}
+
 function fetchCategoryProducts(slug: string) {
   return api
     .get("/products", {
-      params: { category: slug, limit: 100, sort: "price-asc" },
+      params: { category: slug, limit: 100, sort: "name-asc" },
     })
-    .then((r) => r.data.products as Product[]);
+    .then((r) => sortBuilderProducts(r.data.products as BuilderProduct[]));
 }
 
 export default function WifiBuilderPage() {
@@ -60,25 +80,42 @@ export default function WifiBuilderPage() {
   const { user } = useAuthStore();
   const { dark } = useThemeStore();
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const initialSavedRef = useRef(readSavedWifiBuilder());
 
-  const [planUrl, setPlanUrl] = useState<string | null>(null);
+  const [planUrl, setPlanUrl] = useState<string | null>(
+    () => initialSavedRef.current?.planUrl ?? null,
+  );
   const [planImage, setPlanImage] = useState<HTMLImageElement | null>(null);
-  const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
-  const [points, setPoints] = useState<PlacedPoint[]>([]);
+  const [selectedProductId, setSelectedProductId] = useState<number | null>(
+    () => initialSavedRef.current?.selectedProductId ?? null,
+  );
+  const [points, setPoints] = useState<PlacedPoint[]>(
+    () => initialSavedRef.current?.points ?? [],
+  );
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
-  const [targetArea, setTargetArea] = useState("120");
+  const [targetArea, setTargetArea] = useState(
+    () => initialSavedRef.current?.targetArea ?? "120",
+  );
 
-  const { data: routers = [] } = useQuery({
+  useEffect(() => {
+    writeSavedWifiBuilder({
+      planUrl,
+      points,
+      selectedProductId,
+      targetArea,
+    });
+  }, [planUrl, points, selectedProductId, targetArea]);
+
+  const { data: routersRaw = [] } = useQuery({
     queryKey: ["wifi-routers"],
     queryFn: () => fetchCategoryProducts("routers"),
   });
-  const { data: aps = [] } = useQuery({
-    queryKey: ["wifi-aps"],
-    queryFn: () => fetchCategoryProducts("access-points"),
-  });
 
-  const allDevices = useMemo(() => [...routers, ...aps], [routers, aps]);
+  const routers = useMemo(
+    () => filterWifiBuilderRouters(routersRaw),
+    [routersRaw],
+  );
   const expectedClients = useMemo(
     () => Math.max(4, Math.round(Number(targetArea) / 10)),
     [targetArea],
@@ -90,48 +127,30 @@ export default function WifiBuilderPage() {
   }, [targetArea]);
   const deferredTargetArea = useDeferredValue(safeTargetArea);
 
-  const recommendedDevice = useMemo(() => {
-    const routerBest = pickBest(
-      routers,
-      (routerCandidate) =>
-        scoreWifiConstructorRouter(
-          routerCandidate,
-          safeTargetArea,
-          expectedClients,
-        ),
-      "lower_price",
-    ) as Product | null;
-    const apBest = pickBest(
-      aps,
-      (apCandidate) =>
-        scoreWifiConstructorAp(apCandidate, safeTargetArea, expectedClients),
-      "lower_price",
-    ) as Product | null;
-
-    if (!routerBest && !apBest) return null;
-    if (!routerBest) return apBest;
-    if (!apBest) return routerBest;
-
-    const sr = scoreWifiConstructorRouter(
-      routerBest,
-      safeTargetArea,
-      expectedClients,
-    );
-    const sa = scoreWifiConstructorAp(
-      apBest,
-      safeTargetArea,
-      expectedClients,
-    );
-    return sr >= sa ? routerBest : apBest;
-  }, [routers, aps, expectedClients, safeTargetArea]);
+  const recommendedDevice = useMemo(
+    () =>
+      pickBest(
+        routers,
+        (routerCandidate) =>
+          scoreWifiConstructorRouter(
+            routerCandidate,
+            safeTargetArea,
+            expectedClients,
+          ),
+        "lower_price",
+      ) as BuilderProduct | null,
+    [routers, expectedClients, safeTargetArea],
+  );
 
   useEffect(() => {
-    if (allDevices.length === 0) return;
+    if (routers.length === 0) return;
+    const routerIds = new Set(routers.map((router) => router.id));
+    setPoints((prev) => prev.filter((point) => routerIds.has(point.productId)));
     setSelectedProductId((prev) => {
-      if (prev != null) return prev;
-      return recommendedDevice?.id ?? allDevices[0].id;
+      if (prev != null && routerIds.has(prev)) return prev;
+      return recommendedDevice?.id ?? routers[0].id;
     });
-  }, [allDevices, recommendedDevice]);
+  }, [routers, recommendedDevice]);
 
   useEffect(() => {
     if (!planUrl) {
@@ -189,7 +208,7 @@ export default function WifiBuilderPage() {
           ctx.font = "13px Inter, sans-serif";
           ctx.textAlign = "center";
           ctx.fillText(
-            "Загрузите план или укажите точки на схеме",
+            "Загрузите план или разместите маршрутизаторы",
             CANVAS_W / 2,
             CANVAS_H / 2,
           );
@@ -200,12 +219,11 @@ export default function WifiBuilderPage() {
       if (points.length > 0) {
         const sources = points
           .map((p) => {
-            const product = allDevices.find((d) => d.id === p.productId);
+            const product = routers.find((d) => d.id === p.productId);
             if (!product) return null;
-            const isRouter = routers.some((r) => r.id === p.productId);
             const range = wifiHeatmapRadiusPx(
               product,
-              isRouter,
+              true,
               deferredTargetArea,
             );
             return { x: p.x, y: p.y, invRange: 1 / Math.max(1, range) };
@@ -219,12 +237,9 @@ export default function WifiBuilderPage() {
         }
 
         points.forEach((p, idx) => {
-          const product = allDevices.find((d) => d.id === p.productId);
-          const isRouter = product
-            ? routers.some((r) => r.id === p.productId)
-            : false;
+          const product = routers.find((d) => d.id === p.productId);
           const radiusPx = product
-            ? wifiHeatmapRadiusPx(product, isRouter, deferredTargetArea)
+            ? wifiHeatmapRadiusPx(product, true, deferredTargetArea)
             : 0;
           const radiusM = product ? wifiCoverageRadiusM(product) : 0;
           const px = p.x;
@@ -319,7 +334,7 @@ export default function WifiBuilderPage() {
       cancelled = true;
       cancelAnimationFrame(raf);
     };
-  }, [points, planImage, dark, deferredTargetArea, routers, allDevices]);
+  }, [points, planImage, dark, deferredTargetArea, routers]);
 
   const handleUpload = async (file: File | null) => {
     if (!file) return;
@@ -342,7 +357,7 @@ export default function WifiBuilderPage() {
     const rect = (e.target as HTMLCanvasElement).getBoundingClientRect();
     const x = clamp(((e.clientX - rect.left) / rect.width) * CANVAS_W, 0, CANVAS_W);
     const y = clamp(((e.clientY - rect.top) / rect.height) * CANVAS_H, 0, CANVAS_H);
-    const product = allDevices.find((p) => p.id === selectedProductId);
+    const product = routers.find((p) => p.id === selectedProductId);
     if (!product) return;
     setPoints((prev) => [
       ...prev,
@@ -359,16 +374,16 @@ export default function WifiBuilderPage() {
     setPoints((prev) => prev.filter((p) => p.id !== id));
 
   const grouped = useMemo(() => {
-    const map = new Map<number, { product: Product; quantity: number }>();
+    const map = new Map<number, { product: BuilderProduct; quantity: number }>();
     for (const p of points) {
       const existing = map.get(p.productId);
-      const product = allDevices.find((x) => x.id === p.productId);
+      const product = routers.find((x) => x.id === p.productId);
       if (!product) continue;
       if (existing) existing.quantity++;
       else map.set(p.productId, { product, quantity: 1 });
     }
     return Array.from(map.values());
-  }, [points, allDevices]);
+  }, [points, routers]);
 
   const totalPrice = grouped.reduce(
     (s, i) => s + Number(i.product.price) * i.quantity,
@@ -439,7 +454,7 @@ export default function WifiBuilderPage() {
                   onClick={() => setPoints([])}
                   className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-[var(--radius-btn)] text-sm text-ns-muted hover:text-ns-text hover:bg-ns-hover transition-colors ml-auto"
                 >
-                  <Trash2 size={14} strokeWidth={1.6} /> Сбросить точки
+                  <Trash2 size={14} strokeWidth={1.6} /> Сбросить размещение
                 </button>
               )}
             </div>
@@ -492,7 +507,7 @@ export default function WifiBuilderPage() {
         <div className="space-y-3">
           <div className="aurora-card rounded-2xl p-5 space-y-4">
             <p className="text-sm font-semibold text-ns-text">
-              Активное устройство
+              Маршрутизатор для размещения
             </p>
             {recommendedDevice && (
               <Link
@@ -515,55 +530,35 @@ export default function WifiBuilderPage() {
                     Рекомендация: {recommendedDevice.brand.name}{" "}
                     {recommendedDevice.name}
                   </p>
-                  <p className="text-ns-muted mt-1">
-                    Для площади ~{safeTargetArea} м²
+                  <p className="text-ns-muted mt-1 line-clamp-2 leading-snug">
+                    {productSpecSummary(recommendedDevice)}
                   </p>
                 </div>
               </Link>
             )}
-            <select
-              value={selectedProductId ?? ""}
-              onChange={(e) => setSelectedProductId(Number(e.target.value))}
-              className={selectCls}
-              style={{
-                backgroundImage:
-                  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1L6 6L11 1' stroke='%236e6e73' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E\")",
-                backgroundRepeat: "no-repeat",
-                backgroundPosition: "right 14px center",
-              }}
-            >
-              <optgroup label="Маршрутизаторы">
-                {routers.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.brand.name} {r.name}
-                  </option>
-                ))}
-              </optgroup>
-              <optgroup label="Точки доступа">
-                {aps.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.brand.name} {a.name}
-                  </option>
-                ))}
-              </optgroup>
-            </select>
+            <BuilderDevicePicker
+              routers={routers}
+              accessPoints={[]}
+              value={selectedProductId}
+              onChange={setSelectedProductId}
+            />
             <p className="text-xs text-ns-muted inline-flex items-center gap-1.5">
-              <Plus size={13} strokeWidth={1.6} /> Щелчок по схеме добавляет точку доступа
+              <Plus size={13} strokeWidth={1.6} /> Щелчок по схеме добавляет маршрутизатор
             </p>
           </div>
 
           <div className="aurora-card rounded-2xl p-5 min-w-0 overflow-hidden">
             <p className="text-sm font-semibold text-ns-text mb-4">
-              Расставленные устройства
+              Размещённые маршрутизаторы
             </p>
             {points.length === 0 ? (
               <p className="text-sm text-ns-muted inline-flex items-center gap-1.5">
-                <Wifi size={14} strokeWidth={1.6} /> Точки доступа не заданы
+                <Wifi size={14} strokeWidth={1.6} /> Маршрутизаторы не размещены
               </p>
             ) : (
               <div className="space-y-2">
                 {points.map((p, idx) => {
-                  const product = allDevices.find((x) => x.id === p.productId);
+                  const product = routers.find((x) => x.id === p.productId);
                   if (!product) return null;
                   return (
                     <div
@@ -592,8 +587,11 @@ export default function WifiBuilderPage() {
                           <p className="text-xs font-semibold text-ns-text line-clamp-2 break-words leading-snug">
                             {product.name}
                           </p>
+                          <p className="text-[11px] text-ns-muted mt-0.5 line-clamp-2 leading-snug">
+                            {productSpecSummary(product)}
+                          </p>
                           <p className="text-xs text-ns-muted mt-1 sm:text-sm">
-                            {formatPrice(product.price)}
+                            <Price value={product.price} />
                           </p>
                         </div>
                       </Link>
@@ -616,7 +614,7 @@ export default function WifiBuilderPage() {
                   Итого
                 </span>
                 <span className="text-lg font-semibold text-ns-text">
-                  {formatPrice(totalPrice)}
+                  <Price value={totalPrice} />
                 </span>
               </div>
             )}

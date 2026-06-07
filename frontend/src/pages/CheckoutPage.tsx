@@ -1,8 +1,8 @@
-﻿import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "../lib/api";
-import { formatPrice } from "../lib/format";
+import { Price } from "../components/Price";
 import AddressInput from "../components/AddressInput";
 import PhoneInput from "../components/PhoneInput";
 import { ShoppingCart, Package } from "lucide-react";
@@ -137,7 +137,7 @@ export default function CheckoutPage() {
                       {item.product.name}
                     </p>
                     <p className="text-xs text-ns-muted mt-1 tabular-nums">
-                      {item.quantity} шт. · {formatPrice(item.product.price)} за
+                      {item.quantity} шт. · <Price value={item.product.price} /> за
                       шт.
                     </p>
                   </div>
@@ -149,7 +149,7 @@ export default function CheckoutPage() {
                 Итого
               </span>
               <span className="font-semibold text-ns-text text-xl">
-                {formatPrice(total)}
+                <Price value={total} />
               </span>
             </div>
           </div>
