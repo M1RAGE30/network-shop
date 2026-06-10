@@ -142,9 +142,9 @@ export default function ProductPage() {
     : product.reviews;
 
   return (
-    <div className="max-w-[1280px] mx-auto space-y-7 sm:space-y-9 px-3 sm:px-4 lg:px-6 py-6 sm:py-8">
-      <nav aria-label="Хлебные крошки" className="mb-2">
-        <ol className="flex flex-wrap items-center gap-1.5 text-xs text-ns-muted">
+    <div className="max-w-[1280px] mx-auto space-y-5 sm:space-y-7 px-3 sm:px-4 lg:px-6 py-6 sm:py-8">
+      <nav aria-label="Хлебные крошки" className="mb-1">
+        <ol className="flex flex-wrap items-center gap-1.5 text-xs text-ns-text-secondary">
           <li>
             <Link to="/" className="hover:text-ns-text transition-colors">
               Главная
@@ -162,8 +162,8 @@ export default function ProductPage() {
           </li>
         </ol>
       </nav>
-      <section className="aurora-panel rounded-[2.25rem] p-5 sm:p-7 lg:p-10">
-        <div className="grid lg:grid-cols-[minmax(220px,400px)_minmax(0,1fr)] gap-7 lg:gap-12 items-center">
+      <section className="aurora-panel rounded-[2.25rem] p-4 sm:p-6 lg:p-8">
+        <div className="grid lg:grid-cols-[minmax(220px,400px)_minmax(0,1fr)] gap-6 lg:gap-10 items-center">
           <div className="relative flex min-h-[250px] sm:min-h-[320px] lg:min-h-[390px] items-center justify-center overflow-hidden rounded-[1.5rem] bg-ns-elevated">
             {product.imageUrl ? (
               <MediaImage

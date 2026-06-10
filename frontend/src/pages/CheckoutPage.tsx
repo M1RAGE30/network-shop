@@ -104,60 +104,57 @@ export default function CheckoutPage() {
     <div className="w-full min-w-0 mx-auto py-6 sm:py-8">
       <h1 className="ns-heading-page mb-4 sm:mb-5">Оформление заказа</h1>
 
-      <div className="grid md:grid-cols-2 gap-5 lg:gap-6">
-        <div className="space-y-5">
-          <div className="aurora-card rounded-2xl p-4 sm:p-5">
-            <p className="text-sm font-semibold text-ns-text mb-3">
-              Состав заказа
-            </p>
-            <div className="space-y-2">
-              {items.map((item: any) => (
-                <Link
-                  key={item.productId}
-                  to={`/catalog/${item.product.slug}`}
-                  className="flex items-center gap-3 p-3 rounded-xl ns-chip hover:bg-ns-hover transition-colors min-w-0"
-                >
-                  <div className="w-12 h-12 sm:w-14 sm:h-14 ns-thumb rounded-lg flex items-center justify-center shrink-0 overflow-hidden">
-                    {item.product.imageUrl ? (
-                      <MediaImage
-                        src={item.product.imageUrl}
-                        alt={item.product.name}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <Package
-                        size={24}
-                        strokeWidth={1.25}
-                        className="text-ns-muted"
-                      />
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-ns-text line-clamp-2 leading-snug">
-                      {item.product.name}
-                    </p>
-                    <p className="text-xs text-ns-muted mt-1 tabular-nums">
-                      {item.quantity} шт. · <Price value={item.product.price} /> за
-                      шт.
-                    </p>
-                  </div>
-                </Link>
-              ))}
-            </div>
-            <div className="flex justify-between items-center pt-4 mt-4 border-t border-ns-border">
-              <span className="text-base font-semibold text-ns-text">
-                Итого
-              </span>
-              <span className="font-semibold text-ns-text text-xl">
-                <Price value={total} />
-              </span>
-            </div>
+      <div className="grid md:grid-cols-2 gap-5 lg:gap-6 items-start">
+        <div className="aurora-card rounded-2xl p-4 sm:p-5 md:max-h-[calc(100vh-12rem)] flex flex-col">
+          <p className="text-sm font-semibold text-ns-text mb-3 shrink-0">
+            Состав заказа
+          </p>
+          <div className="space-y-2 overflow-y-auto flex-1 min-h-0 pr-1 -mr-1 scrollbar-thin">
+            {items.map((item: any) => (
+              <Link
+                key={item.productId}
+                to={`/catalog/${item.product.slug}`}
+                className="flex items-center gap-3 p-3 rounded-xl ns-chip hover:bg-ns-hover transition-colors min-w-0"
+              >
+                <div className="w-12 h-12 sm:w-14 sm:h-14 ns-thumb rounded-lg flex items-center justify-center shrink-0 overflow-hidden">
+                  {item.product.imageUrl ? (
+                    <MediaImage
+                      src={item.product.imageUrl}
+                      alt={item.product.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <Package
+                      size={24}
+                      strokeWidth={1.25}
+                      className="text-ns-muted"
+                    />
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-ns-text line-clamp-2 leading-snug">
+                    {item.product.name}
+                  </p>
+                  <p className="text-xs text-ns-text-secondary mt-1 tabular-nums">
+                    {item.quantity} шт. · <Price value={item.product.price} /> за шт.
+                  </p>
+                </div>
+              </Link>
+            ))}
+          </div>
+          <div className="flex justify-between items-center pt-4 mt-4 border-t border-ns-border shrink-0">
+            <span className="text-sm font-semibold text-ns-text">
+              Итого
+            </span>
+            <span className="font-semibold text-ns-text text-lg">
+              <Price value={total} />
+            </span>
           </div>
         </div>
 
         <form
           onSubmit={handleSubmit}
-          className="aurora-card rounded-2xl p-4 sm:p-5 space-y-5"
+          className="aurora-card rounded-2xl p-4 sm:p-5 space-y-4 h-fit"
           noValidate
         >
           <p className="text-sm font-semibold text-ns-text">
@@ -176,7 +173,7 @@ export default function CheckoutPage() {
             touched={touched.phone}
           />
           <div>
-            <label className="block text-sm font-semibold text-ns-text mb-2">
+            <label className="block text-sm font-medium text-ns-text mb-2">
               Комментарий
             </label>
             <textarea
@@ -192,7 +189,7 @@ export default function CheckoutPage() {
           <button
             type="submit"
             disabled={orderMutation.isPending || !isValid}
-            className="aurora-button w-full py-4 text-base font-medium transition-transform hover:scale-[1.01] disabled:opacity-40"
+            className="aurora-button w-full py-3.5 text-sm font-medium transition-transform hover:scale-[1.01] disabled:opacity-40"
           >
             {orderMutation.isPending ? "Оформляем..." : "Подтвердить заказ"}
           </button>

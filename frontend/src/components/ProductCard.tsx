@@ -23,11 +23,13 @@ interface Product {
 interface ProductCardProps {
   product: Product;
   favoriteControl?: "toggle" | "none";
+  className?: string;
 }
 
 export default function ProductCard({
   product,
   favoriteControl = "toggle",
+  className = "",
 }: ProductCardProps) {
   const { user } = useAuthStore();
   const navigate = useNavigate();
@@ -117,7 +119,7 @@ export default function ProductCard({
   return (
     <Link
       to={`/catalog/${product.slug}`}
-      className="ns-card group flex min-h-0 w-full min-w-0 flex-col overflow-hidden md:min-h-[380px]"
+      className={`ns-card group flex min-h-0 w-full min-w-0 flex-col overflow-hidden md:min-h-[380px] ${className}`.trim()}
     >
       <div className="ns-card-media relative aspect-square w-full shrink-0 overflow-hidden">
         {product.imageUrl ? (
@@ -181,33 +183,31 @@ export default function ProductCard({
         )}
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col px-2.5 pb-2.5 pt-1.5 text-left sm:px-4 sm:pb-4 sm:pt-2">
-        <span className="ns-caption mb-1 block truncate uppercase tracking-wider text-[11px] md:mb-1.5 md:text-xs">
+      <div className="flex min-h-0 flex-1 flex-col px-3 pb-3 pt-2 text-left sm:px-4 sm:pb-4 sm:pt-2.5">
+        <span className="ns-caption mb-1 block truncate uppercase tracking-wider text-xs md:mb-1.5">
           {product.brand.name}
         </span>
-        <p className="ns-heading-card mb-1 line-clamp-2 text-sm leading-snug md:mb-2 md:text-base">
+        <p className="ns-heading-card mb-1.5 line-clamp-2 text-sm leading-snug md:mb-2 md:text-base">
           {product.name}
         </p>
 
-        {cardSpecs.length > 0 && (
-          <div className="mb-2 hidden min-h-[3.25rem] space-y-1 overflow-hidden md:block">
-            {cardSpecs.map(([key, value]) => (
-              <div
-                key={key}
-                className="flex min-w-0 items-start gap-1 text-[10px] leading-tight lg:text-[11px]"
-              >
-                <span className="max-w-[42%] shrink-0 truncate text-ns-muted">
-                  {key}:
-                </span>
-                <span className="min-w-0 flex-1 text-ns-text-secondary font-medium line-clamp-1">
-                  {value}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
+        <div className="mb-2 hidden min-h-[3.5rem] space-y-1.5 overflow-hidden md:block">
+          {cardSpecs.map(([key, value]) => (
+            <div
+              key={key}
+              className="flex min-w-0 items-start gap-1 text-xs leading-tight lg:text-[13px]"
+            >
+              <span className="max-w-[42%] shrink-0 truncate text-ns-muted">
+                {key}:
+              </span>
+              <span className="min-w-0 flex-1 text-ns-text-secondary font-medium line-clamp-1">
+                {value}
+              </span>
+            </div>
+          ))}
+        </div>
 
-        <div className="mt-auto pt-2 md:pt-1">
+        <div className="mt-auto pt-2.5 md:pt-2">
           <div className="mb-2 flex items-center justify-center">
             <span className="text-base font-semibold text-ns-text sm:text-lg">
               <Price value={product.price} />

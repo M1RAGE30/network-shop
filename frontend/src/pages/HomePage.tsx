@@ -56,7 +56,7 @@ export default function HomePage() {
       </section>
 
       <section className="ns-container ns-section-y ns-home-why">
-        <h2 className="ns-heading-section text-center mb-8 sm:mb-10 md:mb-12">
+        <h2 className="ns-heading-section text-center mb-6 sm:mb-8 md:mb-10">
           Почему выбирают нас
         </h2>
         <div className="ns-home-why__grid">
@@ -65,8 +65,8 @@ export default function HomePage() {
               key={title}
               className="ns-card flex flex-col ns-card-padding min-h-0 sm:min-h-[220px] lg:min-h-[240px]"
             >
-              <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-[14px] bg-ns-hover text-ns-icon">
-                <Icon size={24} strokeWidth={1.5} />
+              <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-ns-hover text-ns-icon">
+                <Icon size={22} strokeWidth={1.5} />
               </div>
               <h3 className="ns-heading-card mb-2">{title}</h3>
               <p className="ns-body-secondary flex-1">{desc}</p>

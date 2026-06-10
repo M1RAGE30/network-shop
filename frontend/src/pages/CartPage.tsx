@@ -60,7 +60,7 @@ export default function CartPage() {
       <h1 className="ns-heading-page mb-4 sm:mb-5">Корзина</h1>
 
       <div className="ns-cart-layout">
-        <div className="aurora-card rounded-2xl p-4 sm:p-5 space-y-3">
+        <div className="aurora-card rounded-2xl p-4 sm:p-5 space-y-3 items-start">
           {items.map((item: any) => (
             <div
               key={item.productId}
@@ -70,7 +70,7 @@ export default function CartPage() {
                 to={`/catalog/${item.product.slug}`}
                 className="flex flex-1 min-w-0 gap-3 sm:gap-4 rounded-lg hover:opacity-90 transition-opacity"
               >
-                <div className="w-14 h-14 sm:w-16 sm:h-16 ns-thumb rounded-lg flex items-center justify-center shrink-0 overflow-hidden">
+                <div className="w-14 h-14 sm:w-14 sm:h-14 ns-thumb rounded-lg flex items-center justify-center shrink-0 overflow-hidden">
                   {item.product.imageUrl ? (
                     <MediaImage
                       src={item.product.imageUrl}
@@ -79,7 +79,7 @@ export default function CartPage() {
                     />
                   ) : (
                     <Package
-                      size={26}
+                      size={24}
                       strokeWidth={1.25}
                       className="text-ns-muted"
                     />
@@ -87,15 +87,15 @@ export default function CartPage() {
                 </div>
 
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm sm:text-base font-medium text-ns-text leading-snug line-clamp-2">
+                  <p className="text-sm font-medium text-ns-text leading-snug line-clamp-2">
                     {item.product.name}
                   </p>
-                  <p className="text-xs text-ns-muted mt-0.5">
+                  <p className="text-xs text-ns-text-secondary mt-0.5">
                     {item.product.brand?.name || "—"}
                   </p>
                   <p className="text-sm font-semibold text-ns-text mt-1.5 tabular-nums">
                     <Price value={item.product.price} />
-                    <span className="text-xs font-normal text-ns-muted ml-1">
+                    <span className="text-xs font-normal text-ns-text-secondary ml-1">
                       за шт.
                     </span>
                   </p>
@@ -125,7 +125,7 @@ export default function CartPage() {
                     }
                     className="inline-grid h-8 w-8 shrink-0 place-items-center rounded-[var(--radius-btn)] border border-ns-border bg-ns-elevated text-ns-text transition-colors hover:bg-ns-hover disabled:opacity-30"
                   >
-                    <Minus size={13} strokeWidth={2} />
+                    <Minus size={14} strokeWidth={2} />
                   </button>
                   <span className="inline-grid h-8 min-w-[1.75rem] place-items-center text-sm font-semibold leading-none tabular-nums text-ns-text">
                     {item.quantity}
@@ -141,7 +141,7 @@ export default function CartPage() {
                     }
                     className="inline-grid h-8 w-8 shrink-0 place-items-center rounded-[var(--radius-btn)] border border-ns-border bg-ns-elevated text-ns-text transition-colors hover:bg-ns-hover disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-ns-elevated"
                   >
-                    <Plus size={13} strokeWidth={2} />
+                    <Plus size={14} strokeWidth={2} />
                   </button>
                 </div>
               </div>
@@ -150,15 +150,15 @@ export default function CartPage() {
         </div>
 
         <div className="aurora-card rounded-2xl p-4 sm:p-5 h-fit">
-          <p className="text-sm font-semibold text-ns-muted mb-4">
+          <p className="text-sm font-medium text-ns-text-secondary mb-3">
             Итого к оплате
           </p>
-          <p className="text-3xl font-semibold text-ns-text mb-6">
+          <p className="text-2xl font-semibold text-ns-text mb-5">
             <Price value={total} />
           </p>
           <button
             onClick={() => navigate("/orders/new")}
-            className="aurora-button w-full py-3.5 text-base font-medium transition-transform hover:scale-[1.01]"
+            className="aurora-button w-full py-3.5 text-sm font-medium transition-transform hover:scale-[1.01]"
           >
             Оформить заказ
           </button>

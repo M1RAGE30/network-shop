@@ -174,7 +174,7 @@ export default function ChatPage() {
         <div className="px-4 py-4 border-t border-ns-border flex items-center gap-2">
           <input
             type="text"
-            placeholder="Ответить..."
+            placeholder="Введите сообщение..."
             className="ns-input ns-chat-input flex-1 min-w-[min(100%,12rem)] text-sm"
             value={input}
             onChange={(e) => setInput(e.target.value)}

@@ -665,15 +665,23 @@
   }
 
   .ns-heading-card {
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 600;
-    line-height: 28px;
+    line-height: 22px;
     color: var(--color-ns-text);
+  }
+
+  @media (min-width: 768px) {
+    .ns-heading-card {
+      font-size: 17px;
+      line-height: 24px;
+    }
   }
 
   @media (min-width: 1280px) {
     .ns-heading-card {
-      font-size: 20px;
+      font-size: 18px;
+      line-height: 26px;
     }
   }
 
@@ -692,14 +700,14 @@
   }
 
   .ns-caption {
-    font-size: 14px;
-    font-weight: 400;
-    line-height: 20px;
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 18px;
     color: var(--color-ns-muted);
   }
 
   .ns-text-small {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 400;
     line-height: 18px;
     color: var(--color-ns-muted);
@@ -707,18 +715,18 @@
 
   @media (max-width: 639px) {
     .ns-caption {
-      font-size: 15px;
-      line-height: 22px;
+      font-size: 13px;
+      line-height: 18px;
     }
 
     .ns-text-small {
-      font-size: 15px;
-      line-height: 20px;
+      font-size: 13px;
+      line-height: 18px;
     }
 
     .ns-body-secondary {
-      font-size: 16px;
-      line-height: 26px;
+      font-size: 15px;
+      line-height: 24px;
     }
 
     .ns-badge {
@@ -736,6 +744,22 @@
 
   .ns-card-padding {
     padding: var(--ns-space-card);
+  }
+
+  :root {
+    --ns-space-card: 18px;
+  }
+
+  @media (min-width: 768px) {
+    :root {
+      --ns-space-card: 22px;
+    }
+  }
+
+  @media (min-width: 1280px) {
+    :root {
+      --ns-space-card: 24px;
+    }
   }
 
   .ns-hero-section {
@@ -881,12 +905,35 @@
     display: grid;
     gap: var(--ns-space-block);
     grid-template-columns: 1fr;
+    align-items: start;
   }
 
   @media (min-width: 1280px) {
     .ns-cart-layout {
-      grid-template-columns: minmax(0, 900px) minmax(280px, 360px);
+      grid-template-columns: minmax(0, 900px) minmax(280px, 320px);
     }
+  }
+
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-ns-border) transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: var(--color-ns-border);
+    border-radius: 3px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: var(--color-ns-muted);
   }
 
   .ns-profile-layout {

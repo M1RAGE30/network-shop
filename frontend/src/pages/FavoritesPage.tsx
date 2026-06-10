@@ -22,11 +22,11 @@ export default function FavoritesPage() {
 
   if (isPending) {
     return (
-      <div className="w-full min-w-0 mx-auto py-10 space-y-8">
-        <Skeleton className="h-12 w-48" />
+      <div className="w-full min-w-0 mx-auto py-6 sm:py-8 space-y-6">
+        <Skeleton className="h-10 w-48" />
         <ProductCardSkeletonGrid
           count={6}
-          className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"
+          className="ns-favorites-grid"
         />
       </div>
     );
@@ -48,19 +48,23 @@ export default function FavoritesPage() {
   }
 
   return (
-    <div className="w-full min-w-0 mx-auto py-10 space-y-8">
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 sm:gap-4 pb-6">
-        <h1 className="font-display text-4xl sm:text-5xl font-semibold text-ns-text tracking-tight">
+    <div className="w-full min-w-0 mx-auto py-6 sm:py-8 space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 sm:gap-4 pb-4">
+        <h1 className="ns-heading-page">
           Избранное
         </h1>
         <p className="text-sm text-ns-muted">
           {pluralizeProducts(favs.length)}
         </p>
       </div>
-      <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+      <div className="ns-favorites-grid">
         {favs.map((fav: any) => (
-          <div key={fav.id} className="flex w-full flex-col gap-2">
-            <ProductCard product={fav.product} favoriteControl="none" />
+          <div key={fav.id} className="flex h-full min-h-0 flex-col gap-2">
+            <ProductCard
+              product={fav.product}
+              favoriteControl="none"
+              className="flex-1"
+            />
             <button
               type="button"
               onClick={() => removeMutation.mutate(fav.productId)}
