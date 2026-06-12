@@ -238,6 +238,7 @@ export const getMe = async (req: AuthRequest, res: Response) => {
       createdAt: true,
     },
   });
+  if (!user) return res.status(401).json({ message: "Unauthorized" });
   return res.json(user);
 };
 
@@ -322,28 +323,20 @@ export const forgotPassword = async (req: Request, res: Response) => {
     where: { email: normalizedEmail },
   });
 
-  if (!user) {
-    return res.status(404).json({ message: "Пользователь с такой эл. почтой не найден" });
-  }
-
-  if (!user.isEmailVerified) {
-    return res.status(400).json({
-      message: "Эл. почта не подтверждена. Подтвердите email и повторите попытку.",
+  if (user?.isEmailVerified) {
+    const token = crypto.randomBytes(32).toString("hex");
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordResetToken: token,
+        passwordResetExpiry: new Date(Date.now() + PASSWORD_RESET_TTL_MS),
+      },
     });
+    await sendPasswordResetEmail(normalizedEmail, token);
   }
-
-  const token = crypto.randomBytes(32).toString("hex");
-  await prisma.user.update({
-    where: { id: user.id },
-    data: {
-      passwordResetToken: token,
-      passwordResetExpiry: new Date(Date.now() + PASSWORD_RESET_TTL_MS),
-    },
-  });
-  await sendPasswordResetEmail(normalizedEmail, token);
 
   return res.json({
-    message: "Ссылка для сброса пароля отправлена на почту. Ссылка действует 1 час.",
+    message: "Если аккаунт с такой почтой существует, ссылка для сброса пароля отправлена. Ссылка действует 1 час.",
   });
 };
 

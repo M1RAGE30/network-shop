@@ -36,7 +36,7 @@ docker compose up -d --build
 
 В `backend/.env` обязательно задайте:
 
-- `JWT_SECRET` — произвольная длинная строка;
+- `JWT_SECRET` — произвольная строка не короче 16 символов (иначе backend не стартует);
 - `SMTP_*` — для подтверждения email и сброса пароля;
 - `SHOP_URL=http://localhost:5173` — ссылки в письмах (сброс пароля).
 
@@ -67,7 +67,7 @@ docker compose up -d --build
 ### Администратор (после seed)
 
 - Email: `admin@networkshop.by`
-- Пароль: `Admin123!`
+- Пароль: значение `ADMIN_SEED_PASSWORD` из `backend/.env` (по умолчанию `Admin123!`)
 
 ### Команды
 
@@ -127,6 +127,8 @@ npm run seed
 npm run dev
 ```
 
+Проверка (из `backend/`): `npm run check` — lint, build, test, audit.
+
 API: http://localhost:3000
 
 ### Frontend
@@ -135,9 +137,13 @@ API: http://localhost:3000
 cd frontend
 npm install
 cp .env.example .env
-npm run dev          
-npm run dev:admin   
+npm run dev
+npm run dev:admin
 ```
+
+Проверка (из `frontend/`): `npm run check` — lint, сборка витрины, `build:admin`, audit.
+
+Не используйте `npm run build admin` и `npm run lint admin`: npm воспринимает `admin` как аргумент, а не имя скрипта. Админка: **`npm run build:admin`**.
 
 `VITE_API_URL` оставьте пустым — запросы идут на `/api` и `/uploads` через прокси Vite (`VITE_PROXY_TARGET` в Docker задаётся в compose).
 
@@ -150,7 +156,8 @@ npm run dev:admin
 | Переменная | Назначение |
 |------------|------------|
 | `DATABASE_URL` | MySQL; на хосте: `localhost:3307`; в Docker переопределяется compose |
-| `JWT_SECRET` | Подпись JWT (обязательно сменить) |
+| `JWT_SECRET` | Подпись JWT (обязательно сменить, минимум 16 символов) |
+| `ADMIN_SEED_PASSWORD` | Пароль администратора при seed (по умолчанию `Admin123!`) |
 | `PORT` | Порт API (по умолчанию `3000`) |
 | `CORS_ORIGINS` | Origins витрины и админки через запятую |
 | `DB_POOL_SIZE` | Размер пула подключений Prisma |

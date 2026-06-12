@@ -1,6 +1,7 @@
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "../lib/api";
+import { useToastStore } from "../store/toastStore";
 import { Price } from "../components/Price";
 import {
   ShoppingCart,
@@ -93,6 +94,14 @@ export default function ProductPage() {
       qc.invalidateQueries({ queryKey: ["product", slug] });
       setReviewMode("create");
     },
+    onError: (err: { response?: { data?: { message?: string } } }) => {
+      useToastStore
+        .getState()
+        .show(
+          err.response?.data?.message ?? "Не удалось отправить отзыв",
+          "error",
+        );
+    },
   });
 
   const deleteReview = useMutation({
@@ -142,7 +151,7 @@ export default function ProductPage() {
     : product.reviews;
 
   return (
-    <div className="max-w-[1280px] mx-auto space-y-5 sm:space-y-7 px-3 sm:px-4 lg:px-6 py-6 sm:py-8">
+    <div className="w-full min-w-0 space-y-5 sm:space-y-7 py-6 sm:py-8">
       <nav aria-label="Хлебные крошки" className="mb-1">
         <ol className="flex flex-wrap items-center gap-1.5 text-xs text-ns-text-secondary">
           <li>
@@ -212,7 +221,7 @@ export default function ProductPage() {
           )}
 
           <div className="py-2">
-            <p className="aurora-text text-4xl sm:text-5xl font-semibold">
+            <p className="text-4xl sm:text-5xl font-semibold text-ns-text">
               <Price value={product.price} />
             </p>
           </div>
@@ -239,18 +248,19 @@ export default function ProductPage() {
               <button
                 type="button"
                 disabled
-                className="aurora-button flex-1 min-w-0 min-h-[var(--ns-height-btn)] flex items-center justify-center gap-2 text-sm font-medium opacity-45 cursor-not-allowed"
+                className="aurora-button flex-1 min-w-0 min-h-[var(--ns-height-btn)] flex items-center justify-center gap-2 text-sm font-medium opacity-60 cursor-not-allowed"
               >
                 <ShoppingCart size={18} strokeWidth={1.5} className="sm:w-5 sm:h-5" />
                 В корзину
               </button>
             ) : canShop && cartItem ? (
-              <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3 flex-1 min-w-0 min-h-[var(--ns-height-btn)]">
                 <button
+                  type="button"
                   onClick={() =>
                     updateCartMutation.mutate(cartItem.quantity - 1)
                   }
-                  className="w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center rounded-[var(--radius-btn)] border border-ns-border bg-ns-elevated hover:bg-ns-hover transition-colors text-ns-text cursor-pointer"
+                  className="ns-icon-round flex h-[var(--ns-height-btn)] w-[var(--ns-height-btn)] shrink-0 items-center justify-center"
                 >
                   <Minus
                     size={16}
@@ -258,7 +268,7 @@ export default function ProductPage() {
                     className="sm:w-[18px] sm:h-[18px]"
                   />
                 </button>
-                <span className="text-lg sm:text-xl font-semibold w-8 sm:w-10 text-center text-ns-text">
+                <span className="inline-flex h-[var(--ns-height-btn)] w-8 sm:w-10 items-center justify-center text-lg sm:text-xl font-semibold tabular-nums text-ns-text">
                   {cartItem.quantity}
                 </span>
                 <button
@@ -267,7 +277,7 @@ export default function ProductPage() {
                   onClick={() =>
                     updateCartMutation.mutate(cartItem.quantity + 1)
                   }
-                  className="w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center rounded-[var(--radius-btn)] border border-ns-border bg-ns-elevated hover:bg-ns-hover transition-colors text-ns-text cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-ns-elevated"
+                  className="ns-icon-round flex h-[var(--ns-height-btn)] w-[var(--ns-height-btn)] shrink-0 items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Plus
                     size={16}
@@ -275,7 +285,7 @@ export default function ProductPage() {
                     className="sm:w-[18px] sm:h-[18px]"
                   />
                 </button>
-                <span className="text-xs sm:text-sm text-ns-text-secondary whitespace-nowrap">
+                <span className="inline-flex h-[var(--ns-height-btn)] items-center text-xs sm:text-sm text-ns-text-secondary whitespace-nowrap">
                   в корзине
                 </span>
               </div>
@@ -313,7 +323,7 @@ export default function ProductPage() {
                 }}
                 disabled={shopLocked}
                 className={`ns-icon-round flex h-[var(--ns-height-btn)] w-[var(--ns-height-btn)] shrink-0 items-center justify-center ${
-                  shopLocked ? "cursor-not-allowed opacity-45" : ""
+                  shopLocked ? "cursor-not-allowed opacity-60" : ""
                 }`}
                 aria-label={
                   isFavorite ? "Убрать из избранного" : "Добавить в избранное"
@@ -447,7 +457,7 @@ export default function ProductPage() {
             <button
               onClick={() => addReview.mutate()}
               disabled={!comment.trim() || addReview.isPending}
-              className="aurora-button mt-4 px-6 text-sm font-medium transition-transform hover:scale-[1.01] disabled:opacity-30"
+              className="aurora-button mt-4 px-6 text-sm font-medium transition-transform hover:scale-[1.01] disabled:opacity-50"
             >
               {reviewMode === "edit" ? "Сохранить изменения" : "Опубликовать"}
             </button>

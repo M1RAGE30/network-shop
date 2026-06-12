@@ -20,20 +20,6 @@ export function parseNumericSpec(value: string): number | null {
   return Math.max(...parsed);
 }
 
-function isRangeFilterValue(value: string): boolean {
-  const trimmed = value.trim();
-  if (/^(да|нет|yes|no)$/i.test(trimmed)) return false;
-  return parseNumericSpec(trimmed) != null;
-}
-
-export function formatSpecFilterOption(key: string, value: string): string {
-  const display = normalizeSpecDisplayValue(value);
-  const mode = getSpecFilterMode(key);
-  if (mode === "gte" && isRangeFilterValue(display)) return `от ${display}`;
-  if (mode === "lte" && isRangeFilterValue(display)) return `до ${display}`;
-  return display;
-}
-
 export function matchesSpecFilterValue(
   key: string,
   filterValue: string,

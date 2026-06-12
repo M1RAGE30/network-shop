@@ -16,9 +16,13 @@ export default function MediaImage({ src, alt = "", className, ...props }: Media
     return (
       <div
         className={`flex items-center justify-center bg-ns-hover text-ns-muted ${className ?? ""}`}
+        role={alt ? "img" : undefined}
+        aria-label={alt || undefined}
         aria-hidden={!alt}
       >
-        <span className="text-2xl opacity-40">📦</span>
+        <span className="text-2xl opacity-70" aria-hidden>
+          📦
+        </span>
       </div>
     );
   }

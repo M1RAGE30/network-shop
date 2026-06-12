@@ -60,7 +60,7 @@ export default function ForgotPasswordPage() {
         <div className={authHeader}>
           <h1 className={authTitle}>Забыли пароль?</h1>
           <p className={authSubtitle}>
-            Укажите email — мы отправим ссылку для сброса пароля
+            Укажите email – мы отправим ссылку для сброса пароля
           </p>
         </div>
 

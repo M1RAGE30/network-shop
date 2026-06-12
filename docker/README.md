@@ -56,6 +56,6 @@ VITE_DADATA_API_TOKEN=ваш_токен_из_личного_кабинета_dad
 
 Проверьте: `docker compose logs backend --tail 80` — должно быть `Server running on port 3000`, без `app crashed`.
 
-Первый запуск с пустой БД: seed ~1–3 мин (`Imported: 548`). При перезапуске seed **пропускается**, если товары уже есть. Полный re-import: `FORCE_SEED=true docker compose up -d backend`.
+Первый запуск с пустой БД: seed ~1–3 мин (в логе `Imported: …`, всего ~549 товаров). При перезапуске seed **пропускается**, если товары уже есть. Полный re-import: `FORCE_SEED=true docker compose up -d backend`.
 
 Если был `Cannot find module '.prisma/client'`: `docker compose restart backend` (в entrypoint выполняется `prisma generate`).

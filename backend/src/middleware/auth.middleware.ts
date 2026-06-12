@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
+import prisma from "../lib/prisma";
 
 export interface AuthRequest<P = Record<string, string>> extends Request<P> {
   userId?: number;
@@ -42,13 +43,21 @@ export const optionalAuthenticate = (
   next();
 };
 
-export const requireAdmin = (
+export const requireAdmin = async (
   req: AuthRequest,
   res: Response,
   next: NextFunction,
 ) => {
-  if (req.userRole !== "ADMIN")
+  if (req.userRole !== "ADMIN") {
     return res.status(403).json({ message: "Forbidden" });
+  }
+  const user = await prisma.user.findUnique({
+    where: { id: req.userId },
+    select: { role: true },
+  });
+  if (!user || user.role !== "ADMIN") {
+    return res.status(403).json({ message: "Forbidden" });
+  }
   next();
 };
 

@@ -2,7 +2,7 @@
 import { Link, useLocation } from "react-router-dom";
 import { Home, LayoutGrid, Wrench, ShoppingCart, User, ChevronDown } from "lucide-react";
 import { useAuthStore } from "../store/authStore";
-import { useCartStore } from "../store/cartStore";
+import { useCartCount } from "../lib/useCartCount";
 import { isAdmin } from "../lib/roles";
 import { AdminBlockedNav } from "./AdminBlockedNav";
 import BuilderNavMenu from "./BuilderNavMenu";
@@ -40,7 +40,7 @@ const items = [
 export default function MobileBottomNav() {
   const location = useLocation();
   const { user } = useAuthStore();
-  const totalCount = useCartStore((s) => s.totalCount());
+  const totalCount = useCartCount();
   const admin = isAdmin(user);
   const [buildersOpen, setBuildersOpen] = useState(false);
   const [buildersVisible, setBuildersVisible] = useState(false);

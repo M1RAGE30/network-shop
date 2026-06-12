@@ -23,9 +23,9 @@ const NetworkBuilderPage = lazy(
 );
 const WifiBuilderPage = lazy(() => import("./pages/builder/WifiBuilderPage"));
 
-import { PageRouteSkeleton } from "./components/skeleton/Skeleton";
+import { RouteFallback } from "./components/RouteFallback";
 
-const PageLoader = () => <PageRouteSkeleton />;
+const PageLoader = () => <RouteFallback />;
 
 export default function App() {
   return (

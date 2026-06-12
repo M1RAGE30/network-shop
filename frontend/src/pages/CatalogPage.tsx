@@ -25,13 +25,14 @@ const CATEGORY_SPEC_FILTERS: Record<string, string[]> = {
     "Стандарты беспроводной связи",
     "Диапазон частот",
     "Всего LAN-портов",
-    "Поддержка сотовой связи",
+    "Количество антенн",
     "Цвет",
   ],
   switches: [
     "Количество портов Ethernet",
     "Тип коммутатора",
-    "Скорость пересылки пакетов",
+    "Порты Gigabit Ethernet",
+    "Исполнение",
     "Цвет",
   ],
   "access-points": [
@@ -351,7 +352,7 @@ export default function CatalogPage() {
             type="number"
             min="0"
             placeholder="от"
-            className={`${inputCls} ${priceError ? "ring-2 ring-red-500" : ""}`}
+            className={`${inputCls} ${priceError ? "ring-2 ring-ns-error" : ""}`}
             defaultValue={searchParams.get("minPrice") || ""}
             data-catalog-min-price
             onChange={(e) => {
@@ -362,7 +363,7 @@ export default function CatalogPage() {
             type="number"
             min="0"
             placeholder="до"
-            className={`${inputCls} ${priceError ? "ring-2 ring-red-500" : ""}`}
+            className={`${inputCls} ${priceError ? "ring-2 ring-ns-error" : ""}`}
             defaultValue={searchParams.get("maxPrice") || ""}
             data-catalog-max-price
             onChange={(e) => {
@@ -371,7 +372,7 @@ export default function CatalogPage() {
           />
         </div>
         {priceError && (
-          <p className="text-red-500 text-xs font-medium mt-1.5">
+          <p className="text-ns-error text-xs font-medium mt-1.5">
             {priceError}
           </p>
         )}
@@ -526,7 +527,7 @@ export default function CatalogPage() {
                   setSearchParams(next);
                 }}
                 disabled={data.page <= 1}
-                className="px-3 py-2 rounded-[var(--radius-btn)] text-sm font-medium bg-ns-elevated border border-ns-border text-ns-text disabled:opacity-30 hover:bg-ns-hover transition-colors cursor-pointer"
+                className="px-3 py-2 rounded-[var(--radius-btn)] text-sm font-medium bg-ns-elevated border border-ns-border text-ns-text disabled:opacity-50 hover:bg-ns-hover transition-colors cursor-pointer"
               >
                 ←
               </button>
@@ -575,7 +576,7 @@ export default function CatalogPage() {
                   setSearchParams(next);
                 }}
                 disabled={data.page >= data.pages}
-                className="px-3 py-2 rounded-[var(--radius-btn)] text-sm font-medium bg-ns-elevated border border-ns-border text-ns-text disabled:opacity-30 hover:bg-ns-hover transition-colors cursor-pointer"
+                className="px-3 py-2 rounded-[var(--radius-btn)] text-sm font-medium bg-ns-elevated border border-ns-border text-ns-text disabled:opacity-50 hover:bg-ns-hover transition-colors cursor-pointer"
               >
                 →
               </button>

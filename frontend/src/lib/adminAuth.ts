@@ -1,7 +1,7 @@
 import type { User } from "../store/authStore";
 import { ADMIN_ORIGIN } from "./appOrigins";
 
-export function encodeAdminAuthPayload(user: User, token: string) {
+function encodeAdminAuthPayload(user: User, token: string) {
   return btoa(
     unescape(encodeURIComponent(JSON.stringify({ user, token }))),
   );

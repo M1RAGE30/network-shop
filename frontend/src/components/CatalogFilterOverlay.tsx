@@ -79,7 +79,7 @@ export default function CatalogFilterOverlay({
       <div className="fixed inset-0 z-[200] flex flex-col justify-end md:hidden">
         <button
           type="button"
-          className={`ns-overlay-backdrop absolute inset-0 bg-black/60 transition-opacity duration-300 ${
+          className={`ns-overlay-backdrop ns-overlay-scrim absolute inset-0 transition-opacity duration-300 ${
             visible ? "opacity-100" : "opacity-0"
           }`}
           onClick={onClose}
@@ -107,7 +107,7 @@ export default function CatalogFilterOverlay({
       <div className="fixed inset-0 z-[200] hidden md:block lg:hidden">
         <button
           type="button"
-          className={`ns-overlay-backdrop absolute inset-0 bg-black/60 backdrop-blur-[2px] transition-opacity duration-300 ${
+          className={`ns-overlay-backdrop ns-overlay-scrim absolute inset-0 transition-opacity duration-300 ${
             visible ? "opacity-100" : "opacity-0"
           }`}
           onClick={onClose}

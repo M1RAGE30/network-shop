@@ -11,7 +11,11 @@ export function getSpecFilterMode(key: string): SpecFilterMode {
 }
 
 export function normalizeSpecDisplayValue(value: string): string {
-  const trimmed = value.trim();
+  const trimmed = value
+    .trim()
+    .replace(/\s+/g, " ")
+    .replace(/(\d)\s*Шт(?=\s|$|[,.)])/g, "$1 шт")
+    .replace(/(\S)\s*\/\s+/g, "$1/");
   if (!trimmed) return trimmed;
 
   const plainNumber = trimmed.match(/^(-?\d+)(?:[.,](\d+))?$/);
@@ -117,6 +121,13 @@ export function isMeaningfulSpecFilterValue(value: string): boolean {
   return true;
 }
 
+function leadingNumber(value: string): number | null {
+  const match = value.match(/^(\d+(?:[.,]\d+)?)/);
+  if (!match) return null;
+  const parsed = Number(match[1].replace(",", "."));
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 export function sortSpecFilterValues(key: string, values: string[]): string[] {
   const seen = new Set<string>();
   const unique: string[] = [];
@@ -129,11 +140,21 @@ export function sortSpecFilterValues(key: string, values: string[]): string[] {
     unique.push(normalized);
   }
 
-  return sanitizeSpecFilterValues(
-    key,
-    unique.sort((a, b) =>
-      a.localeCompare(b, "ru", { numeric: true, sensitivity: "base" }),
-    ),
+  const sanitized = sanitizeSpecFilterValues(key, unique);
+  const allNumeric =
+    sanitized.length > 0 &&
+    sanitized.every((value) => leadingNumber(value) != null);
+
+  if (allNumeric) {
+    return sanitized.sort(
+      (a, b) =>
+        (leadingNumber(a) ?? 0) - (leadingNumber(b) ?? 0) ||
+        a.localeCompare(b, "ru", { sensitivity: "base" }),
+    );
+  }
+
+  return sanitized.sort((a, b) =>
+    a.localeCompare(b, "ru", { numeric: true, sensitivity: "base" }),
   );
 }
 

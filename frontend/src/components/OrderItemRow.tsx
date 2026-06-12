@@ -44,7 +44,7 @@ export default function OrderItemRow({
           {productName}
         </p>
         <p className="text-xs text-ns-muted mt-1 tabular-nums">
-          {quantity} шт. · <Price value={unitPrice} /> за шт.
+          {quantity} шт. · <Price inline value={unitPrice} /> за шт.
         </p>
       </div>
     </>

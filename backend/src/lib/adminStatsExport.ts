@@ -156,18 +156,18 @@ export function buildAdminStatsExcelHtml(payload: AdminStatsExportPayload): stri
     const itemsSummary = order.items
       .map(
         (i) =>
-          `${i.product?.name ?? "—"} × ${i.quantity} (${formatMoney(i.price)} б.р.)`,
+          `${i.product?.name ?? "–"} × ${i.quantity} (${formatMoney(i.price)} б.р.)`,
       )
       .join("; ");
     return [
       order.id,
       formatDateTime(order.createdAt),
       ORDER_STATUS_LABELS[order.status] ?? order.status,
-      order.user?.name ?? "—",
-      order.user?.email ?? "—",
-      order.phone ?? "—",
+      order.user?.name ?? "–",
+      order.user?.email ?? "–",
+      order.phone ?? "–",
       order.address,
-      order.comment ?? "—",
+      order.comment ?? "–",
       itemsCount,
       formatMoney(order.totalAmount),
       itemsSummary,
@@ -180,7 +180,7 @@ export function buildAdminStatsExcelHtml(payload: AdminStatsExportPayload): stri
       lineItemRows.push([
         order.id,
         formatDateTime(order.createdAt),
-        item.product?.name ?? "—",
+        item.product?.name ?? "–",
         item.quantity,
         formatMoney(item.price),
         formatMoney(Number(item.price) * item.quantity),
@@ -299,7 +299,7 @@ export function buildAdminStatsExcelHtml(payload: AdminStatsExportPayload): stri
               r.product.name,
               r.user.name,
               r.user.email,
-              r.comment ?? "—",
+              r.comment ?? "–",
             ]),
           )
         : "<p>Отзывов за день нет.</p>",
@@ -336,8 +336,8 @@ export function buildAdminStatsExcelHtml(payload: AdminStatsExportPayload): stri
             payload.lowStock.map((p) => [
               p.id,
               p.name,
-              p.category?.name ?? "—",
-              p.brand?.name ?? "—",
+              p.category?.name ?? "–",
+              p.brand?.name ?? "–",
               p.stock,
               formatMoney(p.price),
             ]),

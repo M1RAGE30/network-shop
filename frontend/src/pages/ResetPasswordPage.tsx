@@ -100,7 +100,7 @@ export default function ResetPasswordPage() {
           <div className={authHeader}>
             <h1 className={authTitle}>Ссылка недействительна</h1>
             <p className={authSubtitle}>
-              Запросите сброс пароля ещё раз — предыдущая ссылка истекла или уже
+              Запросите сброс пароля ещё раз – предыдущая ссылка истекла или уже
               использована.
             </p>
           </div>

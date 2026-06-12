@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "../../lib/api";
 import { Pencil, Trash2, X, Check, XCircle } from "lucide-react";
@@ -24,7 +24,7 @@ interface EditForm {
 }
 
 const roleSelectCls =
-  "w-fit max-w-full cursor-pointer bg-ns-input rounded-[var(--radius-btn)] pl-3 pr-8 py-1.5 text-sm font-semibold text-ns-text focus:outline-none focus:ring-2 focus:ring-ns-accent disabled:opacity-40 disabled:cursor-not-allowed";
+  "w-fit max-w-full cursor-pointer bg-ns-input rounded-[var(--radius-btn)] pl-3 pr-8 py-1.5 text-sm font-semibold text-ns-text focus:outline-none focus:ring-2 focus:ring-ns-accent disabled:opacity-55 disabled:cursor-not-allowed";
 
 function EmailStatusBadge({ verified }: { verified: boolean }) {
   return (
@@ -169,7 +169,7 @@ export default function AdminUsersPage() {
                 })
               }
               disabled={updateMutation.isPending}
-              className="ns-btn ns-btn-primary flex items-center justify-center gap-2 disabled:opacity-40"
+              className="ns-btn ns-btn-primary flex items-center justify-center gap-2 disabled:opacity-55"
             >
               <Check size={16} strokeWidth={1.5} />{" "}
               {updateMutation.isPending ? "Сохранение..." : "Сохранить"}
@@ -249,7 +249,7 @@ export default function AdminUsersPage() {
                         type="button"
                         onClick={() => openEdit(u)}
                         disabled={isSelf(u.id)}
-                        className="ns-action-icon text-ns-text disabled:opacity-30 disabled:cursor-not-allowed"
+                        className="ns-action-icon text-ns-text disabled:opacity-50 disabled:cursor-not-allowed"
                         aria-label={
                           isSelf(u.id) ? "Нельзя редактировать свой профиль" : "Редактировать"
                         }
@@ -262,7 +262,7 @@ export default function AdminUsersPage() {
                           setConfirmDelete({ open: true, id: u.id, name: u.name });
                         }}
                         disabled={isSelf(u.id)}
-                        className="ns-action-icon ns-action-icon--danger text-red-600 dark:text-red-400 disabled:opacity-30"
+                        className="ns-action-icon ns-action-icon--danger disabled:opacity-50"
                       >
                         <Trash2 size={16} strokeWidth={1.5} />
                       </button>
@@ -290,7 +290,7 @@ export default function AdminUsersPage() {
                     type="button"
                     onClick={() => openEdit(u)}
                     disabled={isSelf(u.id)}
-                    className="ns-action-icon text-ns-text disabled:opacity-30 disabled:cursor-not-allowed"
+                    className="ns-action-icon text-ns-text disabled:opacity-50 disabled:cursor-not-allowed"
                     aria-label={
                       isSelf(u.id) ? "Нельзя редактировать свой профиль" : "Редактировать"
                     }
@@ -303,7 +303,7 @@ export default function AdminUsersPage() {
                       setConfirmDelete({ open: true, id: u.id, name: u.name });
                     }}
                     disabled={isSelf(u.id)}
-                    className="ns-action-icon ns-action-icon--danger text-red-600 dark:text-red-400 disabled:opacity-30"
+                    className="ns-action-icon ns-action-icon--danger disabled:opacity-50"
                   >
                     <Trash2 size={16} strokeWidth={1.5} />
                   </button>

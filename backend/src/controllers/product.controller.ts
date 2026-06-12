@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { Prisma } from "../../generated/client";
 import prisma from "../lib/prisma";
 import { matchesSpecFilters } from "../lib/specFilterMatch";
 import { normalizeProductSpecs } from "../lib/specNormalize";
@@ -234,7 +235,15 @@ export const deleteProduct = async (
   try {
     await prisma.product.delete({ where: { id: parseInt(req.params.id) } });
     return res.status(204).send();
-  } catch {
+  } catch (e) {
+    if (
+      e instanceof Prisma.PrismaClientKnownRequestError &&
+      e.code === "P2003"
+    ) {
+      return res.status(409).json({
+        message: "Невозможно удалить товар: он присутствует в заказах",
+      });
+    }
     return res.status(404).json({ message: "Not found" });
   }
 };

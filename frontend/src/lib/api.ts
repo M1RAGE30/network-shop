@@ -1,5 +1,6 @@
 import axios from "axios";
 import { useAuthStore } from "../store/authStore";
+import { clearAuthSession } from "./authSession";
 
 const api = axios.create({
   baseURL: `${import.meta.env.VITE_API_URL ?? ""}/api`,
@@ -14,7 +15,7 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401) useAuthStore.getState().logout();
+    if (err.response?.status === 401) clearAuthSession();
     return Promise.reject(err);
   },
 );

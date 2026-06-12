@@ -1,5 +1,9 @@
 export function normalizeSpecDisplayValue(value: string): string {
-  const trimmed = value.trim();
+  const trimmed = value
+    .trim()
+    .replace(/\s+/g, " ")
+    .replace(/(\d)\s*Шт(?=\s|$|[,.)])/g, "$1 шт")
+    .replace(/(\S)\s*\/\s+/g, "$1/");
   if (!trimmed) return trimmed;
 
   const plainNumber = trimmed.match(/^(-?\d+)(?:[.,](\d+))?$/);

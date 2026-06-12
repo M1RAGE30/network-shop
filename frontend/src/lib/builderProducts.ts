@@ -23,7 +23,7 @@ export function sortBuilderProducts<T extends BuilderProduct>(products: T[]): T[
   });
 }
 
-export function builderProductParts(product: BuilderProduct): {
+function builderProductParts(product: BuilderProduct): {
   brand: string | null;
   name: string;
 } {

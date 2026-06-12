@@ -16,6 +16,7 @@ import AdminChatsPage from "./admin/AdminChatsPage";
 import AdminUsersPage from "./admin/AdminUsersPage";
 import AdminMobileFab from "../components/AdminMobileFab";
 import ThemeToggleIcon, { themeToggleAriaLabel } from "../components/ThemeToggleIcon";
+import { useChatUnread } from "../lib/useChatUnread";
 
 const NAV = [
   { to: "/admin", label: "Статистика", icon: LayoutDashboard, end: true },
@@ -28,6 +29,7 @@ const NAV = [
 export default function AdminPage() {
   const location = useLocation();
   const { dark, toggle } = useThemeStore();
+  const chatUnread = useChatUnread(true);
   const isChats = location.pathname.startsWith("/admin/chats");
   const isFullHeightView =
     isChats || location.pathname === "/admin/orders";
@@ -58,7 +60,12 @@ export default function AdminPage() {
               }`}
             >
               <Icon size={18} strokeWidth={1.5} />
-              {label}
+              <span className="flex-1">{label}</span>
+              {to === "/admin/chats" && chatUnread > 0 && (
+                <span className="ns-unread-badge ns-unread-badge--admin">
+                  {chatUnread > 99 ? "99+" : chatUnread}
+                </span>
+              )}
             </Link>
           ))}
         </nav>
@@ -99,7 +106,14 @@ export default function AdminPage() {
                   : "bg-ns-elevated text-ns-text-secondary"
               }`}
             >
-              {label}
+              <span className="inline-flex items-center gap-1.5">
+                {label}
+                {to === "/admin/chats" && chatUnread > 0 && (
+                  <span className="ns-unread-badge ns-unread-badge--admin">
+                    {chatUnread > 99 ? "99+" : chatUnread}
+                  </span>
+                )}
+              </span>
             </Link>
           ))}
         </nav>

@@ -86,6 +86,12 @@ app.use(errorHandler);
 
 setupSocket(io);
 
+const jwtSecret = process.env.JWT_SECRET;
+if (!jwtSecret || jwtSecret.length < 16) {
+  console.error("JWT_SECRET must be set and at least 16 characters");
+  process.exit(1);
+}
+
 const PORT = process.env.PORT || 3000;
 if (process.env.NODE_ENV !== "test") {
   httpServer.listen(PORT, () => console.log(`Server running on port ${PORT}`));

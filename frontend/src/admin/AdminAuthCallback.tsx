@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { SHOP_ADMIN_BRIDGE } from "../lib/appOrigins";
 import { useAuthStore } from "../store/authStore";
+import { establishAuthSession } from "../lib/authSession";
 
 export default function AdminAuthCallback() {
   const navigate = useNavigate();
@@ -21,6 +22,7 @@ export default function AdminAuthCallback() {
     try {
       const { user, token } = JSON.parse(decodeURIComponent(escape(atob(raw))));
       if (user && token) {
+        establishAuthSession();
         setAuth(user, token);
       }
     } catch {}

@@ -59,6 +59,10 @@ router.get("/proxy", proxyLimiter, async (req: Request, res: Response) => {
       });
     }
 
+    if (upstream.url && !isAllowedUrl(upstream.url)) {
+      return res.status(502).json({ message: "Недопустимый редирект" });
+    }
+
     const contentType = upstream.headers.get("content-type") ?? "image/jpeg";
     if (!contentType.startsWith("image/")) {
       return res.status(502).json({ message: "Ответ не является изображением" });

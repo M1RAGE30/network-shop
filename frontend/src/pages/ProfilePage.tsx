@@ -1,4 +1,5 @@
-﻿import { useState } from "react";
+import { useEffect, useState } from "react";
+import { clearAuthSession } from "../lib/authSession";
 import { useNavigate } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import api from "../lib/api";
@@ -20,7 +21,7 @@ import {
 } from "../lib/passwordValidation";
 
 export default function ProfilePage() {
-  const { user, logout, updateUser } = useAuthStore();
+  const { user, updateUser } = useAuthStore();
   const navigate = useNavigate();
   const [name, setName] = useState(user?.name ?? "");
   const [phone, setPhone] = useState(user?.phone ?? "");
@@ -58,8 +59,15 @@ export default function ProfilePage() {
     resetPasswordForm();
   };
 
+  useEffect(() => {
+    if (!user) return;
+    setName(user.name);
+    setPhone(user.phone ?? "");
+    setAvatarUrl(user.avatarUrl ?? "");
+  }, [user?.id, user?.name, user?.phone, user?.avatarUrl]);
+
   const handleLogout = () => {
-    logout();
+    clearAuthSession();
     navigate("/");
   };
 
@@ -187,7 +195,7 @@ export default function ProfilePage() {
   return (
     <div className="mx-auto w-full max-w-xl pb-8 space-y-6">
       <div className="text-center">
-        <h1 className="font-display text-3xl sm:text-4xl font-semibold text-ns-text tracking-tight">
+        <h1 className="ns-heading-page">
           Профиль
         </h1>
       </div>
@@ -231,7 +239,7 @@ export default function ProfilePage() {
                 disabled={
                   uploading || resetAvatar.isPending || saveProfile.isPending
                 }
-                className="text-sm font-medium text-ns-text-secondary hover:text-ns-error transition-colors disabled:opacity-40 w-fit text-left"
+                className="text-sm font-medium text-ns-text-secondary hover:text-ns-error transition-colors disabled:opacity-55 w-fit text-left"
               >
                 {resetAvatar.isPending ? "Сброс…" : "Сбросить аватар"}
               </button>
@@ -333,7 +341,7 @@ export default function ProfilePage() {
                 type="button"
                 onClick={closePasswordForm}
                 disabled={changePassword.isPending}
-                className="text-sm font-medium text-ns-text-secondary hover:text-ns-text transition-colors disabled:opacity-40"
+                className="text-sm font-medium text-ns-text-secondary hover:text-ns-text transition-colors disabled:opacity-55"
               >
                 Закрыть
               </button>

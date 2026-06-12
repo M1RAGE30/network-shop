@@ -146,7 +146,7 @@ export default function ProductCard({
               onPointerDown={(e) => e.stopPropagation()}
               disabled={shopLocked}
               className={`ns-icon-round ns-fav-btn min-h-11 min-w-11 p-2.5 shadow-sm touch-manipulation ${
-                shopLocked ? "cursor-not-allowed opacity-45" : "cursor-pointer"
+                shopLocked ? "cursor-not-allowed opacity-60" : "cursor-pointer"
               }`}
               aria-label={
                 isFavorite ? "Убрать из избранного" : "Добавить в избранное"
@@ -187,7 +187,7 @@ export default function ProductCard({
         <span className="ns-caption mb-1 block truncate uppercase tracking-wider text-xs md:mb-1.5">
           {product.brand.name}
         </span>
-        <p className="ns-heading-card mb-1.5 line-clamp-2 text-sm leading-snug md:mb-2 md:text-base">
+        <p className="ns-heading-card mb-1.5 line-clamp-2 min-h-[2.75em] text-sm leading-snug md:mb-2 md:text-base">
           {product.name}
         </p>
 
@@ -218,7 +218,7 @@ export default function ProductCard({
             <button
               type="button"
               disabled
-              className="ns-btn ns-btn-primary w-full text-xs opacity-45 cursor-not-allowed"
+              className="ns-btn ns-btn-primary w-full text-xs opacity-60 cursor-not-allowed"
               onClick={(e) => e.preventDefault()}
             >
               <ShoppingCart size={14} strokeWidth={1.5} />
@@ -226,23 +226,24 @@ export default function ProductCard({
             </button>
           ) : canShop && cartItem ? (
             <div
-              className="flex items-center justify-center gap-2"
+              className="flex min-h-[var(--ns-height-btn)] items-center justify-center gap-2"
               onClick={(e) => e.preventDefault()}
             >
               <button
+                type="button"
                 onClick={(e) => handleUpdateCart(e, cartItem.quantity - 1)}
-                className="ns-icon-round w-9 h-9 shrink-0 cursor-pointer"
+                className="ns-icon-round flex h-[var(--ns-height-btn)] w-[var(--ns-height-btn)] shrink-0 items-center justify-center"
               >
                 <Minus size={14} strokeWidth={2} />
               </button>
-              <span className="min-w-[2rem] text-center text-sm font-semibold text-ns-text">
+              <span className="inline-flex h-[var(--ns-height-btn)] min-w-[2rem] items-center justify-center text-sm font-semibold tabular-nums text-ns-text">
                 {cartItem.quantity}
               </span>
               <button
                 type="button"
                 disabled={atStockLimit}
                 onClick={(e) => handleUpdateCart(e, cartItem.quantity + 1)}
-                className="ns-icon-round w-9 h-9 shrink-0 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                className="ns-icon-round flex h-[var(--ns-height-btn)] w-[var(--ns-height-btn)] shrink-0 items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Plus size={14} strokeWidth={2} />
               </button>
@@ -251,7 +252,7 @@ export default function ProductCard({
             <button
               onClick={handleAddToCart}
               disabled={isOutOfStock}
-              className="ns-btn ns-btn-primary w-full text-xs disabled:opacity-30"
+              className="ns-btn ns-btn-primary w-full text-xs disabled:opacity-50"
             >
               <ShoppingCart size={14} strokeWidth={1.5} />
               <span>В корзину</span>

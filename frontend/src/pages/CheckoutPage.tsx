@@ -7,6 +7,7 @@ import AddressInput from "../components/AddressInput";
 import PhoneInput from "../components/PhoneInput";
 import { ShoppingCart, Package } from "lucide-react";
 import { useAuthStore } from "../store/authStore";
+import { useToastStore } from "../store/toastStore";
 import MediaImage from "../components/MediaImage";
 import { CheckoutPageSkeleton } from "../components/skeleton/Skeleton";
 
@@ -73,6 +74,14 @@ export default function CheckoutPage() {
       qc.invalidateQueries({ queryKey: ["cart"] });
       navigate("/orders");
     },
+    onError: (err: { response?: { data?: { message?: string } } }) => {
+      useToastStore
+        .getState()
+        .show(
+          err.response?.data?.message ?? "Не удалось оформить заказ",
+          "error",
+        );
+    },
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -88,12 +97,8 @@ export default function CheckoutPage() {
 
   if (!items.length)
     return (
-      <div className="text-center py-20">
-        <ShoppingCart
-          size={64}
-          strokeWidth={1}
-          className="mx-auto text-ns-muted mb-4"
-        />
+      <div className="ns-page-empty">
+        <ShoppingCart strokeWidth={1} className="ns-page-empty__icon" />
         <p className="text-lg text-ns-muted">
           Корзина пуста
         </p>
@@ -136,7 +141,7 @@ export default function CheckoutPage() {
                     {item.product.name}
                   </p>
                   <p className="text-xs text-ns-text-secondary mt-1 tabular-nums">
-                    {item.quantity} шт. · <Price value={item.product.price} /> за шт.
+                    {item.quantity} шт. · <Price inline value={item.product.price} /> за шт.
                   </p>
                 </div>
               </Link>
@@ -179,7 +184,7 @@ export default function CheckoutPage() {
             <textarea
               rows={3}
               placeholder="Дополнительные пожелания..."
-              className="w-full rounded-xl border border-ns-border px-4 py-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ns-accent bg-ns-input text-ns-text placeholder:text-ns-muted transition-all"
+              className="ns-textarea w-full text-sm resize-none"
               value={form.comment}
               onChange={(e) =>
                 setForm((p) => ({ ...p, comment: e.target.value }))
@@ -189,7 +194,7 @@ export default function CheckoutPage() {
           <button
             type="submit"
             disabled={orderMutation.isPending || !isValid}
-            className="aurora-button w-full py-3.5 text-sm font-medium transition-transform hover:scale-[1.01] disabled:opacity-40"
+            className="aurora-button w-full py-3.5 text-sm font-medium transition-transform hover:scale-[1.01] disabled:opacity-55"
           >
             {orderMutation.isPending ? "Оформляем..." : "Подтвердить заказ"}
           </button>

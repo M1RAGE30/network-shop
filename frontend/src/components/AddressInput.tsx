@@ -1,4 +1,4 @@
-﻿import {
+import {
   AddressSuggestions,
   DaDataAddress,
   DaDataSuggestion,
@@ -41,7 +41,7 @@ export default function AddressInput({
             placeholder: "г. Минск, ул. Ленина, д. 1",
             className: `w-full rounded-xl px-4 py-3 text-sm focus:outline-none transition-all bg-ns-input text-ns-text placeholder:text-ns-muted ${
               touched && error
-                ? "ring-2 ring-red-500"
+                ? "ring-2 ring-ns-error"
                 : "focus:ring-2 focus:ring-ns-accent"
             }`,
           }}
@@ -55,7 +55,7 @@ export default function AddressInput({
           placeholder="г. Минск, ул. Ленина, д. 1"
           className={`w-full rounded-xl border border-ns-border px-4 py-3 text-sm focus:outline-none transition-all bg-ns-input text-ns-text placeholder:text-ns-muted ${
             touched && error
-              ? "ring-2 ring-red-500"
+              ? "ring-2 ring-ns-error"
               : "focus:ring-2 focus:ring-ns-accent"
           }`}
         />
@@ -66,7 +66,7 @@ export default function AddressInput({
         </p>
       )}
       {touched && error && (
-        <p className="text-red-500 text-xs font-medium mt-1.5">{error}</p>
+        <p className="text-ns-error text-xs font-medium mt-1.5">{error}</p>
       )}
     </div>
   );

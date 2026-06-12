@@ -42,12 +42,8 @@ export default function CartPage() {
 
   if (!items.length) {
     return (
-      <div className="text-center py-20">
-        <ShoppingCart
-          size={64}
-          strokeWidth={1}
-          className="mx-auto text-ns-muted mb-4"
-        />
+      <div className="ns-page-empty">
+        <ShoppingCart strokeWidth={1} className="ns-page-empty__icon" />
         <p className="text-lg text-ns-muted">
           Корзина пуста
         </p>
@@ -60,7 +56,8 @@ export default function CartPage() {
       <h1 className="ns-heading-page mb-4 sm:mb-5">Корзина</h1>
 
       <div className="ns-cart-layout">
-        <div className="aurora-card rounded-2xl p-4 sm:p-5 space-y-3 items-start">
+        <div className="aurora-card rounded-2xl p-4 sm:p-5 md:max-h-[calc(100vh-12rem)] flex flex-col min-h-0 w-full min-w-0">
+          <div className="space-y-3 overflow-y-auto flex-1 min-h-0 pr-1 -mr-1 scrollbar-thin">
           {items.map((item: any) => (
             <div
               key={item.productId}
@@ -91,7 +88,7 @@ export default function CartPage() {
                     {item.product.name}
                   </p>
                   <p className="text-xs text-ns-text-secondary mt-0.5">
-                    {item.product.brand?.name || "—"}
+                    {item.product.brand?.name || "–"}
                   </p>
                   <p className="text-sm font-semibold text-ns-text mt-1.5 tabular-nums">
                     <Price value={item.product.price} />
@@ -106,7 +103,7 @@ export default function CartPage() {
                 <button
                   type="button"
                   onClick={() => removeMutation.mutate(item.productId)}
-                  className="ns-action-icon text-ns-muted hover:text-red-500 transition-colors p-1"
+                  className="ns-action-icon ns-action-icon--danger transition-colors p-1"
                   title="Удалить"
                   aria-label="Удалить"
                 >
@@ -123,7 +120,7 @@ export default function CartPage() {
                             quantity: item.quantity - 1,
                           })
                     }
-                    className="inline-grid h-8 w-8 shrink-0 place-items-center rounded-[var(--radius-btn)] border border-ns-border bg-ns-elevated text-ns-text transition-colors hover:bg-ns-hover disabled:opacity-30"
+                    className="inline-grid h-8 w-8 shrink-0 place-items-center rounded-[var(--radius-btn)] border border-ns-border bg-ns-elevated text-ns-text transition-colors hover:bg-ns-hover disabled:opacity-50"
                   >
                     <Minus size={14} strokeWidth={2} />
                   </button>
@@ -139,7 +136,7 @@ export default function CartPage() {
                         quantity: item.quantity + 1,
                       })
                     }
-                    className="inline-grid h-8 w-8 shrink-0 place-items-center rounded-[var(--radius-btn)] border border-ns-border bg-ns-elevated text-ns-text transition-colors hover:bg-ns-hover disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-ns-elevated"
+                    className="inline-grid h-8 w-8 shrink-0 place-items-center rounded-[var(--radius-btn)] border border-ns-border bg-ns-elevated text-ns-text transition-colors hover:bg-ns-hover disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-ns-elevated"
                   >
                     <Plus size={14} strokeWidth={2} />
                   </button>
@@ -147,6 +144,7 @@ export default function CartPage() {
               </div>
             </div>
           ))}
+          </div>
         </div>
 
         <div className="aurora-card rounded-2xl p-4 sm:p-5 h-fit">

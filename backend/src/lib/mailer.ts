@@ -111,7 +111,7 @@ export const sendVerificationCodeEmail = async (to: string, code: string) => {
   await transporter.sendMail({
     from: `"NetworkShop" <${process.env.SMTP_USER}>`,
     to,
-    subject: "Код подтверждения — NetworkShop",
+    subject: "Код подтверждения – NetworkShop",
     text: `Код подтверждения NetworkShop: ${code}\n\nКод действует 10 минут.`,
     html: verificationEmailHtml(code),
   });
@@ -122,7 +122,7 @@ export const sendPasswordResetEmail = async (to: string, token: string) => {
   await transporter.sendMail({
     from: `"NetworkShop" <${process.env.SMTP_USER}>`,
     to,
-    subject: "Сброс пароля — NetworkShop",
+    subject: "Сброс пароля – NetworkShop",
     text: `Сброс пароля NetworkShop:\n${resetUrl}\n\nСсылка действует 1 час.`,
     html: passwordResetEmailHtml(resetUrl),
   });

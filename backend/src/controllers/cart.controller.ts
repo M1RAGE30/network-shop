@@ -3,6 +3,11 @@ import prisma from "../lib/prisma";
 import { AuthRequest } from "../middleware/auth.middleware";
 import { capCartQuantity } from "../lib/cartStock";
 
+const parseProductId = (raw: string) => {
+  const id = parseInt(raw, 10);
+  return Number.isInteger(id) && id > 0 ? id : null;
+};
+
 export const getCart = async (req: AuthRequest, res: Response) => {
   const items = await prisma.cartItem.findMany({
     where: { userId: req.userId },
@@ -46,7 +51,20 @@ export const updateCart = async (
   if (!Number.isInteger(quantity) || quantity < 1 || quantity > 999) {
     return res.status(400).json({ message: "Invalid quantity" });
   }
-  const productId = parseInt(req.params.productId);
+  const productId = parseProductId(req.params.productId);
+  if (!productId) {
+    return res.status(400).json({ message: "Invalid productId" });
+  }
+
+  const existing = await prisma.cartItem.findUnique({
+    where: {
+      userId_productId: { userId: req.userId!, productId },
+    },
+  });
+  if (!existing) {
+    return res.status(404).json({ message: "Item not in cart" });
+  }
+
   const capped = await capCartQuantity(
     req.userId!,
     productId,
@@ -73,11 +91,25 @@ export const removeFromCart = async (
   req: AuthRequest<{ productId: string }>,
   res: Response,
 ) => {
+  const productId = parseProductId(req.params.productId);
+  if (!productId) {
+    return res.status(400).json({ message: "Invalid productId" });
+  }
+
+  const existing = await prisma.cartItem.findUnique({
+    where: {
+      userId_productId: { userId: req.userId!, productId },
+    },
+  });
+  if (!existing) {
+    return res.status(404).json({ message: "Item not in cart" });
+  }
+
   await prisma.cartItem.delete({
     where: {
       userId_productId: {
         userId: req.userId!,
-        productId: parseInt(req.params.productId),
+        productId,
       },
     },
   });
@@ -118,26 +150,34 @@ export const bulkAddToCart = async (req: AuthRequest, res: Response) => {
     select: { id: true },
   });
   const validIds = new Set(existingProducts.map((p) => p.id));
-  const filtered = items.filter((i) => validIds.has(i.productId));
 
-  if (filtered.length === 0) {
+  const merged = new Map<number, number>();
+  for (const item of items) {
+    if (!validIds.has(item.productId)) continue;
+    merged.set(
+      item.productId,
+      (merged.get(item.productId) ?? 0) + item.quantity,
+    );
+  }
+
+  if (merged.size === 0) {
     return res.status(400).json({ message: "Товары не найдены" });
   }
 
   const cappedItems: { productId: number; quantity: number }[] = [];
-  for (const item of filtered) {
+  for (const [productId, quantity] of merged) {
     const capped = await capCartQuantity(
       userId,
-      item.productId,
-      item.quantity,
+      productId,
+      quantity,
       "increment",
     );
     if ("error" in capped) continue;
-    cappedItems.push({ productId: item.productId, quantity: capped.quantity });
+    cappedItems.push({ productId, quantity: capped.quantity });
   }
 
   if (cappedItems.length === 0) {
-    return res.status(409).json({ message: "Товары отсутствуют на складе" });
+    return res.status(409).json({ message: "Товары отсутствует на складе" });
   }
 
   await prisma.$transaction(
@@ -155,5 +195,5 @@ export const bulkAddToCart = async (req: AuthRequest, res: Response) => {
     include: { product: { include: { brand: true } } },
   });
 
-  return res.json({ added: filtered.length, items: cart });
+  return res.json({ added: cappedItems.length, items: cart });
 };

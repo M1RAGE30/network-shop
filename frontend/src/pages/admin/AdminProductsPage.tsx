@@ -315,7 +315,7 @@ export default function AdminProductsPage() {
       <input
         type={type}
         placeholder={placeholder}
-        className={`${inputCls} ${formErrors[key] ? "ring-2 ring-red-500" : ""}`}
+        className={`${inputCls} ${formErrors[key] ? "ring-2 ring-ns-error" : ""}`}
         value={form[key]}
         onChange={(e) => {
           clearFieldError(key);
@@ -323,7 +323,7 @@ export default function AdminProductsPage() {
         }}
       />
       {formErrors[key] && (
-        <p className="mt-1.5 text-sm sm:text-xs font-medium text-red-500">
+        <p className="mt-1.5 text-sm sm:text-xs font-medium text-ns-error">
           {formErrors[key]}
         </p>
       )}
@@ -331,7 +331,7 @@ export default function AdminProductsPage() {
   );
 
   const selectFieldCls = (hasError: boolean) =>
-    `${selectCls} ${hasError ? "ring-2 ring-red-500" : ""}`;
+    `${selectCls} ${hasError ? "ring-2 ring-ns-error" : ""}`;
 
   return (
     <div className="space-y-6">
@@ -437,7 +437,7 @@ export default function AdminProductsPage() {
               </label>
               <input
                 type="number"
-                className={`${inputCls} ${formErrors.price ? "ring-2 ring-red-500" : ""}`}
+                className={`${inputCls} ${formErrors.price ? "ring-2 ring-ns-error" : ""}`}
                 value={form.price}
                 onChange={(e) => {
                   clearFieldError("price");
@@ -445,7 +445,7 @@ export default function AdminProductsPage() {
                 }}
               />
               {formErrors.price && (
-                <p className="mt-1.5 text-sm sm:text-xs font-medium text-red-500">
+                <p className="mt-1.5 text-sm sm:text-xs font-medium text-ns-error">
                   {formErrors.price}
                 </p>
               )}
@@ -496,7 +496,7 @@ export default function AdminProductsPage() {
                 </svg>
               </div>
               {formErrors.categoryId && (
-                <p className="text-sm sm:text-xs font-medium text-red-500">
+                <p className="text-sm sm:text-xs font-medium text-ns-error">
                   {formErrors.categoryId}
                 </p>
               )}
@@ -535,7 +535,7 @@ export default function AdminProductsPage() {
                         slug: newCategorySlug.trim() || undefined,
                       })
                     }
-                    className="ns-btn ns-btn-secondary w-full text-sm disabled:opacity-40"
+                    className="ns-btn ns-btn-secondary w-full text-sm disabled:opacity-55"
                   >
                     {createCategoryMutation.isPending
                       ? "Создание..."
@@ -587,7 +587,7 @@ export default function AdminProductsPage() {
                 </svg>
               </div>
               {formErrors.brandId && (
-                <p className="text-sm sm:text-xs font-medium text-red-500">
+                <p className="text-sm sm:text-xs font-medium text-ns-error">
                   {formErrors.brandId}
                 </p>
               )}
@@ -612,7 +612,7 @@ export default function AdminProductsPage() {
                         name: newBrandName.trim(),
                       })
                     }
-                    className="ns-btn ns-btn-secondary w-full text-sm disabled:opacity-40"
+                    className="ns-btn ns-btn-secondary w-full text-sm disabled:opacity-55"
                   >
                     {createBrandMutation.isPending
                       ? "Создание..."
@@ -639,7 +639,7 @@ export default function AdminProductsPage() {
               <textarea
                 rows={4}
                 placeholder={'{"Порты": "24"}'}
-                className={`${textareaCls} ns-admin-product-form__textarea font-mono ${formErrors.specs ? "ring-2 ring-red-500" : ""}`}
+                className={`${textareaCls} ns-admin-product-form__textarea font-mono ${formErrors.specs ? "ring-2 ring-ns-error" : ""}`}
                 value={form.specs}
                 onChange={(e) => {
                   clearFieldError("specs");
@@ -647,7 +647,7 @@ export default function AdminProductsPage() {
                 }}
               />
               {formErrors.specs && (
-                <p className="mt-1.5 text-sm sm:text-xs font-medium text-red-500">
+                <p className="mt-1.5 text-sm sm:text-xs font-medium text-ns-error">
                   {formErrors.specs}
                 </p>
               )}
@@ -807,8 +807,8 @@ export default function AdminProductsPage() {
                       <span
                         className={`text-xs font-semibold px-3 py-1.5 rounded-full tabular-nums ${
                           p.stock > 0
-                            ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-                            : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
+                            ? "bg-[color-mix(in_srgb,var(--ns-success)_16%,var(--color-ns-elevated))] text-[var(--ns-badge-success-fg)]"
+                            : "bg-[color-mix(in_srgb,var(--ns-error)_14%,var(--color-ns-elevated))] text-[var(--ns-badge-error-fg)]"
                         }`}
                       >
                         {p.stock}
@@ -833,7 +833,7 @@ export default function AdminProductsPage() {
                               name: p.name,
                             });
                           }}
-                          className="ns-action-icon ns-action-icon--danger text-red-600 dark:text-red-400"
+                          className="ns-action-icon ns-action-icon--danger"
                           aria-label="Удалить"
                         >
                           <Trash2 size={16} strokeWidth={1.5} />
@@ -883,7 +883,7 @@ export default function AdminProductsPage() {
                     onClick={() => {
                       setConfirmDelete({ open: true, id: p.id, name: p.name });
                     }}
-                    className="ns-action-icon ns-action-icon--danger text-red-600 dark:text-red-400"
+                    className="ns-action-icon ns-action-icon--danger"
                     aria-label="Удалить"
                   >
                     <Trash2 size={16} strokeWidth={1.5} />
@@ -901,7 +901,7 @@ export default function AdminProductsPage() {
               type="button"
               onClick={() => setListPage((p) => Math.max(1, p - 1))}
               disabled={listPage <= 1}
-              className="px-3 py-2 rounded-[var(--radius-btn)] text-sm font-medium bg-ns-elevated border border-ns-border text-ns-text disabled:opacity-30 hover:bg-ns-hover transition-colors"
+              className="px-3 py-2 rounded-[var(--radius-btn)] text-sm font-medium bg-ns-elevated border border-ns-border text-ns-text disabled:opacity-50 hover:bg-ns-hover transition-colors"
             >
               ←
             </button>
@@ -939,7 +939,7 @@ export default function AdminProductsPage() {
               type="button"
               onClick={() => setListPage((p) => Math.min(listPages, p + 1))}
               disabled={listPage >= listPages}
-              className="px-3 py-2 rounded-[var(--radius-btn)] text-sm font-medium bg-ns-elevated border border-ns-border text-ns-text disabled:opacity-30 hover:bg-ns-hover transition-colors"
+              className="px-3 py-2 rounded-[var(--radius-btn)] text-sm font-medium bg-ns-elevated border border-ns-border text-ns-text disabled:opacity-50 hover:bg-ns-hover transition-colors"
             >
               →
             </button>

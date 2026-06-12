@@ -8,6 +8,7 @@ import { ADMIN_ORIGIN } from "../lib/appOrigins";
 import { useChatStore } from "../store/chatStore";
 import { Send, ArrowLeft } from "lucide-react";
 import { ChatPanelSkeleton } from "../components/skeleton/Skeleton";
+import { useChatScroll } from "../lib/useChatScroll";
 
 interface Message {
   id: number;
@@ -24,8 +25,13 @@ export default function ChatPage() {
   const { token: urlToken } = useParams<{ token?: string }>();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
+  const [sendError, setSendError] = useState("");
   const [roomId, setRoomId] = useState<number | null>(null);
   const socketInitialized = useRef(false);
+  const pendingSendRef = useRef("");
+  const { scrollRef, afterOwnMessage } = useChatScroll(messages.length, roomId);
+  const afterOwnMessageRef = useRef(afterOwnMessage);
+  afterOwnMessageRef.current = afterOwnMessage;
 
   useEffect(() => {
     if (user?.role === "ADMIN") {
@@ -59,31 +65,52 @@ export default function ChatPage() {
     socket.emit("join_room", room.id);
     socket.emit("mark_read", { roomId: room.id });
     const onNewMessage = (msg: Message) => {
-      setMessages((prev) =>
-        prev.some((m) => m.id === msg.id) ? prev : [...prev, msg],
-      );
+      const isOwn = msg.userId === user?.id;
+      setMessages((prev) => {
+        if (prev.some((m) => m.id === msg.id)) return prev;
+        if (isOwn) queueMicrotask(() => afterOwnMessageRef.current());
+        return [...prev, msg];
+      });
+      if (msg.userId === user?.id) {
+        pendingSendRef.current = "";
+        setSendError("");
+      }
       if (msg.user.role === "ADMIN")
         socket.emit("mark_read", { roomId: room.id });
     };
+    const onMessageError = ({ message }: { message?: string }) => {
+      if (pendingSendRef.current) {
+        setInput(pendingSendRef.current);
+        pendingSendRef.current = "";
+      }
+      setSendError(message ?? "Не удалось отправить сообщение");
+    };
+    const onRoomError = () => {
+      setSendError("Не удалось подключиться к чату");
+    };
     const onMessagesRead = () => {
-      api
-        .get("/chat/unread")
-        .then((r) => setUnread(r.data.count))
-        .catch(() => {});
+      setUnread(0);
     };
     socket.on("new_message", onNewMessage);
     socket.on("messages_read", onMessagesRead);
+    socket.on("message_error", onMessageError);
+    socket.on("room_error", onRoomError);
     return () => {
       socket.off("new_message", onNewMessage);
       socket.off("messages_read", onMessagesRead);
+      socket.off("message_error", onMessageError);
+      socket.off("room_error", onRoomError);
       socketInitialized.current = false;
     };
-  }, [room?.id, urlToken, navigate, reset, setUnread]);
+  }, [room?.id, urlToken, navigate, reset, setUnread, user?.id]);
 
   const sendMessage = () => {
     if (!input.trim() || !roomId) return;
-    getSocket().emit("send_message", { roomId, content: input.trim() });
+    const content = input.trim();
+    pendingSendRef.current = content;
     setInput("");
+    setSendError("");
+    getSocket().emit("send_message", { roomId, content });
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -96,17 +123,17 @@ export default function ChatPage() {
   if (!user) return null;
 
   return (
-    <div className="max-w-3xl mx-auto py-8">
-      <div className="mb-6 flex items-center gap-3">
+    <div className="max-w-3xl mx-auto py-4 sm:py-8">
+      <div className="mb-4 flex items-center gap-2 sm:mb-6 sm:gap-3">
         <button
           type="button"
           onClick={() => navigate(-1)}
-          className="ns-action-icon text-ns-text shrink-0"
+          className="ns-action-icon ns-action-icon--square text-ns-text shrink-0"
           aria-label="Назад"
         >
           <ArrowLeft size={18} strokeWidth={1.75} />
         </button>
-        <h1 className="font-display text-4xl sm:text-5xl font-semibold text-ns-text tracking-tight">
+        <h1 className="text-xl font-semibold leading-none text-ns-text sm:text-2xl">
           Чат поддержки
         </h1>
       </div>
@@ -130,10 +157,13 @@ export default function ChatPage() {
           </p>
         </div>
 
-        <div className="flex-1 overflow-y-auto overflow-x-hidden px-5 py-6 space-y-4">
+        <div
+          ref={scrollRef}
+          className="flex-1 overflow-y-auto overflow-x-hidden px-5 py-6 space-y-4"
+        >
           {messages.length === 0 && (
             <p className="text-center text-sm text-ns-muted mt-12">
-              Напишите нам — мы ответим в ближайшее время
+              Напишите нам – мы ответим в ближайшее время
             </p>
           )}
           {messages.map((msg) => {
@@ -145,9 +175,9 @@ export default function ChatPage() {
                 className={`flex ${isOwn ? "justify-end" : "justify-start"}`}
               >
                 <div
-                  className={`flex max-w-[85%] min-w-0 flex-col gap-1 ${isOwn ? "items-end" : "items-start"}`}
+                  className={`flex w-fit max-w-[85%] min-w-0 flex-col gap-1 ${isOwn ? "items-end" : "items-start"}`}
                 >
-                  <span className="text-xs text-ns-muted px-1">
+                  <span className="text-xs text-ns-muted px-1 whitespace-nowrap">
                     {isOwn ? "Вы" : isAdmin ? "Консультант" : msg.user.name}
                   </span>
                   <div
@@ -171,7 +201,13 @@ export default function ChatPage() {
           })}
         </div>
 
-        <div className="px-4 py-4 border-t border-ns-border flex items-center gap-2">
+        <div className="px-4 py-4 border-t border-ns-border flex flex-col gap-2">
+          {sendError && (
+            <p className="text-sm text-ns-error px-1" role="alert">
+              {sendError}
+            </p>
+          )}
+          <div className="flex items-center gap-2">
           <input
             type="text"
             placeholder="Введите сообщение..."
@@ -184,11 +220,12 @@ export default function ChatPage() {
             type="button"
             onClick={sendMessage}
             disabled={!input.trim()}
-            className="aurora-button ns-chat-send disabled:opacity-40"
+            className="aurora-button ns-chat-send disabled:opacity-55"
             aria-label="Отправить"
           >
             <Send strokeWidth={2} aria-hidden />
           </button>
+          </div>
         </div>
       </div>
       )}

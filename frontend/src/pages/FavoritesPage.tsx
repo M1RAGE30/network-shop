@@ -34,12 +34,8 @@ export default function FavoritesPage() {
 
   if (!favs.length) {
     return (
-      <div className="text-center py-24">
-        <Heart
-          size={64}
-          strokeWidth={1}
-          className="mx-auto text-ns-muted mb-4"
-        />
+      <div className="ns-page-empty">
+        <Heart strokeWidth={1} className="ns-page-empty__icon" />
         <p className="text-lg text-ns-muted">
           Избранное пусто
         </p>

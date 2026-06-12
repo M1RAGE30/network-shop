@@ -19,7 +19,8 @@ import { openAdminPanel } from "../lib/appOrigins";
 import { useAuthStore } from "../store/authStore";
 import { isAdmin } from "../lib/roles";
 import { AdminBlockedNav } from "./AdminBlockedNav";
-import { useCartStore } from "../store/cartStore";
+import { useCartCount } from "../lib/useCartCount";
+import { useChatUnread } from "../lib/useChatUnread";
 import { useThemeStore } from "../store/themeStore";
 import { useBodyScrollLock } from "../lib/useBodyScrollLock";
 import Logo from "./Logo";
@@ -29,9 +30,11 @@ import ThemeToggleIcon, { themeToggleAriaLabel } from "./ThemeToggleIcon";
 export default function Navbar() {
   const { user } = useAuthStore();
   const admin = isAdmin(user);
-  const totalCount = useCartStore((s) => s.totalCount());
-  const { dark, toggle } = useThemeStore();
+  const totalCount = useCartCount();
   const location = useLocation();
+  const isOnChat = location.pathname.startsWith("/chat");
+  const chatUnread = useChatUnread(false, !!user && !admin && !isOnChat);
+  const { dark, toggle } = useThemeStore();
   const [scrolled, setScrolled] = useState(false);
   const [builderOpen, setBuilderOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -106,13 +109,22 @@ export default function Navbar() {
     </div>
   );
 
-  const menuLink = (to: string, label: string, Icon: LucideIcon, blocked = false) => {
+  const menuLink = (
+    to: string,
+    label: string,
+    Icon: LucideIcon,
+    blocked = false,
+    badge?: number,
+  ) => {
     const cls =
       "flex items-center gap-3 rounded-[14px] px-4 py-3.5 text-base font-medium text-ns-text hover:bg-ns-hover transition-colors";
     const content = (
       <>
         <Icon size={20} className="text-ns-muted shrink-0" strokeWidth={1.5} />
-        {label}
+        <span className="flex-1">{label}</span>
+        {badge != null && badge > 0 && (
+          <span className="ns-unread-badge">{badge > 99 ? "99+" : badge}</span>
+        )}
       </>
     );
     if (blocked) {
@@ -161,6 +173,13 @@ export default function Navbar() {
     totalCount > 0 ? (
       <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-ns-accent px-1 text-[10px] font-semibold text-ns-accent-fg">
         {totalCount > 9 ? "9+" : totalCount}
+      </span>
+    ) : null;
+
+  const chatBadge =
+    !admin && chatUnread > 0 ? (
+      <span className="ns-unread-badge absolute -top-1 -right-1 min-h-4 min-w-4 text-[10px]">
+        {chatUnread > 9 ? "9+" : chatUnread}
       </span>
     ) : null;
 
@@ -320,6 +339,7 @@ export default function Navbar() {
               "/chat",
               "Поддержка",
               <MessageCircle size={22} strokeWidth={1.5} />,
+              chatBadge,
             )}
           {user?.role === "ADMIN" && (
             <button
@@ -354,7 +374,7 @@ export default function Navbar() {
         <>
           <button
             type="button"
-            className={`ns-overlay-backdrop fixed inset-0 z-[95] bg-black/60 transition-opacity duration-300 lg:hidden ${
+            className={`ns-overlay-backdrop ns-overlay-scrim fixed inset-0 z-[95] transition-opacity duration-300 lg:hidden ${
               menuVisible ? "opacity-100" : "opacity-0"
             }`}
             aria-label="Закрыть меню"
@@ -386,7 +406,14 @@ export default function Navbar() {
                     </>
                   )}
                   {user && menuLink("/profile", "Профиль", User)}
-                  {!admin && menuLink("/chat", "Поддержка", MessageCircle)}
+                  {!admin &&
+                    menuLink(
+                      "/chat",
+                      "Поддержка",
+                      MessageCircle,
+                      false,
+                      chatUnread,
+                    )}
                   {user?.role === "ADMIN" && (
                     <button
                       type="button"

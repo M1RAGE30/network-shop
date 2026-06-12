@@ -3,6 +3,11 @@ import jwt from "jsonwebtoken";
 import prisma from "./lib/prisma";
 import { ensureRoomAccess } from "./services/chat-access.service";
 
+const parseRoomId = (roomId: unknown): number | null => {
+  const id = Number(roomId);
+  return Number.isInteger(id) && id > 0 ? id : null;
+};
+
 export const setupSocket = (io: Server) => {
   io.use((socket, next) => {
     const token = socket.handshake.auth.token;
@@ -21,26 +26,51 @@ export const setupSocket = (io: Server) => {
   });
 
   io.on("connection", (socket) => {
-    socket.on("join_room", async (roomId: number) => {
+    if (socket.data.role === "ADMIN") {
+      socket.join("admins");
+    } else {
+      socket.join(`user_${socket.data.userId}`);
+    }
+
+    socket.on("join_room", async (roomId: unknown) => {
+      const id = parseRoomId(roomId);
+      if (!id) {
+        socket.emit("room_error", { roomId, status: 400 });
+        return;
+      }
       try {
         const access = await ensureRoomAccess(
-          roomId,
+          id,
           socket.data.userId,
           socket.data.role,
         );
         if (!access.ok) {
-          socket.emit("room_error", { roomId, status: access.status });
+          socket.emit("room_error", { roomId: id, status: access.status });
           return;
         }
-        socket.join(`room_${roomId}`);
+        socket.join(`room_${id}`);
       } catch {
-        socket.emit("room_error", { roomId, status: 500 });
+        socket.emit("room_error", { roomId: id, status: 500 });
       }
     });
 
     socket.on(
       "send_message",
-      async ({ roomId, content }: { roomId: number; content: string }) => {
+      async ({
+        roomId: rawRoomId,
+        content,
+      }: {
+        roomId: unknown;
+        content: string;
+      }) => {
+        const roomId = parseRoomId(rawRoomId);
+        if (!roomId) {
+          socket.emit("message_error", {
+            roomId: rawRoomId,
+            message: "Invalid room",
+          });
+          return;
+        }
         try {
           if (
             !content ||
@@ -78,9 +108,18 @@ export const setupSocket = (io: Server) => {
           io.to(`room_${roomId}`).emit("new_message", { ...message, roomId });
 
           if (socket.data.role === "USER") {
-            io.emit("admin_notify", { roomId, userName: message.user.name });
+            io.to("admins").emit("admin_notify", {
+              roomId,
+              userName: message.user.name,
+            });
           } else {
-            io.emit("user_notify", { roomId });
+            const room = await prisma.chatRoom.findUnique({
+              where: { id: roomId },
+              select: { userId: true },
+            });
+            if (room?.userId) {
+              io.to(`user_${room.userId}`).emit("user_notify", { roomId });
+            }
           }
         } catch {
           socket.emit("message_error", { roomId, message: "Failed to send" });
@@ -88,7 +127,12 @@ export const setupSocket = (io: Server) => {
       },
     );
 
-    socket.on("mark_read", async ({ roomId }: { roomId: number }) => {
+    socket.on("mark_read", async ({ roomId: rawRoomId }: { roomId: unknown }) => {
+      const roomId = parseRoomId(rawRoomId);
+      if (!roomId) {
+        socket.emit("room_error", { roomId: rawRoomId, status: 400 });
+        return;
+      }
       try {
         const access = await ensureRoomAccess(
           roomId,

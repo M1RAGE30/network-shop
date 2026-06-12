@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { ShoppingBag } from "lucide-react";
 import api from "../lib/api";
+import { useToastStore } from "../store/toastStore";
 import { Price } from "../components/Price";
 import OrderItemRow from "../components/OrderItemRow";
 import OrderCardSummary from "../components/OrderCardSummary";
@@ -29,6 +30,14 @@ export default function OrdersPage() {
       qc.invalidateQueries({ queryKey: ["orders"] });
       if (expanded) qc.invalidateQueries({ queryKey: ["order", expanded] });
     },
+    onError: (err: { response?: { data?: { message?: string } } }) => {
+      useToastStore
+        .getState()
+        .show(
+          err.response?.data?.message ?? "Не удалось отменить заказ",
+          "error",
+        );
+    },
   });
 
   return (
@@ -38,11 +47,10 @@ export default function OrdersPage() {
       {isPending ? (
         <OrderListSkeleton />
       ) : orderList.length === 0 ? (
-        <div className="py-16 text-center">
+        <div className="ns-page-empty">
           <ShoppingBag
-            size={48}
             strokeWidth={1.25}
-            className="mx-auto mb-4 text-ns-muted"
+            className="ns-page-empty__icon"
             aria-hidden
           />
           <p className="text-lg text-ns-muted">Заказов пока нет</p>
@@ -89,7 +97,7 @@ export default function OrdersPage() {
                           Адрес
                         </p>
                         <p className="font-medium text-ns-text break-words">
-                          {currentOrder.address || "—"}
+                          {currentOrder.address || "–"}
                         </p>
                       </div>
 
@@ -120,7 +128,7 @@ export default function OrdersPage() {
                       <p className="text-sm font-semibold text-ns-text mb-2">
                         Состав заказа
                       </p>
-                      <div className="space-y-2">
+                      <div className="space-y-2 ns-order-items-scroll scrollbar-thin">
                         {items.length > 0 ? (
                           items.map((item: any, index: number) => (
                             <OrderItemRow
@@ -154,7 +162,7 @@ export default function OrdersPage() {
                         type="button"
                         onClick={() => cancelMutation.mutate(order.id)}
                         disabled={cancelMutation.isPending}
-                        className="ns-btn ns-btn-secondary text-[var(--ns-error)] hover:bg-[color-mix(in_srgb,var(--ns-error)_10%,transparent)] disabled:opacity-40"
+                        className="ns-btn ns-btn-secondary text-[var(--ns-error)] hover:bg-[color-mix(in_srgb,var(--ns-error)_10%,transparent)] disabled:opacity-55"
                       >
                         Отменить заказ
                       </button>

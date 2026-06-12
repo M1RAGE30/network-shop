@@ -7,7 +7,8 @@
     "build": "tsc && vite build",
     "build:admin": "tsc && vite build --config vite.admin.config.ts",
     "preview": "vite preview",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "check": "npm run lint && npm run build && npm run build:admin && npm audit"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.2.8",

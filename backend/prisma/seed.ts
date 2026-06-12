@@ -46,7 +46,8 @@ async function seedAdmin() {
     where: { email: "admin@networkshop.by" },
   });
   if (!existing) {
-    const password = await bcrypt.hash("Admin123!", 10);
+    const adminPassword = process.env.ADMIN_SEED_PASSWORD ?? "Admin123!";
+    const password = await bcrypt.hash(adminPassword, 10);
     await prisma.user.create({
       data: {
         email: "admin@networkshop.by",
@@ -56,7 +57,7 @@ async function seedAdmin() {
         isEmailVerified: true,
       },
     });
-    console.log("Admin created: admin@networkshop.by / Admin123!");
+    console.log("Admin created: admin@networkshop.by");
   } else {
     console.log("Admin already exists");
   }
@@ -67,6 +68,7 @@ async function clearProducts() {
   await prisma.cartItem.deleteMany();
   await prisma.favorite.deleteMany();
   await prisma.orderItem.deleteMany();
+  await prisma.order.deleteMany();
   await prisma.product.deleteMany();
   await prisma.category.deleteMany();
   await prisma.brand.deleteMany();

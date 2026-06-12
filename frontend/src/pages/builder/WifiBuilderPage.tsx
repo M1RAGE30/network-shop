@@ -116,15 +116,15 @@ export default function WifiBuilderPage() {
     () => filterWifiBuilderRouters(routersRaw),
     [routersRaw],
   );
-  const expectedClients = useMemo(
-    () => Math.max(4, Math.round(Number(targetArea) / 10)),
-    [targetArea],
-  );
   const safeTargetArea = useMemo(() => {
     const parsed = Number(targetArea);
     if (!Number.isFinite(parsed) || parsed <= 0) return 120;
     return Math.min(1500, Math.max(10, parsed));
   }, [targetArea]);
+  const expectedClients = useMemo(
+    () => Math.max(4, Math.round(safeTargetArea / 10)),
+    [safeTargetArea],
+  );
   const deferredTargetArea = useDeferredValue(safeTargetArea);
 
   const recommendedDevice = useMemo(
@@ -402,6 +402,11 @@ export default function WifiBuilderPage() {
       qc.invalidateQueries({ queryKey: ["cart"] });
       navigate("/cart");
     },
+    onError: (err: { response?: { data?: { message?: string } } }) => {
+      setError(
+        err.response?.data?.message ?? "Не удалось добавить товары в корзину",
+      );
+    },
   });
 
   const canAdd = isCustomer(user) && grouped.length > 0;
@@ -459,7 +464,7 @@ export default function WifiBuilderPage() {
               )}
             </div>
             {error && (
-              <p className="text-xs text-red-500 font-medium">{error}</p>
+              <p className="text-xs text-ns-error font-medium">{error}</p>
             )}
             <div className="flex flex-col gap-2 min-w-0 sm:flex-row sm:items-end sm:gap-3">
               <div className="min-w-0 flex-1">
@@ -522,7 +527,7 @@ export default function WifiBuilderPage() {
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <span className="text-xs text-ns-muted">—</span>
+                    <span className="text-xs text-ns-muted">–</span>
                   )}
                 </div>
                 <div className="min-w-0 flex-1 text-xs overflow-hidden">
@@ -577,7 +582,7 @@ export default function WifiBuilderPage() {
                               className="w-full h-full object-cover"
                             />
                           ) : (
-                            <span className="text-xs text-ns-muted">—</span>
+                            <span className="text-xs text-ns-muted">–</span>
                           )}
                         </div>
                         <span className="ns-num-badge shrink-0 bg-ns-accent text-ns-accent-fg">
@@ -598,7 +603,7 @@ export default function WifiBuilderPage() {
                       <button
                         type="button"
                         onClick={() => removePoint(p.id)}
-                        className="ns-action-icon text-ns-muted hover:text-red-500 shrink-0"
+                        className="ns-action-icon ns-action-icon--danger shrink-0"
                         title="Удалить"
                       >
                         <Trash2 size={14} strokeWidth={1.6} />

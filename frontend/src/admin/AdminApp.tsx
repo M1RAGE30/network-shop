@@ -7,9 +7,9 @@ import AdminStandaloneLayout from "./AdminStandaloneLayout";
 
 const AdminPage = lazy(() => import("../pages/AdminPage"));
 
-import { PageRouteSkeleton } from "../components/skeleton/Skeleton";
+import { AdminRouteFallback } from "../components/RouteFallback";
 
-const PageLoader = () => <PageRouteSkeleton />;
+const PageLoader = () => <AdminRouteFallback />;
 
 export default function AdminApp() {
   return (

@@ -15,14 +15,22 @@ import {
   scoreWifiConstructorAp,
   scoreWifiConstructorRouter,
   getCoverageM2,
+  getMaxSpeedMbps,
+  getPoePortCount,
   getPortCount,
+  getRouterLanPortCount,
   hasPoe,
+  isManagedSwitch,
+  isSmartSwitch,
+  isUnmanagedSwitch,
+  valueScore,
   wifiRadiusM,
   type ProductSelectorInput,
 } from "../../lib/networkSelector";
 import { sortBuilderProducts } from "../../lib/builderProducts";
 import { productSpecSummary } from "../../lib/productSpecSummary";
 import { inputCls as fieldCls, labelCls } from "../../lib/uiClasses";
+import { useToastStore } from "../../store/toastStore";
 import { themeCanvasColors } from "../../lib/themeColors";
 import { useThemeStore } from "../../store/themeStore";
 
@@ -71,11 +79,637 @@ interface CableConnection {
 
 interface SceneState {
   router: { x: number; y: number };
-  switch: { x: number; y: number } | null;
+  switchMarkers: { x: number; y: number }[];
   clients: ClientPlacement[];
   apMarkers: ApMarker[];
   apRadiusM: number;
   routerRadiusM: number;
+}
+
+type LegacySceneState = Omit<SceneState, "switchMarkers"> & {
+  switch?: { x: number; y: number } | null;
+};
+
+interface LanPortBudget {
+  lanDevices: number;
+  baseLanPorts: number;
+  portsNeeded: number;
+  minPortsRequired: number;
+}
+
+function normalizeScene(
+  scene: SceneState | LegacySceneState | null,
+): SceneState | null {
+  if (!scene) return null;
+  if ("switchMarkers" in scene && Array.isArray(scene.switchMarkers)) {
+    return scene;
+  }
+  const legacy = scene as LegacySceneState;
+  const { switch: legacySwitch, ...rest } = legacy;
+  return {
+    ...rest,
+    switchMarkers: legacySwitch ? [legacySwitch] : [],
+  };
+}
+
+function computeLanPortBudget(
+  scene: SceneState,
+  numbers: { wired: number; printers: number },
+  spaceType: "office" | "home",
+): LanPortBudget {
+  const apsCount = scene.apMarkers.length;
+  const lanDevices = numbers.wired + numbers.printers + apsCount;
+  const baseLanPorts = lanDevices > 0 ? lanDevices + 1 : 0;
+  const portHeadroom =
+    spaceType === "office"
+      ? Math.max(1, Math.ceil(baseLanPorts * 0.12))
+      : Math.max(1, Math.ceil(baseLanPorts * 0.12));
+  return {
+    lanDevices,
+    baseLanPorts,
+    portsNeeded: baseLanPorts + portHeadroom,
+    minPortsRequired: baseLanPorts,
+  };
+}
+
+function prefersDedicatedSwitch(
+  budget: LanPortBudget,
+  router: Product | null,
+  scene: SceneState,
+  numbers: { wired: number; printers: number },
+): boolean {
+  if (budget.lanDevices < 1) return false;
+
+  const wiredEndpoints = numbers.wired + numbers.printers;
+  const apCount = scene.apMarkers.length;
+
+  if (wiredEndpoints >= 2) return true;
+  if (apCount > 0) return true;
+
+  if (!router) return true;
+  const routerPorts = getRouterLanPortCount(router);
+  return routerPorts < 2;
+}
+
+function fallbackSwitchPlan(
+  switches: Product[],
+  budget: LanPortBudget,
+  scene: SceneState,
+  spaceType: "office" | "home",
+): SwitchPlan | null {
+  if (switches.length === 0) return null;
+
+  const poeNeeded = scene.apMarkers.length;
+  const pool = switchPoolForSpace(switches, spaceType, poeNeeded);
+  const endpointCount = collectLanEndpoints(scene).length;
+
+  const sw = pickBalancedKit(pool, (candidate) =>
+    scoreSwitchCandidate(candidate, budget, scene, spaceType),
+  );
+  if (!sw) return null;
+
+  const quantity = singleSwitchFits(sw, endpointCount, poeNeeded)
+    ? 1
+    : dualSwitchFits(sw, endpointCount, poeNeeded)
+      ? 2
+      : MAX_SWITCH_UNITS;
+  return { product: sw, quantity };
+}
+
+interface LanEndpoint {
+  x: number;
+  y: number;
+  needsPoe: boolean;
+}
+
+interface SwitchPlan {
+  product: Product;
+  quantity: number;
+}
+
+function collectLanEndpoints(scene: SceneState): LanEndpoint[] {
+  const endpoints: LanEndpoint[] = [];
+  scene.clients.forEach((client) => {
+    if (client.type === "📱") return;
+    endpoints.push({ x: client.x, y: client.y, needsPoe: false });
+  });
+  scene.apMarkers.forEach((ap) => {
+    endpoints.push({ x: ap.x, y: ap.y, needsPoe: true });
+  });
+  return endpoints;
+}
+
+function devicePortsPerSwitch(
+  switchIndex: number,
+  switchQty: number,
+  totalPorts: number,
+): number {
+  if (switchQty <= 1) return Math.max(0, totalPorts - 1);
+  if (switchIndex === 0) return Math.max(0, totalPorts - switchQty);
+  return Math.max(0, totalPorts - 1);
+}
+
+function totalUsableDevicePorts(switchProduct: Product, qty: number): number {
+  const totalPorts = getPortCount(switchProduct);
+  let sum = 0;
+  for (let i = 0; i < qty; i++) {
+    sum += devicePortsPerSwitch(i, qty, totalPorts);
+  }
+  return sum;
+}
+
+function singleSwitchFits(
+  switchProduct: Product,
+  endpointCount: number,
+  poeNeeded: number,
+): boolean {
+  return (
+    totalUsableDevicePorts(switchProduct, 1) >= endpointCount &&
+    poeNeeded <= getPoePortCount(switchProduct)
+  );
+}
+
+function dualSwitchFits(
+  switchProduct: Product,
+  endpointCount: number,
+  poeNeeded: number,
+): boolean {
+  return (
+    totalUsableDevicePorts(switchProduct, 2) >= endpointCount &&
+    poeNeeded <= getPoePortCount(switchProduct) * 2
+  );
+}
+
+function switchPoolForSpace(
+  switches: Product[],
+  spaceType: "office" | "home",
+  poeNeeded: number,
+): Product[] {
+  let pool = switches;
+  if (poeNeeded > 0) {
+    const poePool = pool.filter((sw) => getPoePortCount(sw) > 0);
+    if (poePool.length > 0) pool = poePool;
+  }
+  if (spaceType === "home") {
+    const homePool = pool.filter(
+      (sw) => !isManagedSwitch(sw) && !isSmartSwitch(sw),
+    );
+    if (homePool.length > 0) pool = homePool;
+    else {
+      const unmanagedPool = pool.filter((sw) => isUnmanagedSwitch(sw));
+      if (unmanagedPool.length > 0) pool = unmanagedPool;
+    }
+  } else {
+    const enterprisePool = pool.filter(
+      (sw) => isManagedSwitch(sw) || isSmartSwitch(sw),
+    );
+    if (enterprisePool.length > 0) pool = enterprisePool;
+  }
+  return pool;
+}
+
+function assignLanEndpointsToSwitches(
+  endpoints: LanEndpoint[],
+  switchMarkers: { x: number; y: number }[],
+  switchProduct: Product,
+): number[] {
+  const qty = switchMarkers.length;
+  if (qty === 0) return endpoints.map(() => -1);
+
+  const totalPorts = getPortCount(switchProduct);
+  const poePorts = getPoePortCount(switchProduct);
+  const portsAvail = Array.from({ length: qty }, (_, i) =>
+    devicePortsPerSwitch(i, qty, totalPorts),
+  );
+  const usedPorts = portsAvail.map(() => 0);
+  const usedPoe = portsAvail.map(() => 0);
+  const assignments = new Array<number>(endpoints.length).fill(-1);
+
+  const order = endpoints
+    .map((_, index) => index)
+    .sort((a, b) => {
+      if (endpoints[a].needsPoe !== endpoints[b].needsPoe) {
+        return endpoints[a].needsPoe ? -1 : 1;
+      }
+      const minA = Math.min(
+        ...switchMarkers.map((sw) =>
+          Math.hypot(endpoints[a].x - sw.x, endpoints[a].y - sw.y),
+        ),
+      );
+      const minB = Math.min(
+        ...switchMarkers.map((sw) =>
+          Math.hypot(endpoints[b].x - sw.x, endpoints[b].y - sw.y),
+        ),
+      );
+      return minB - minA;
+    });
+
+  for (const index of order) {
+    const endpoint = endpoints[index];
+    let bestSwitch = -1;
+    let bestDist = Infinity;
+
+    for (let si = 0; si < qty; si++) {
+      if (usedPorts[si] >= portsAvail[si]) continue;
+      if (endpoint.needsPoe && usedPoe[si] >= poePorts) continue;
+      const dist = Math.hypot(
+        endpoint.x - switchMarkers[si].x,
+        endpoint.y - switchMarkers[si].y,
+      );
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestSwitch = si;
+      }
+    }
+
+    if (bestSwitch < 0) {
+      for (let si = 0; si < qty; si++) {
+        if (usedPorts[si] >= portsAvail[si]) continue;
+        const dist = Math.hypot(
+          endpoint.x - switchMarkers[si].x,
+          endpoint.y - switchMarkers[si].y,
+        );
+        if (dist < bestDist) {
+          bestDist = dist;
+          bestSwitch = si;
+        }
+      }
+    }
+
+    if (bestSwitch < 0) bestSwitch = 0;
+    assignments[index] = bestSwitch;
+    usedPorts[bestSwitch]++;
+    if (endpoint.needsPoe) usedPoe[bestSwitch]++;
+  }
+
+  return assignments;
+}
+
+function canAssignAllEndpoints(
+  endpoints: LanEndpoint[],
+  switchQty: number,
+  switchProduct: Product,
+  switchMarkers: { x: number; y: number }[],
+): boolean {
+  if (switchQty !== switchMarkers.length) return false;
+  const assignments = assignLanEndpointsToSwitches(
+    endpoints,
+    switchMarkers,
+    switchProduct,
+  );
+  const totalPorts = getPortCount(switchProduct);
+  const poePorts = getPoePortCount(switchProduct);
+  const portsAvail = Array.from({ length: switchQty }, (_, i) =>
+    devicePortsPerSwitch(i, switchQty, totalPorts),
+  );
+  const usedPorts = portsAvail.map(() => 0);
+  const usedPoe = portsAvail.map(() => 0);
+
+  for (let i = 0; i < endpoints.length; i++) {
+    const si = assignments[i];
+    if (si < 0) return false;
+    usedPorts[si]++;
+    if (endpoints[i].needsPoe) usedPoe[si]++;
+  }
+
+  for (let si = 0; si < switchQty; si++) {
+    if (usedPorts[si] > portsAvail[si]) return false;
+    if (usedPoe[si] > poePorts) return false;
+  }
+  return true;
+}
+
+function scoreSwitchCandidate(
+  switchCandidate: Product,
+  budget: LanPortBudget,
+  scene: SceneState,
+  spaceType: "office" | "home",
+): number {
+  const ports = getPortCount(switchCandidate);
+  let s =
+    scoreSwitch(switchCandidate, {
+      portsNeeded: budget.portsNeeded,
+      preferManaged: spaceType === "office",
+      office: spaceType === "office",
+      poePortsNeeded: scene.apMarkers.length,
+    }) + scoreSwitchLayoutFit(switchCandidate, scene);
+  if (ports < budget.minPortsRequired) {
+    s -= (budget.minPortsRequired - ports) * 14;
+  } else if (ports < budget.portsNeeded) {
+    s -= (budget.portsNeeded - ports) * 4;
+  }
+  return s;
+}
+
+function wiredClientPositions(scene: SceneState): { x: number; y: number }[] {
+  return scene.clients.filter((c) => c.type !== "📱").map((c) => ({ x: c.x, y: c.y }));
+}
+
+function scoreSwitchTopology(
+  switchProduct: Product,
+  quantity: number,
+  budget: LanPortBudget,
+  scene: SceneState,
+  endpoints: LanEndpoint[],
+  spaceType: "office" | "home",
+  numbers: { width: number; length: number; wired: number; printers: number },
+  router: Product | null,
+  avoidIcons: { x: number; y: number }[] = [],
+): number {
+  const markers = computeSwitchMarkers(
+    quantity,
+    numbers,
+    scene.router,
+    endpoints,
+    switchProduct,
+    avoidIcons,
+  );
+  if (!canAssignAllEndpoints(endpoints, quantity, switchProduct, markers)) {
+    return -Infinity;
+  }
+
+  let tech = scoreSwitchCandidate(switchProduct, budget, scene, spaceType);
+  const totalPorts = getPortCount(switchProduct) * quantity;
+  const oversize = totalPorts - budget.portsNeeded;
+  if (oversize > 4) tech -= (oversize - 4) * 2.2;
+  if (quantity > 1) tech -= (quantity - 1) * 28;
+
+  if (router) {
+    const routerSpeed = getMaxSpeedMbps(router);
+    const switchSpeed = getMaxSpeedMbps(switchProduct);
+    if (switchSpeed > routerSpeed * 2.5) tech -= 5;
+    else if (switchSpeed >= routerSpeed) tech += 4;
+  }
+
+  return valueScore(tech, Number(switchProduct.price) * quantity);
+}
+
+function planSwitchTopology(
+  switches: Product[],
+  router: Product | null,
+  scene: SceneState,
+  budget: LanPortBudget,
+  spaceType: "office" | "home",
+  numbers: { width: number; length: number; wired: number; printers: number },
+): SwitchPlan | null {
+  if (!prefersDedicatedSwitch(budget, router, scene, numbers)) return null;
+  if (switches.length === 0 || budget.lanDevices < 1) return null;
+
+  const endpoints = collectLanEndpoints(scene);
+  const poeNeeded = scene.apMarkers.length;
+  const pool = switchPoolForSpace(switches, spaceType, poeNeeded);
+  const avoidIcons = wiredClientPositions(scene);
+
+  const considerPlan = (
+    current: { product: Product; quantity: number; score: number } | null,
+    sw: Product,
+    qty: number,
+    planScore: number,
+  ) => {
+    if (!Number.isFinite(planScore)) return current;
+    const totalPrice = Number(sw.price) * qty;
+    if (!current || planScore > current.score + 1e-6) {
+      return { product: sw, quantity: qty, score: planScore };
+    }
+    if (Math.abs(planScore - current.score) > 0.015) return current;
+    if (qty < current.quantity) {
+      return { product: sw, quantity: qty, score: planScore };
+    }
+    if (qty === current.quantity && totalPrice < Number(current.product.price) * current.quantity) {
+      return { product: sw, quantity: qty, score: planScore };
+    }
+    return current;
+  };
+
+  let best: { product: Product; quantity: number; score: number } | null = null;
+
+  for (const sw of pool) {
+    if (!singleSwitchFits(sw, endpoints.length, poeNeeded)) continue;
+    const planScore = scoreSwitchTopology(
+      sw,
+      1,
+      budget,
+      scene,
+      endpoints,
+      spaceType,
+      numbers,
+      router,
+      avoidIcons,
+    );
+    best = considerPlan(best, sw, 1, planScore);
+  }
+
+  if (!best) {
+    for (const sw of pool) {
+      if (!dualSwitchFits(sw, endpoints.length, poeNeeded)) continue;
+      const planScore = scoreSwitchTopology(
+        sw,
+        MAX_SWITCH_UNITS,
+        budget,
+        scene,
+        endpoints,
+        spaceType,
+        numbers,
+        router,
+        avoidIcons,
+      );
+      best = considerPlan(best, sw, MAX_SWITCH_UNITS, planScore);
+    }
+  }
+
+  if (best) return { product: best.product, quantity: best.quantity };
+  return fallbackSwitchPlan(switches, budget, scene, spaceType);
+}
+
+function kMeansSwitchCentroids(
+  endpoints: LanEndpoint[],
+  count: number,
+  router: { x: number; y: number },
+  numbers: { width: number; length: number },
+  avoidIcons: { x: number; y: number }[] = [],
+): { x: number; y: number }[] {
+  if (count <= 0) return [];
+  if (endpoints.length === 0) {
+    if (count === 1) {
+      return [
+        clampToRoom(
+          numbers.width * 0.72,
+          numbers.length * 0.12,
+          numbers.width,
+          numbers.length,
+        ),
+      ];
+    }
+    const markers: { x: number; y: number }[] = [];
+    const y = numbers.length * 0.14;
+    const marginX = numbers.width * 0.14;
+    const span = Math.max(numbers.width * 0.2, numbers.width - marginX * 2);
+    for (let i = 0; i < count; i++) {
+      const x = marginX + (span * (i + 0.5)) / count;
+      markers.push(clampToRoom(x, y, numbers.width, numbers.length));
+    }
+    return markers;
+  }
+
+  if (count === 1) {
+    const cx = endpoints.reduce((sum, ep) => sum + ep.x, 0) / endpoints.length;
+    const cy = endpoints.reduce((sum, ep) => sum + ep.y, 0) / endpoints.length;
+    return [
+      clampToRoom(
+        cx * 0.7 + router.x * 0.3,
+        cy * 0.44 + router.y * 0.2,
+        numbers.width,
+        numbers.length,
+      ),
+    ];
+  }
+
+  const sorted = [...endpoints].sort((a, b) => a.x - b.x || a.y - b.y);
+  const chunk = Math.ceil(sorted.length / count);
+  let centroids: { x: number; y: number }[] = [];
+  for (let i = 0; i < count; i++) {
+    const group = sorted.slice(i * chunk, (i + 1) * chunk);
+    if (group.length > 0) {
+      centroids.push({
+        x: group.reduce((sum, ep) => sum + ep.x, 0) / group.length,
+        y: group.reduce((sum, ep) => sum + ep.y, 0) / group.length,
+      });
+    } else {
+      centroids.push({
+        x: numbers.width * (0.2 + (0.6 * i) / count),
+        y: numbers.length * 0.16,
+      });
+    }
+  }
+
+  for (let iter = 0; iter < 6; iter++) {
+    const buckets: LanEndpoint[][] = Array.from({ length: count }, () => []);
+    for (const ep of endpoints) {
+      let best = 0;
+      let bestDist = Infinity;
+      for (let ci = 0; ci < count; ci++) {
+        const dist = Math.hypot(ep.x - centroids[ci].x, ep.y - centroids[ci].y);
+        if (dist < bestDist) {
+          bestDist = dist;
+          best = ci;
+        }
+      }
+      buckets[best].push(ep);
+    }
+    centroids = centroids.map((centroid, ci) => {
+      const bucket = buckets[ci];
+      if (bucket.length === 0) return centroid;
+      const cx = bucket.reduce((sum, ep) => sum + ep.x, 0) / bucket.length;
+      const cy = bucket.reduce((sum, ep) => sum + ep.y, 0) / bucket.length;
+      const pull = ci === 0 ? 0.24 : 0.1;
+      const anchor = ci === 0 ? router : centroids[0];
+      return clampToRoom(
+        cx * (1 - pull) + anchor.x * pull,
+        cy * 0.84 + router.y * 0.1,
+        numbers.width,
+        numbers.length,
+      );
+    });
+  }
+
+  return centroids.map((centroid, ci) => {
+    let point = clampToRoom(
+      ci === 0 ? centroid.x * 0.9 + router.x * 0.1 : centroid.x,
+      centroid.y,
+      numbers.width,
+      numbers.length,
+    );
+    if (ci > 0 && avoidIcons.length > 0) {
+      point = findClearSwitchPosition(
+        point,
+        avoidIcons,
+        numbers,
+        SWITCH_ICON_CLEARANCE_M,
+      );
+    }
+    return point;
+  });
+}
+
+function refineSwitchMarkers(
+  markers: { x: number; y: number }[],
+  endpoints: LanEndpoint[],
+  switchProduct: Product,
+  router: { x: number; y: number },
+  numbers: { width: number; length: number },
+  avoidIcons: { x: number; y: number }[],
+): { x: number; y: number }[] {
+  let refined = markers;
+  for (let pass = 0; pass < 3; pass++) {
+    const assignments = assignLanEndpointsToSwitches(endpoints, refined, switchProduct);
+    refined = refined.map((marker, si) => {
+      const assigned = endpoints.filter((_, index) => assignments[index] === si);
+      if (assigned.length === 0) return marker;
+      const cx = assigned.reduce((sum, ep) => sum + ep.x, 0) / assigned.length;
+      const cy = assigned.reduce((sum, ep) => sum + ep.y, 0) / assigned.length;
+      const pull = si === 0 ? 0.22 : 0.05;
+      const anchor = si === 0 ? router : refined[0];
+      let next = clampToRoom(
+        cx * (1 - pull) + anchor.x * pull,
+        cy * 0.86 + router.y * 0.08,
+        numbers.width,
+        numbers.length,
+      );
+      if (si > 0) {
+        next = findClearSwitchPosition(
+          next,
+          avoidIcons,
+          numbers,
+          SWITCH_ICON_CLEARANCE_M,
+        );
+        next = nudgeAwayFromPoints(
+          next.x,
+          next.y,
+          [refined[0], router],
+          1.1,
+          numbers,
+        );
+      }
+      return next;
+    });
+  }
+  return refined;
+}
+
+function computeSwitchMarkers(
+  count: number,
+  numbers: { width: number; length: number },
+  router: { x: number; y: number },
+  endpoints: LanEndpoint[],
+  switchProduct: Product | null = null,
+  avoidIcons: { x: number; y: number }[] = [],
+): { x: number; y: number }[] {
+  if (count <= 0) return [];
+  const capped = Math.min(MAX_SWITCH_UNITS, count);
+
+  let markers = kMeansSwitchCentroids(endpoints, capped, router, numbers, avoidIcons);
+  if (switchProduct && endpoints.length > 0) {
+    markers = refineSwitchMarkers(
+      markers,
+      endpoints,
+      switchProduct,
+      router,
+      numbers,
+      avoidIcons,
+    );
+  } else if (capped > 1 && avoidIcons.length > 0) {
+    markers = markers.map((marker, index) =>
+      index === 0
+        ? marker
+        : findClearSwitchPosition(
+            marker,
+            avoidIcons,
+            numbers,
+            SWITCH_ICON_CLEARANCE_M,
+          ),
+    );
+  }
+  return markers;
 }
 
 interface SavedModeState {
@@ -170,28 +804,40 @@ function scoreApLayoutFit(
   return (ok / outside.length) * 30;
 }
 
-function scoreSwitchLayoutFit(
+function scoreSwitchLayoutFitAt(
   product: ProductSelectorInput,
+  sw: { x: number; y: number },
   scene: SceneState,
 ): number {
-  if (!scene.switch) return 0;
-  const sx = scene.switch.x;
-  const sy = scene.switch.y;
   let maxD = 0;
   for (const ap of scene.apMarkers) {
-    maxD = Math.max(maxD, Math.hypot(ap.x - sx, ap.y - sy));
+    maxD = Math.max(maxD, Math.hypot(ap.x - sw.x, ap.y - sw.y));
   }
   for (const c of scene.clients) {
     if (c.type === "📱") continue;
-    maxD = Math.max(maxD, Math.hypot(c.x - sx, c.y - sy));
+    maxD = Math.max(maxD, Math.hypot(c.x - sw.x, c.y - sw.y));
   }
   if (maxD < 14) return 0;
   if (!hasPoe(product)) return 0;
   return Math.min(12, (maxD - 14) * 0.15);
 }
 
+function scoreSwitchLayoutFit(
+  product: ProductSelectorInput,
+  scene: SceneState,
+): number {
+  if (scene.switchMarkers.length === 0) return 0;
+  const total = scene.switchMarkers.reduce(
+    (sum, sw) => sum + scoreSwitchLayoutFitAt(product, sw, scene),
+    0,
+  );
+  return total / scene.switchMarkers.length;
+}
+
 const MAX_DEVICES = 200;
 const ROOM_MARGIN_M = 0.42;
+const MAX_SWITCH_UNITS = 2;
+const SWITCH_ICON_CLEARANCE_M = 1.35;
 
 const SWITCH_EMOJI = "\u{1F5A7}";
 
@@ -283,6 +929,87 @@ function buildInitialClientPlacements(
   return out;
 }
 
+function nudgeAwayFromPoints(
+  x: number,
+  y: number,
+  avoid: { x: number; y: number }[],
+  minDist: number,
+  numbers: { width: number; length: number },
+): { x: number; y: number } {
+  if (avoid.length === 0) {
+    return clampToRoom(x, y, numbers.width, numbers.length);
+  }
+  let nx = x;
+  let ny = y;
+  for (let step = 0; step < 28; step++) {
+    const nearest = avoid.reduce(
+      (best, point) => {
+        const dist = Math.hypot(point.x - nx, point.y - ny);
+        return dist < best.dist ? { point, dist } : best;
+      },
+      { point: avoid[0], dist: Infinity },
+    );
+    if (!nearest.point || nearest.dist >= minDist) {
+      return clampToRoom(nx, ny, numbers.width, numbers.length);
+    }
+    const dx = nx - nearest.point.x;
+    const dy = ny - nearest.point.y;
+    const len = Math.hypot(dx, dy) || 1;
+    nx += (dx / len) * 0.8;
+    ny += (dy / len) * 0.8;
+    const clamped = clampToRoom(nx, ny, numbers.width, numbers.length);
+    nx = clamped.x;
+    ny = clamped.y;
+  }
+  return clampToRoom(nx, ny, numbers.width, numbers.length);
+}
+
+function findClearSwitchPosition(
+  preferred: { x: number; y: number },
+  avoid: { x: number; y: number }[],
+  numbers: { width: number; length: number },
+  minClearance: number,
+): { x: number; y: number } {
+  if (avoid.length === 0) return preferred;
+
+  const marginX = numbers.width * 0.1;
+  const marginY = numbers.length * 0.1;
+  const candidates: { x: number; y: number }[] = [
+    preferred,
+    { x: marginX, y: marginY },
+    { x: numbers.width - marginX, y: marginY },
+    { x: marginX, y: numbers.length - marginY },
+    { x: numbers.width - marginX, y: numbers.length - marginY },
+    { x: numbers.width / 2, y: marginY },
+    { x: numbers.width / 2, y: numbers.length - marginY },
+    { x: marginX, y: numbers.length / 2 },
+    { x: numbers.width - marginX, y: numbers.length / 2 },
+  ];
+
+  let best = preferred;
+  let bestScore = -Infinity;
+  for (const candidate of candidates) {
+    const q = clampToRoom(candidate.x, candidate.y, numbers.width, numbers.length);
+    const minD = Math.min(
+      ...avoid.map((point) => Math.hypot(point.x - q.x, point.y - q.y)),
+    );
+    if (minD < minClearance) continue;
+    const score = minD * 2 - Math.hypot(q.x - preferred.x, q.y - preferred.y) * 0.25;
+    if (score > bestScore) {
+      bestScore = score;
+      best = q;
+    }
+  }
+  if (bestScore > -Infinity) return best;
+  return nudgeAwayFromPoints(
+    preferred.x,
+    preferred.y,
+    avoid,
+    minClearance,
+    numbers,
+  );
+}
+
 function nudgeApAway(
   x: number,
   y: number,
@@ -349,32 +1076,104 @@ function getPatchCordLengthM(product: Product): number | null {
   return Number.isFinite(value) && value > 0 ? value : null;
 }
 
-function computeCableConnections(scene: SceneState): CableConnection[] {
-  if (!scene.switch) return [];
+function computeCableConnections(
+  scene: SceneState,
+  switchPlan?: SwitchPlan | null,
+): CableConnection[] {
   const connections: CableConnection[] = [];
   const lengthWithSlack = (a: { x: number; y: number }, b: { x: number; y: number }) =>
     Math.max(1, Math.ceil((Math.hypot(a.x - b.x, a.y - b.y) * 1.15 + 0.5) * 10) / 10);
 
+  const switchLabel = (index: number, total: number) =>
+    total > 1 ? `Коммутатор ${index + 1}` : "Коммутатор";
+
+  const wiredClients = scene.clients.filter((c) => c.type !== "📱").length;
+  const lanEndpoints = wiredClients + scene.apMarkers.length;
+
+  if (scene.switchMarkers.length === 0 && lanEndpoints <= 1) {
+    let pcCount = 0;
+    let peripheralCount = 0;
+    scene.clients.forEach((client) => {
+      if (client.type === "📱") return;
+      const label =
+        client.type === "🖨️"
+          ? `Периферия ${++peripheralCount}`
+          : `ПК ${++pcCount}`;
+      connections.push({
+        from: "Роутер",
+        to: label,
+        lengthM: lengthWithSlack(scene.router, client),
+      });
+    });
+    scene.apMarkers.forEach((ap, index) => {
+      connections.push({
+        from: "Роутер",
+        to: `Точка доступа ${index + 1}`,
+        lengthM: lengthWithSlack(scene.router, ap),
+      });
+    });
+    return connections;
+  }
+
+  if (scene.switchMarkers.length === 0) {
+    return connections;
+  }
+
+  const switches = scene.switchMarkers;
   connections.push({
     from: "Роутер",
-    to: "Коммутатор",
-    lengthM: lengthWithSlack(scene.router, scene.switch),
+    to: switchLabel(0, switches.length),
+    lengthM: lengthWithSlack(scene.router, switches[0]),
   });
 
-  scene.clients.forEach((client, index) => {
-    if (client.type === "📱") return;
+  for (let i = 1; i < switches.length; i++) {
     connections.push({
-      from: "Коммутатор",
-      to: client.type === "🖨️" ? `Периферия ${index + 1}` : `ПК ${index + 1}`,
-      lengthM: lengthWithSlack(scene.switch!, client),
+      from: switchLabel(0, switches.length),
+      to: switchLabel(i, switches.length),
+      lengthM: lengthWithSlack(switches[0], switches[i]),
+    });
+  }
+
+  const endpoints = collectLanEndpoints(scene);
+  const assignments =
+    switchPlan && switches.length === switchPlan.quantity
+      ? assignLanEndpointsToSwitches(endpoints, switches, switchPlan.product)
+      : endpoints.map((endpoint) => {
+          let best = 0;
+          let bestDist = Infinity;
+          switches.forEach((sw, index) => {
+            const dist = Math.hypot(endpoint.x - sw.x, endpoint.y - sw.y);
+            if (dist < bestDist) {
+              bestDist = dist;
+              best = index;
+            }
+          });
+          return best;
+        });
+
+  let endpointIndex = 0;
+  let pcCount = 0;
+  let peripheralCount = 0;
+  scene.clients.forEach((client) => {
+    if (client.type === "📱") return;
+    const label =
+      client.type === "🖨️"
+        ? `Периферия ${++peripheralCount}`
+        : `ПК ${++pcCount}`;
+    const swIndex = assignments[endpointIndex++] ?? 0;
+    connections.push({
+      from: switchLabel(swIndex, switches.length),
+      to: label,
+      lengthM: lengthWithSlack(switches[swIndex], client),
     });
   });
 
   scene.apMarkers.forEach((ap, index) => {
+    const swIndex = assignments[endpointIndex++] ?? 0;
     connections.push({
-      from: "Коммутатор",
+      from: switchLabel(swIndex, switches.length),
       to: `Точка доступа ${index + 1}`,
-      lengthM: lengthWithSlack(scene.switch!, ap),
+      lengthM: lengthWithSlack(switches[swIndex], ap),
     });
   });
 
@@ -414,16 +1213,19 @@ function pickBalancedKit<T extends Product>(
       bestScore = candidateScore;
       continue;
     }
-    if (Math.abs(candidateScore - bestScore) <= closeGap) {
-      const candidatePrice = Number(candidate.price);
-      const bestPrice = Number(best.price);
-      if (
-        candidatePrice < bestPrice ||
-        (candidatePrice === bestPrice && candidate.id < best.id)
-      ) {
-        best = candidate;
-        bestScore = candidateScore;
-      }
+    if (Math.abs(candidateScore - bestScore) > closeGap) continue;
+
+    const candidateValue = valueScore(candidateScore, Number(candidate.price));
+    const bestValue = valueScore(bestScore, Number(best.price));
+    if (
+      candidateValue > bestValue + 1e-6 ||
+      (Math.abs(candidateValue - bestValue) <= 1e-6 &&
+        (Number(candidate.price) < Number(best.price) ||
+          (Number(candidate.price) === Number(best.price) &&
+            candidate.id < best.id)))
+    ) {
+      best = candidate;
+      bestScore = candidateScore;
     }
   }
   return best;
@@ -489,19 +1291,14 @@ function buildSceneState(
   }
 
   const needsSwitch =
-    numbers.wired + numbers.printers >= 1;
-  const sw = needsSwitch
-    ? clampToRoom(
-        numbers.width * 0.72,
-        numbers.length * 0.12,
-        numbers.width,
-        numbers.length,
-      )
-    : null;
+    numbers.wired + numbers.printers >= 2 || numbers.wireless > 0;
+  const switchMarkers = needsSwitch
+    ? computeSwitchMarkers(1, numbers, router, [])
+    : [];
 
   return {
     router,
-    switch: sw,
+    switchMarkers,
     clients,
     apMarkers: [],
     apRadiusM,
@@ -566,7 +1363,7 @@ export default function NetworkBuilderPage() {
   const [scene, setScene] = useState<SceneState | null>(() => {
     const saved = initialSavedRef.current;
     const mode = saved?.form?.spaceType ?? DEFAULT_FORM.spaceType;
-    return saved?.modes?.[mode]?.scene ?? null;
+    return normalizeScene(saved?.modes?.[mode]?.scene ?? null);
   });
   const [showCalculated, setShowCalculated] = useState(() => {
     const saved = initialSavedRef.current;
@@ -714,15 +1511,17 @@ export default function NetworkBuilderPage() {
           routerRadiusM: nextRouterRadiusM,
           apRadiusM: nextApRadiusM,
         };
-        bestAp = pickBalancedKit(aps, (apCandidate) =>
-          scoreWifiConstructorAp(apCandidate, area, clientsPerApEst, form.spaceType) +
-          scoreApLayoutFit(
-            apCandidate,
-            sceneDraft,
-            nextRouterRadiusM,
-            numbers.width,
-            numbers.length,
-          ),
+        bestAp = pickBalancedKit(
+          aps,
+          (apCandidate) =>
+            scoreWifiConstructorAp(apCandidate, area, clientsPerApEst, form.spaceType) +
+            scoreApLayoutFit(
+              apCandidate,
+              sceneDraft,
+              nextRouterRadiusM,
+              numbers.width,
+              numbers.length,
+            ),
         );
         nextApRadiusM = bestAp
           ? wifiRadiusM(bestAp, numbers.width, numbers.length)
@@ -735,27 +1534,41 @@ export default function NetworkBuilderPage() {
           numbers,
         );
       }
-      const switchNeeded = numbers.wired + numbers.printers + apMarkers.length >= 1;
-      const sw =
-        base.switch ??
-        (switchNeeded
-          ? clampToRoom(
-              numbers.width * 0.72,
-              numbers.length * 0.12,
-              numbers.width,
-              numbers.length,
-            )
-          : null);
-      return {
+      const sceneDraft: SceneState = {
         ...base,
-        switch: switchNeeded ? sw : null,
         apMarkers,
         apRadiusM: nextApRadiusM,
         routerRadiusM: nextRouterRadiusM,
       };
+      const budget = computeLanPortBudget(sceneDraft, numbers, form.spaceType);
+      const switchPlan = planSwitchTopology(
+        switches,
+        routerProduct,
+        sceneDraft,
+        budget,
+        form.spaceType,
+        numbers,
+      );
+      const endpoints = collectLanEndpoints(sceneDraft);
+      const switchMarkers = switchPlan
+        ? base.switchMarkers.length === switchPlan.quantity
+          ? base.switchMarkers
+          : computeSwitchMarkers(
+              switchPlan.quantity,
+              numbers,
+              sceneDraft.router,
+              endpoints,
+              switchPlan.product,
+              wiredClientPositions(sceneDraft),
+            )
+        : [];
+      return {
+        ...sceneDraft,
+        switchMarkers,
+      };
     });
     setShowCalculated(true);
-  }, [numbers, area, form.spaceType, routers, aps]);
+  }, [numbers, area, form.spaceType, routers, aps, switches]);
 
   const kit = useMemo(() => {
     if (!scene || !showCalculated) {
@@ -763,6 +1576,7 @@ export default function NetworkBuilderPage() {
         recommendation: [] as RecommendedItem[],
         routerRadiusM: scene?.routerRadiusM ?? 7,
         cableConnections: [] as CableConnection[],
+        switchPlan: null as SwitchPlan | null,
       };
     }
 
@@ -800,64 +1614,38 @@ export default function NetworkBuilderPage() {
     }
 
     const apsCount = scene.apMarkers.length;
-    const cableConnections = computeCableConnections(scene);
-    const lanDevices = numbers.wired + numbers.printers + apsCount;
-    const baseLanPorts = lanDevices > 0 ? lanDevices + 1 : 0;
-    const portHeadroom =
-      form.spaceType === "office"
-        ? Math.max(2, Math.ceil(baseLanPorts * 0.25))
-        : Math.max(1, Math.ceil(baseLanPorts * 0.12));
-    const portsNeeded = baseLanPorts + portHeadroom;
-    const minPortsRequired = baseLanPorts;
-
-    if (baseLanPorts >= 1 && switches.length > 0) {
-      const eligible = switches.filter(
-        (sw) => getPortCount(sw) >= minPortsRequired,
-      );
-      const pool = eligible.length > 0 ? eligible : switches;
-      const sw = pickBalancedKit(pool, (switchCandidate) => {
-        const ports = getPortCount(switchCandidate);
-        let s =
-          scoreSwitch(switchCandidate, {
-            portsNeeded,
-            preferManaged:
-              form.spaceType === "office" ||
-              numbers.wired + numbers.printers >= 8,
-            office: form.spaceType === "office",
-          }) + scoreSwitchLayoutFit(switchCandidate, scene);
-        if (ports < minPortsRequired) {
-          s -= (minPortsRequired - ports) * 14;
-        } else if (ports < portsNeeded) {
-          s -= (portsNeeded - ports) * 4;
-        }
-        return s;
+    const budget = computeLanPortBudget(scene, numbers, form.spaceType);
+    const switchPlan = planSwitchTopology(
+      switches,
+      router,
+      scene,
+      budget,
+      form.spaceType,
+      numbers,
+    );
+    const cableConnections = computeCableConnections(scene, switchPlan);
+    if (switchPlan) {
+      const insertAt = router ? 1 : 0;
+      items.splice(insertAt, 0, {
+        product: switchPlan.product,
+        quantity: switchPlan.quantity,
+        reason: productSpecSummary(switchPlan.product),
       });
-      if (sw) {
-        const portsInModel = Math.max(1, getPortCount(sw));
-        const switchQty = Math.max(
-          1,
-          Math.ceil(minPortsRequired / portsInModel),
-        );
-        const insertAt = router ? 1 : 0;
-        items.splice(insertAt, 0, {
-          product: sw,
-          quantity: switchQty,
-          reason: productSpecSummary(sw),
-        });
-      }
     }
 
     if (numbers.wireless > 0 && aps.length > 0) {
       const clientsPerApEst = Math.max(2, Math.ceil(numbers.wireless / 3));
-      const bestAp = pickBalancedKit(aps, (apCandidate) =>
-        scoreWifiConstructorAp(apCandidate, area, clientsPerApEst, form.spaceType) +
-        scoreApLayoutFit(
-          apCandidate,
-          scene,
-          routerRadiusM,
-          numbers.width,
-          numbers.length,
-        ),
+      const bestAp = pickBalancedKit(
+        aps,
+        (apCandidate) =>
+          scoreWifiConstructorAp(apCandidate, area, clientsPerApEst, form.spaceType) +
+          scoreApLayoutFit(
+            apCandidate,
+            scene,
+            routerRadiusM,
+            numbers.width,
+            numbers.length,
+          ),
       );
       if (bestAp && apsCount > 0) {
         items.push({
@@ -870,7 +1658,7 @@ export default function NetworkBuilderPage() {
 
     if (form.spaceType === "office" && numbers.wireless >= 4) {
       const adapter = pickBalancedKit(adapters, (adapterCandidate) =>
-        scoreAdapter(adapterCandidate),
+        scoreAdapter(adapterCandidate, "office"),
       );
       if (adapter) {
         const adapterQty = Math.max(1, Math.floor(numbers.wireless / 4));
@@ -908,7 +1696,7 @@ export default function NetworkBuilderPage() {
       }
     }
 
-    return { recommendation: items, routerRadiusM, cableConnections };
+    return { recommendation: items, routerRadiusM, cableConnections, switchPlan };
   }, [
     scene,
     showCalculated,
@@ -922,7 +1710,7 @@ export default function NetworkBuilderPage() {
     form.spaceType,
   ]);
 
-  const { recommendation } = kit;
+  const { recommendation, switchPlan: activeSwitchPlan } = kit;
 
   const totalPrice = recommendation.reduce(
     (s, i) => s + Number(i.product.price) * i.quantity,
@@ -941,6 +1729,14 @@ export default function NetworkBuilderPage() {
       qc.invalidateQueries({ queryKey: ["cart"] });
       navigate("/cart");
     },
+    onError: (err: { response?: { data?: { message?: string } } }) => {
+      useToastStore
+        .getState()
+        .show(
+          err.response?.data?.message ?? "Не удалось добавить комплект в корзину",
+          "error",
+        );
+    },
   });
 
   const updateScenePos = useCallback(
@@ -956,8 +1752,14 @@ export default function NetworkBuilderPage() {
         if (kind === "router") {
           return { ...prev, router: p };
         }
-        if (kind === "switch" && prev.switch) {
-          return { ...prev, switch: p };
+        if (
+          kind === "switch" &&
+          index >= 0 &&
+          index < prev.switchMarkers.length
+        ) {
+          const switchMarkers = [...prev.switchMarkers];
+          switchMarkers[index] = p;
+          return { ...prev, switchMarkers };
         }
         if (kind === "client" && index >= 0 && index < prev.clients.length) {
           const clients = [...prev.clients];
@@ -1092,9 +1894,7 @@ export default function NetworkBuilderPage() {
       ctx.strokeStyle = wallColor;
       ctx.strokeRect(rx, ry, roomW, roomH);
 
-      if (showCalculated && scene.switch) {
-        const sx = rx + scene.switch.x * pixelsPerMeter;
-        const sy = ry + scene.switch.y * pixelsPerMeter;
+      if (showCalculated) {
         const drawCable = (
           ax: number,
           ay: number,
@@ -1118,14 +1918,81 @@ export default function NetworkBuilderPage() {
           ctx.stroke();
           ctx.restore();
         };
-        drawCable(cx, cy, sx, sy, false);
-        scene.clients.forEach((client) => {
-          if (client.type === "📱") return;
-          drawCable(sx, sy, rx + client.x * pixelsPerMeter, ry + client.y * pixelsPerMeter);
-        });
-        scene.apMarkers.forEach((ap) => {
-          drawCable(sx, sy, rx + ap.x * pixelsPerMeter, ry + ap.y * pixelsPerMeter);
-        });
+
+        const wiredOnLan = scene.clients.filter((c) => c.type !== "📱").length;
+        const lanDeviceCount = wiredOnLan + scene.apMarkers.length;
+
+        if (scene.switchMarkers.length === 0 && lanDeviceCount <= 1) {
+          scene.clients.forEach((client) => {
+            if (client.type === "📱") return;
+            drawCable(
+              cx,
+              cy,
+              rx + client.x * pixelsPerMeter,
+              ry + client.y * pixelsPerMeter,
+            );
+          });
+          scene.apMarkers.forEach((ap) => {
+            drawCable(
+              cx,
+              cy,
+              rx + ap.x * pixelsPerMeter,
+              ry + ap.y * pixelsPerMeter,
+            );
+          });
+        } else if (scene.switchMarkers.length > 0) {
+          const switchPx = scene.switchMarkers.map((sw) => ({
+            x: rx + sw.x * pixelsPerMeter,
+            y: ry + sw.y * pixelsPerMeter,
+          }));
+          drawCable(cx, cy, switchPx[0].x, switchPx[0].y, false);
+          for (let i = 1; i < switchPx.length; i++) {
+            drawCable(switchPx[0].x, switchPx[0].y, switchPx[i].x, switchPx[i].y, false);
+          }
+          const endpoints = collectLanEndpoints(scene);
+          const assignments =
+            activeSwitchPlan &&
+            scene.switchMarkers.length === activeSwitchPlan.quantity
+              ? assignLanEndpointsToSwitches(
+                  endpoints,
+                  scene.switchMarkers,
+                  activeSwitchPlan.product,
+                )
+              : endpoints.map((endpoint) => {
+                  let best = 0;
+                  let bestDist = Infinity;
+                  scene.switchMarkers.forEach((sw, index) => {
+                    const dist = Math.hypot(endpoint.x - sw.x, endpoint.y - sw.y);
+                    if (dist < bestDist) {
+                      bestDist = dist;
+                      best = index;
+                    }
+                  });
+                  return best;
+                });
+          let endpointIndex = 0;
+          scene.clients.forEach((client) => {
+            if (client.type === "📱") return;
+            const swIndex = assignments[endpointIndex++] ?? 0;
+            const sp = switchPx[swIndex];
+            drawCable(
+              sp.x,
+              sp.y,
+              rx + client.x * pixelsPerMeter,
+              ry + client.y * pixelsPerMeter,
+            );
+          });
+          scene.apMarkers.forEach((ap) => {
+            const swIndex = assignments[endpointIndex++] ?? 0;
+            const sp = switchPx[swIndex];
+            drawCable(
+              sp.x,
+              sp.y,
+              rx + ap.x * pixelsPerMeter,
+              ry + ap.y * pixelsPerMeter,
+            );
+          });
+        }
       }
 
       ctx.fillStyle = colors.accent;
@@ -1140,15 +2007,17 @@ export default function NetworkBuilderPage() {
       ctx.textAlign = "start";
       ctx.textBaseline = "alphabetic";
 
-      if (scene.switch) {
-        const sx2 = rx + scene.switch.x * pixelsPerMeter;
-        const sy2 = ry + scene.switch.y * pixelsPerMeter;
+      if (scene.switchMarkers.length > 0) {
         ctx.font =
           '22px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif';
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillStyle = colors.router;
-        ctx.fillText(SWITCH_EMOJI, sx2, sy2);
+        scene.switchMarkers.forEach((sw) => {
+          const sx2 = rx + sw.x * pixelsPerMeter;
+          const sy2 = ry + sw.y * pixelsPerMeter;
+          ctx.fillText(SWITCH_EMOJI, sx2, sy2);
+        });
         ctx.textAlign = "start";
         ctx.textBaseline = "alphabetic";
       }
@@ -1168,7 +2037,7 @@ export default function NetworkBuilderPage() {
     paint();
     window.addEventListener("resize", paint);
     return () => window.removeEventListener("resize", paint);
-  }, [numbers, scene, showCalculated, dark]);
+  }, [numbers, scene, showCalculated, dark, activeSwitchPlan]);
 
   const pickDragTarget = (
     ex: number,
@@ -1183,11 +2052,17 @@ export default function NetworkBuilderPage() {
     const dR = Math.hypot(ex - cx, ey - cy);
     if (dR < 22) hits.push({ d: dR, state: { kind: "router", index: -1, grabDx: ex - cx, grabDy: ey - cy } });
 
-    if (s.switch) {
-      const sx = g.rx + s.switch.x * g.ppm;
-      const sy = g.ry + s.switch.y * g.ppm;
+    for (let i = 0; i < s.switchMarkers.length; i++) {
+      const sw = s.switchMarkers[i];
+      const sx = g.rx + sw.x * g.ppm;
+      const sy = g.ry + sw.y * g.ppm;
       const dS = Math.hypot(ex - sx, ey - sy);
-      if (dS < 24) hits.push({ d: dS, state: { kind: "switch", index: -1, grabDx: ex - sx, grabDy: ey - sy } });
+      if (dS < 24) {
+        hits.push({
+          d: dS,
+          state: { kind: "switch", index: i, grabDx: ex - sx, grabDy: ey - sy },
+        });
+      }
     }
 
     for (let i = 0; i < Math.min(s.clients.length, 100); i++) {
@@ -1207,7 +2082,14 @@ export default function NetworkBuilderPage() {
     }
 
     if (hits.length === 0) return null;
-    hits.sort((a, b) => a.d - b.d);
+    const dragPriority = (kind: DragKind) =>
+      kind === "switch" ? 0 : kind === "router" ? 1 : kind === "ap" ? 2 : 3;
+    hits.sort((a, b) => {
+      const pa = dragPriority(a.state.kind);
+      const pb = dragPriority(b.state.kind);
+      if (pa !== pb) return pa - pb;
+      return a.d - b.d;
+    });
     return hits[0].state;
   };
 
@@ -1242,6 +2124,7 @@ export default function NetworkBuilderPage() {
   };
 
   const onPointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const dragKind = dragRef.current?.kind;
     const hadDrag = dragRef.current !== null;
     const canvas = canvasRef.current;
     if (canvas && hadDrag) {
@@ -1250,7 +2133,7 @@ export default function NetworkBuilderPage() {
       } catch {}
     }
     dragRef.current = null;
-    if (hadDrag && showCalculated) {
+    if (hadDrag && showCalculated && dragKind !== "switch") {
       calculateLayout();
     }
   };
@@ -1345,7 +2228,7 @@ export default function NetworkBuilderPage() {
                       key={opt.id}
                       type="button"
                       onClick={() => update("spaceType", opt.id)}
-                      className={`flex-1 h-[38px] sm:h-[40px] px-3 rounded-xl text-sm font-medium transition-colors ${
+                      className={`flex-1 h-[38px] sm:h-[40px] px-3 rounded-[var(--radius-btn)] text-sm font-medium transition-colors ${
                         form.spaceType === opt.id
                           ? "bg-ns-accent text-ns-accent-fg"
                           : "ns-chip text-ns-text hover:bg-ns-hover"
@@ -1362,7 +2245,7 @@ export default function NetworkBuilderPage() {
                 type="button"
                 onClick={calculateLayout}
                 disabled={!hasScene}
-                className="aurora-button inline-flex items-center justify-center px-4 py-2 text-sm font-medium transition-transform hover:scale-[1.01] disabled:opacity-40"
+                className="aurora-button inline-flex items-center justify-center px-4 py-2 text-sm font-medium transition-transform hover:scale-[1.01] disabled:opacity-55"
               >
                 Рассчитать
               </button>
@@ -1370,7 +2253,7 @@ export default function NetworkBuilderPage() {
                 type="button"
                 onClick={resetLayout}
                 disabled={!hasScene}
-                className="ns-btn ns-btn-secondary px-4 py-1.5 text-sm disabled:opacity-40"
+                className="ns-btn ns-btn-secondary px-4 py-1.5 text-sm disabled:opacity-55"
               >
                 Сброс
               </button>
@@ -1442,7 +2325,7 @@ export default function NetworkBuilderPage() {
             )}
             {showCalculated && recommendation.length > 0 && (
               <p className="ns-net-builder__hint mb-2">
-                Схема пересчитывает комплект
+                Комплект пересчитывается при изменении схемы
               </p>
             )}
             <div className="space-y-2">
@@ -1460,7 +2343,7 @@ export default function NetworkBuilderPage() {
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <span className="text-xs text-ns-muted">—</span>
+                      <span className="text-xs text-ns-muted">–</span>
                     )}
                   </div>
                   <div className="min-w-0 flex-1">

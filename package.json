@@ -5,6 +5,7 @@
     "docker:up": "docker compose up -d --build",
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f",
-    "docker:reset": "docker compose --profile tools down -v --remove-orphans && docker compose up -d --build"
+    "docker:reset": "docker compose --profile tools down -v --remove-orphans && docker compose up -d --build",
+    "check": "npm run check --prefix backend && npm run check --prefix frontend"
   }
 }

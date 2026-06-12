@@ -6,7 +6,6 @@ import {
   Users,
   Package,
   Wallet,
-  Clock,
   ArrowRight,
   Download,
 } from "lucide-react";
@@ -144,7 +143,7 @@ export default function AdminStats() {
               </span>
             </div>
             <p className="text-2xl sm:text-3xl xl:text-4xl font-bold leading-none text-ns-text tabular-nums">
-              {value ?? "—"}
+              {value ?? "–"}
             </p>
             {hint && (
               <p className="text-xs text-ns-muted leading-snug">{hint}</p>
@@ -219,7 +218,7 @@ export default function AdminStats() {
                         Заказ #{order.id}
                         <span className="text-ns-muted font-normal">
                           {" "}
-                          · {order.user?.name ?? "—"}
+                          · {order.user?.name ?? "–"}
                         </span>
                       </p>
                       <p className="text-xs text-ns-muted mt-0.5">
@@ -247,26 +246,6 @@ export default function AdminStats() {
         </div>
       </div>
 
-      {(data?.pendingOrders > 0 || data?.unreadChats > 0) && (
-        <div className="ns-card-static flex flex-wrap items-center gap-3 p-4 sm:p-5 text-sm text-ns-text-secondary">
-          <Clock size={18} className="text-ns-muted shrink-0" strokeWidth={1.75} />
-          <p className="min-w-0 flex-1 leading-snug">
-            {data.pendingOrders > 0 && (
-              <>
-                Ожидают обработки:{" "}
-                <strong className="text-ns-text">{data.pendingOrders}</strong>
-                {data.unreadChats > 0 ? " · " : ""}
-              </>
-            )}
-            {data.unreadChats > 0 && (
-              <>
-                Непрочитанных в чатах:{" "}
-                <strong className="text-ns-text">{data.unreadChats}</strong>
-              </>
-            )}
-          </p>
-        </div>
-      )}
     </div>
   );
 }

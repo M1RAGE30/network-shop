@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import type { ReactNode } from "react";
 
 type Variant = "primary" | "secondary" | "ghost";
 
@@ -13,23 +13,6 @@ interface BaseProps {
   variant?: Variant;
   className?: string;
   children: ReactNode;
-}
-
-export function Button({
-  variant = "primary",
-  className = "",
-  children,
-  ...props
-}: BaseProps & ButtonHTMLAttributes<HTMLButtonElement>) {
-  return (
-    <button
-      type="button"
-      className={`${variantClass[variant]} ${className}`}
-      {...props}
-    >
-      {children}
-    </button>
-  );
 }
 
 export function ButtonLink({

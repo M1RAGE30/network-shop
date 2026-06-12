@@ -35,17 +35,100 @@ function extractNumberNear(text: string, marker: RegExp): number | null {
 
 export function getPortCount(product: ProductSelectorInput): number {
   const text = allSpecText(product);
+  const ethernetSpec =
+    extractNumberNear(text, /количество портов ethernet\D{0,10}(\d{1,3})/i) ??
+    extractNumberNear(text, /(\d{1,3})\D{0,6}портов ethernet/i);
+  if (ethernetSpec != null) return ethernetSpec;
+
   const portsByMarker =
     extractNumberNear(text, /(\d{1,3})\s*(?:x)?\s*(?:lan|порт|ports?)/i) ??
     extractNumberNear(text, /(?:lan|порт|ports?)\D{0,12}(\d{1,3})/i) ??
-    extractNumberNear(text, /(\d{1,3})\s*p\b/i);
+    extractNumberNear(text, /(\d{1,3})\s*(?:lan|rj-?45)/i);
   return portsByMarker ?? 4;
+}
+
+export function getRouterLanPortCount(product: ProductSelectorInput): number {
+  const text = allSpecText(product);
+  const totalLan =
+    extractNumberNear(text, /всего lan-?портов\D{0,10}(\d{1,2})/i) ??
+    extractNumberNear(text, /(\d{1,2})\D{0,6}всего lan-?портов/i);
+  if (totalLan != null) return Math.min(12, Math.max(1, totalLan));
+
+  const explicit =
+    extractNumberNear(text, /(\d{1,2})\s*(?:x\s*)?(?:lan|rj-?45|порт\w*)/i) ??
+    extractNumberNear(text, /(?:lan|порт\w*|rj-?45)\D{0,12}(\d{1,2})/i);
+  if (explicit != null) return Math.min(12, Math.max(1, explicit));
+  const generic = getPortCount(product);
+  return Math.min(8, Math.max(1, generic));
+}
+
+export function isUnmanagedSwitch(product: ProductSelectorInput): boolean {
+  return /неуправляем|unmanaged/i.test(allSpecText(product));
+}
+
+export function isManagedSwitch(product: ProductSelectorInput): boolean {
+  if (isUnmanagedSwitch(product)) return false;
+  return /управляем|managed/i.test(allSpecText(product));
+}
+
+export function isSmartSwitch(product: ProductSelectorInput): boolean {
+  if (isUnmanagedSwitch(product)) return false;
+  return /настраиваем|smart/i.test(allSpecText(product));
+}
+
+function hasSpecYes(text: string, label: string): boolean {
+  const pattern = new RegExp(`${label}\\D{0,12}(да|yes)`, "i");
+  return pattern.test(text);
+}
+
+export function scoreOfficeRouterFeatures(product: ProductSelectorInput): number {
+  const text = allSpecText(product);
+  let score = 0;
+
+  if (hasSpecYes(text, "поддержка 802\\.1x")) score += 6;
+  if (hasSpecYes(text, "vpn-сервер")) score += 5;
+  if (hasSpecYes(text, "статическая маршрутизация")) score += 4;
+  if (hasSpecYes(text, "приоритизация трафика \\(qos\\)")) score += 4;
+  if (hasSpecYes(text, "поддержка gigabit ethernet")) score += 3;
+  if (hasPoe(product)) score += 4;
+  if (getWifiGeneration(product) >= 6) score += 4;
+  if (getBandCount(product) >= 2) score += 2;
+
+  if (/mesh|halo|deco|nova|wi-fi система|бесшовн/i.test(text)) score -= 14;
+  if (/репитер|повторитель|усилитель|extender|repeater/i.test(text)) score -= 16;
+
+  return score;
+}
+
+export function scoreOfficeApFeatures(product: ProductSelectorInput): number {
+  const text = allSpecText(product);
+  let score = 0;
+
+  if (/точка доступа|access point|\beap[\d-]/i.test(text)) score += 8;
+  if (/потолочн|ceiling/i.test(text)) score += 4;
+  if (/репитер|повторитель|усилитель|extender|repeater/i.test(text)) score -= 14;
+  if (getWifiGeneration(product) >= 6) score += 3;
+  if (hasPoe(product)) score += 3;
+
+  return score;
+}
+
+export function scoreOfficeSwitchFeatures(product: ProductSelectorInput): number {
+  const text = allSpecText(product);
+  let score = 0;
+
+  if (isUnmanagedSwitch(product)) score -= 16;
+  if (/стоечн|rack|19"/i.test(text)) score += 3;
+  if (/gigabit ethernet\D{0,10}да/i.test(text)) score += 2;
+  if (getMaxSpeedMbps(product) >= 2500) score += 3;
+
+  return score;
 }
 
 export function getWifiGeneration(product: ProductSelectorInput): number {
   const text = allSpecText(product);
   if (/wifi\s*7|802\.11be/.test(text)) return 7;
-  if (/wifi\s*6e|6e/.test(text)) return 6.5;
+  if (/wifi\s*6e|\b6e\b/.test(text)) return 6.5;
   if (/wifi\s*6|802\.11ax/.test(text)) return 6;
   if (/wifi\s*5|802\.11ac/.test(text)) return 5;
   if (/wifi\s*4|802\.11n/.test(text)) return 4;
@@ -56,7 +139,7 @@ export function getBandCount(product: ProductSelectorInput): number {
   const text = allSpecText(product);
   const has24 = /2\.4\s*ghz|2,4\s*ghz/.test(text);
   const has5 = /5\s*ghz/.test(text);
-  const has6 = /6\s*ghz|6e/.test(text);
+  const has6 = /6\s*ghz|\b6e\b/.test(text);
   return Number(has24) + Number(has5) + Number(has6);
 }
 
@@ -109,6 +192,21 @@ export function hasPoe(product: ProductSelectorInput): boolean {
   return /\bpoe\b/.test(allSpecText(product));
 }
 
+export function getPoePortCount(product: ProductSelectorInput): number {
+  const text = allSpecText(product);
+  const explicit =
+    extractNumberNear(text, /(\d{1,2})\s*(?:x\s*)?poe/i) ??
+    extractNumberNear(text, /poe\D{0,10}(\d{1,2})/i) ??
+    extractNumberNear(text, /(\d{1,2})\s*(?:poe|порт\w*)\s*poe/i);
+  if (explicit != null) return explicit;
+  if (!hasPoe(product)) return 0;
+  return Math.max(1, Math.floor(getPortCount(product) * 0.55));
+}
+
+export function valueScore(techScore: number, price: number): number {
+  return techScore / Math.max(1, Number(price));
+}
+
 export function scoreRouter(
   product: ProductSelectorInput,
   params: {
@@ -135,8 +233,12 @@ export function scoreRouter(
   const bandsScore = bands >= 3 ? 12 : bands === 2 ? 8 : 3;
   const coverageScore = Math.min(16, (coverage / coverageTarget) * 16);
   const antennaScore = Math.min(8, antennas * 2);
-  const officeBonus = params.spaceType === "office" && hasPoe(product) ? 6 : 0;
-  const valuePenalty = Number(product.price) * 0.0065;
+  const officeBonus =
+    params.spaceType === "office"
+      ? scoreOfficeRouterFeatures(product) + (hasPoe(product) ? 4 : 0)
+      : 0;
+  const priceFactor = params.spaceType === "office" ? 0.0042 : 0.0065;
+  const valuePenalty = Number(product.price) * priceFactor;
 
   return (
     portsScore +
@@ -156,21 +258,57 @@ export function scoreSwitch(
     portsNeeded: number;
     preferManaged: boolean;
     office: boolean;
+    poePortsNeeded?: number;
   },
 ): number {
-  const text = allSpecText(product);
   const ports = getPortCount(product);
   const speed = getMaxSpeedMbps(product);
-  const managed = /managed|управляем/.test(text);
+  const managed = isManagedSwitch(product);
+  const smart = isSmartSwitch(product);
   const poe = hasPoe(product);
+  const poePorts = getPoePortCount(product);
+  const poeNeeded = params.poePortsNeeded ?? 0;
 
   const capacityScore = Math.max(0, 28 - Math.abs(ports - params.portsNeeded) * 3);
   const speedScore = Math.min(20, (speed / 1000) * 12 + (speed > 1000 ? 8 : 0));
-  const managedScore = params.preferManaged ? (managed ? 12 : 0) : managed ? 4 : 6;
-  const poeScore = params.office ? (poe ? 10 : 0) : poe ? 2 : 4;
-  const pricePenalty = Number(product.price) * 0.006;
+  const managedScore = params.office
+    ? managed
+      ? 14
+      : smart
+        ? 9
+        : isUnmanagedSwitch(product)
+          ? -18
+          : 0
+    : isUnmanagedSwitch(product)
+      ? 11
+      : managed || smart
+        ? -12
+        : 6;
+  const poeScore = params.office ? (poe ? 7 : -2) : poe ? 3 : 2;
+  const poeFit =
+    poeNeeded <= 0
+      ? 0
+      : poePorts >= poeNeeded
+        ? 14
+        : Math.max(-24, (poePorts - poeNeeded) * 8);
+  const officeFeatures = params.office ? scoreOfficeSwitchFeatures(product) : 0;
+  const priceFactor = params.office ? 0.0045 : 0.01;
+  const pricePenalty = Number(product.price) * priceFactor;
+  const homeRightSize =
+    !params.office && ports >= params.portsNeeded && ports <= params.portsNeeded + 6
+      ? 6
+      : 0;
 
-  return capacityScore + speedScore + managedScore + poeScore - pricePenalty;
+  return (
+    capacityScore +
+    speedScore +
+    managedScore +
+    poeScore +
+    poeFit +
+    officeFeatures +
+    homeRightSize -
+    pricePenalty
+  );
 }
 
 export function scoreAccessPoint(
@@ -192,29 +330,62 @@ export function scoreAccessPoint(
   const wifiScore = wifiGen * 5;
   const bandsScore = bands >= 3 ? 10 : bands === 2 ? 7 : 2;
   const coverageScore = Math.min(20, (coverage / params.areaPerAp) * 20);
-  const poeScore = params.office ? (poe ? 8 : 0) : poe ? 3 : 2;
-  const pricePenalty = Number(product.price) * 0.0058;
+  const poeScore = params.office ? (poe ? 6 : -2) : poe ? 3 : 2;
+  const officeFeatures = params.office ? scoreOfficeApFeatures(product) : 0;
+  const priceFactor = params.office ? 0.004 : 0.0058;
+  const pricePenalty = Number(product.price) * priceFactor;
 
-  return wifiScore + bandsScore + coverageScore + speedScore + poeScore - pricePenalty;
+  return (
+    wifiScore + bandsScore + coverageScore + speedScore + poeScore + officeFeatures - pricePenalty
+  );
 }
 
-export function scoreAdapter(product: ProductSelectorInput): number {
+export function scoreAdapter(
+  product: ProductSelectorInput,
+  spaceType: "office" | "home" = "home",
+): number {
   const speed = getMaxSpeedMbps(product);
   const text = allSpecText(product);
   const usb3 = /usb\s*3|usb3|3\.0/.test(text);
-  const score = (speed >= 2500 ? 22 : speed >= 1000 ? 16 : 7) + (usb3 ? 8 : 2);
-  return score - Number(product.price) * 0.008;
+  const wifiGen = getWifiGeneration(product);
+  let score = (speed >= 2500 ? 22 : speed >= 1000 ? 16 : 7) + (usb3 ? 8 : 2);
+  if (spaceType === "office") {
+    score += wifiGen >= 6 ? 6 : 0;
+    score += speed >= 1000 ? 4 : 0;
+  }
+  const priceFactor = spaceType === "office" ? 0.002 : 0.008;
+  return score - Number(product.price) * priceFactor;
 }
 
 export type PickBestTieBreak = "lower_price" | "prefer_performance";
 
-function performanceRank(product: ProductSelectorInput): number {
+export function performanceRank(product: ProductSelectorInput): number {
   return (
     getCoverageM2(product) * 2 +
     getPortCount(product) * 5 +
     getWifiGeneration(product) * 8 +
     getMaxSpeedMbps(product) / 200 +
     getBandCount(product) * 3
+  );
+}
+
+export function officePerformanceRank(product: ProductSelectorInput): number {
+  const text = allSpecText(product);
+  const switchTier = isManagedSwitch(product)
+    ? 24
+    : isSmartSwitch(product)
+      ? 12
+      : isUnmanagedSwitch(product)
+        ? -16
+        : 0;
+  const apBonus = /точка доступа|access point|\beap[\d-]/i.test(text) ? 16 : 0;
+  return (
+    performanceRank(product) +
+    switchTier +
+    apBonus +
+    scoreOfficeRouterFeatures(product) +
+    scoreOfficeApFeatures(product) +
+    scoreOfficeSwitchFeatures(product)
   );
 }
 
@@ -325,9 +496,11 @@ export function scoreWifiConstructorRouter(
     area,
     spaceType,
   });
-  const officeBonus = spaceType === "office" && hasPoe(product) ? 4 : 0;
-  const homeValueBonus = spaceType === "home" ? Math.min(6, value * 0.15) : 0;
-  return fit + value + tech * 0.32 + officeBonus + homeValueBonus;
+  if (spaceType === "office") {
+    return fit + value * 0.55 + tech * 0.34;
+  }
+  const homeValueBonus = Math.min(6, value * 0.15);
+  return fit + value + tech * 0.32 + homeValueBonus;
 }
 
 export function scoreWifiConstructorAp(
@@ -346,7 +519,9 @@ export function scoreWifiConstructorAp(
     areaPerAp: Math.max(25, area / Math.max(1, Math.ceil(area / 90))),
     office: spaceType === "office",
   });
-  const officePoeBonus = spaceType === "office" && hasPoe(product) ? 5 : 0;
-  return fit + value + tech * 0.3 + officePoeBonus;
+  if (spaceType === "office") {
+    return fit + value * 0.5 + tech * 0.32;
+  }
+  return fit + value + tech * 0.3;
 }
 

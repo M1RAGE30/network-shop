@@ -29,7 +29,7 @@ export default function HomePage() {
             <p className="ns-caption uppercase tracking-wide">Профессиональное сетевое оборудование</p>
             <h1 className="ns-heading-hero">Сетевые решения для дома и бизнеса</h1>
             <p className="ns-body-secondary">
-              Маршрутизаторы, коммутаторы, точки доступа и кабельная инфраструктура —
+              Маршрутизаторы, коммутаторы, точки доступа и кабельная инфраструктура –
               подбор оборудования, конструкторы топологии и доставка в одном магазине.
             </p>
             <div className="ns-home-hero__actions pt-1 sm:pt-2 lg:pt-4">

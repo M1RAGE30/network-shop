@@ -204,14 +204,14 @@ router.get("/stats/export", async (req, res) => {
   const categoryNameById = new Map(categories.map((c) => [c.id, c.name]));
   const productsByCategory = categoryGroups
     .map((row) => ({
-      categoryName: categoryNameById.get(row.categoryId) ?? "—",
+      categoryName: categoryNameById.get(row.categoryId) ?? "–",
       count: row._count.id,
     }))
     .sort((a, b) => a.categoryName.localeCompare(b.categoryName, "ru"));
 
   const soldMap = new Map<string, { quantity: number; revenue: number }>();
   for (const item of orderItemsDay) {
-    const name = item.product?.name ?? "—";
+    const name = item.product?.name ?? "–";
     const prev = soldMap.get(name) ?? { quantity: 0, revenue: 0 };
     const lineTotal = Number(item.price) * item.quantity;
     soldMap.set(name, {

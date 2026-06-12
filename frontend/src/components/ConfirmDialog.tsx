@@ -47,15 +47,21 @@ export default function ConfirmDialog({
     (
     <div className="fixed inset-0 z-[120] flex items-center justify-center px-4">
       <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        className="absolute inset-0 ns-overlay-scrim"
         onClick={onCancel}
         aria-hidden
       />
-      <div className="aurora-card relative w-full max-w-sm rounded-2xl p-6">
-        <p className="text-lg font-semibold text-ns-text">
+      <div
+        className="aurora-card relative w-full max-w-sm rounded-2xl p-6"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="confirm-dialog-title"
+        aria-describedby="confirm-dialog-message"
+      >
+        <p id="confirm-dialog-title" className="text-lg font-semibold text-ns-text">
           {title}
         </p>
-        <p className="mt-2 text-sm text-ns-muted">
+        <p id="confirm-dialog-message" className="mt-2 text-sm text-ns-muted">
           {message}
         </p>
         <div className="mt-6 flex gap-2 justify-end">

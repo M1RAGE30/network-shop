@@ -239,7 +239,7 @@ export default function AdminOrdersPage() {
 
                         <p className="font-medium text-ns-text break-words">
 
-                          {order.address || "—"}
+                          {order.address || "–"}
 
                         </p>
 
@@ -297,7 +297,7 @@ export default function AdminOrdersPage() {
 
                       </p>
 
-                      <div className="space-y-2">
+                      <div className="space-y-2 ns-order-items-scroll scrollbar-thin">
 
                         {items.length > 0 ? (
 
@@ -383,7 +383,7 @@ export default function AdminOrdersPage() {
 
                             disabled={statusMutation.isPending}
 
-                            className={`ns-btn text-sm disabled:opacity-40 ${
+                            className={`ns-btn text-sm disabled:opacity-55 ${
 
                               s === "CANCELLED"
 

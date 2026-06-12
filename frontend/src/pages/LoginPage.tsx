@@ -20,6 +20,7 @@ import {
   authTitle,
 } from "../lib/authFormStyles";
 import api from "../lib/api";
+import { establishAuthSession } from "../lib/authSession";
 import {
   clearLoginReturnAdmin,
   wantsLoginReturnAdmin,
@@ -80,6 +81,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const { data } = await api.post("/auth/login", form);
+      establishAuthSession();
       setAuth(data.user, data.token);
       if (
         data.user.role === "ADMIN" &&

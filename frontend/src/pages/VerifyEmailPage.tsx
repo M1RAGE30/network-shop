@@ -1,7 +1,9 @@
 ﻿import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import api from "../lib/api";
+import { establishAuthSession } from "../lib/authSession";
 import {
+  authCard,
   authCodeInput,
   authErrorBox,
   authForm,
@@ -9,6 +11,8 @@ import {
   authLabel,
   authLink,
   authPageWrap,
+  authResendNotice,
+  authResendSection,
   authSubmitBtn,
   authSubtitle,
   authTitle,
@@ -108,6 +112,7 @@ export default function VerifyEmailPage() {
     try {
       const { data } = await api.post("/auth/verify-email", { email, code });
       if (data.user && data.token) {
+        establishAuthSession();
         setAuth(data.user, data.token);
         navigate("/", { replace: true });
         return;
@@ -136,9 +141,9 @@ export default function VerifyEmailPage() {
   }
 
   return (
-    <div className={`${authPageWrap} py-10 sm:py-12`}>
-      <div className="ns-card-static p-8 pb-6 sm:p-10 sm:px-10">
-        <div className={`${authHeader} !mb-5`}>
+    <div className={authPageWrap}>
+      <div className={authCard}>
+        <div className={`${authHeader} !mb-6`}>
           <h1 className={authTitle}>Подтверждение email</h1>
           <p className={`${authSubtitle} leading-relaxed`}>
             Введите шестизначный код из письма.
@@ -151,7 +156,7 @@ export default function VerifyEmailPage() {
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className={`${authForm} !space-y-3`}>
+        <form onSubmit={handleSubmit} className={`${authForm} !space-y-4`}>
           {message && (
             <div className={authErrorBox} role="alert">
               {message}
@@ -185,7 +190,7 @@ export default function VerifyEmailPage() {
           <button
             type="submit"
             disabled={status === "loading" || code.length !== 6}
-            className={`${authSubmitBtn} !mt-1 flex items-center justify-center gap-2 disabled:opacity-40`}
+            className={`${authSubmitBtn} !mt-0 flex items-center justify-center gap-2 disabled:opacity-55`}
           >
             {status === "loading" ? (
               <>
@@ -197,12 +202,12 @@ export default function VerifyEmailPage() {
             )}
           </button>
 
-          <div className="pt-3 border-t border-ns-border/60 space-y-1">
+          <div className={authResendSection}>
             <button
               type="button"
               onClick={handleResend}
               disabled={resending || resendCooldown > 0}
-              className="w-full text-sm font-semibold text-ns-accent no-underline hover:text-ns-accent-hover transition-colors disabled:cursor-not-allowed disabled:opacity-50 disabled:text-ns-muted disabled:hover:text-ns-muted"
+              className="w-full text-sm font-semibold text-ns-accent no-underline hover:text-ns-accent-hover transition-colors disabled:cursor-not-allowed disabled:text-ns-muted disabled:hover:text-ns-muted"
             >
               {resending
                 ? "Отправляем код…"
@@ -210,12 +215,11 @@ export default function VerifyEmailPage() {
                   ? `Повторная отправка через ${resendCooldown} с`
                   : "Отправить код повторно"}
             </button>
-            <p
-              className="text-xs text-center text-ns-muted transition-opacity duration-200 min-h-0"
-              aria-live="polite"
-            >
-              {resendNotice}
-            </p>
+            {resendNotice ? (
+              <p className={authResendNotice} aria-live="polite">
+                {resendNotice}
+              </p>
+            ) : null}
           </div>
         </form>
       </div>

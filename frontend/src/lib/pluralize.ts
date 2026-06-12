@@ -1,4 +1,4 @@
-export function pluralize(
+function pluralize(
   count: number,
   one: string,
   few: string,
