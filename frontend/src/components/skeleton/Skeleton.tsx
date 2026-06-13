@@ -1,4 +1,4 @@
-import type { HTMLAttributes } from "react";
+import type { HTMLAttributes, ReactNode } from "react";
 import {
   authCard,
   authFooter,
@@ -601,6 +601,99 @@ export function ChatPageSkeleton() {
   );
 }
 
+function AdminMobileNavSkeleton() {
+  return (
+    <nav className="flex w-full gap-2 overflow-x-auto border-b border-ns-border px-2 py-2 scrollbar-none lg:hidden">
+      {[88, 68, 64, 112, 56].map((width, i) => (
+        <Skeleton
+          key={i}
+          className="h-9 shrink-0 rounded-[10px]"
+          style={{ width }}
+        />
+      ))}
+    </nav>
+  );
+}
+
+function AdminSidebarSkeleton() {
+  return (
+    <aside className="ns-admin-shell__sidebar hidden lg:flex">
+      <nav className="flex-1 space-y-1 overflow-y-auto p-3 pt-4 scrollbar-none">
+        {[132, 96, 92, 132, 76].map((width, i) => (
+          <div key={i} className="flex items-center gap-3 rounded-[10px] px-3 py-2.5">
+            <Skeleton className="h-[18px] w-[18px] shrink-0 rounded" />
+            <Skeleton className="h-4" style={{ width }} />
+          </div>
+        ))}
+      </nav>
+      <div className="space-y-1 border-t border-ns-border p-3">
+        {[112, 84].map((width, i) => (
+          <div key={i} className="flex items-center gap-3 rounded-[10px] px-3 py-2.5">
+            <Skeleton className="h-[18px] w-[18px] shrink-0 rounded" />
+            <Skeleton className="h-4" style={{ width }} />
+          </div>
+        ))}
+      </div>
+    </aside>
+  );
+}
+
+function AdminFabSkeleton() {
+  return (
+    <div className="ns-admin-fab lg:hidden" aria-hidden>
+      <Skeleton className="ns-admin-fab__toggle rounded-full" />
+    </div>
+  );
+}
+
+export function AdminShellSkeleton({
+  children,
+  isChats = false,
+  isFullHeightView = false,
+}: {
+  children: ReactNode;
+  isChats?: boolean;
+  isFullHeightView?: boolean;
+}) {
+  return (
+    <div
+      className={`ns-admin-shell flex w-full ${
+        isChats ? "h-dvh max-h-dvh overflow-hidden" : "min-h-dvh"
+      }`}
+      aria-busy="true"
+    >
+      <AdminSidebarSkeleton />
+      <div
+        className={`ns-admin-shell__main min-w-0 overflow-x-clip ${
+          isChats ? "h-dvh max-h-dvh overflow-hidden" : ""
+        }`}
+      >
+        <AdminMobileNavSkeleton />
+        <div
+          className={`ns-admin-content w-full min-w-0 flex-1 p-3 sm:p-4 lg:p-6 xl:p-8 ${
+            isChats ? "max-lg:pb-3" : "max-lg:pb-24"
+          } ${
+            isFullHeightView
+              ? "flex min-h-0 flex-col overflow-hidden"
+              : "overflow-auto"
+          }`}
+        >
+          <div
+            className={
+              isChats
+                ? "flex min-h-0 flex-1 flex-col overflow-hidden"
+                : "contents"
+            }
+          >
+            {children}
+          </div>
+        </div>
+        {!isChats && <AdminFabSkeleton />}
+      </div>
+    </div>
+  );
+}
+
 export function AdminOrdersPageSkeleton() {
   return (
     <div className="flex min-h-0 w-full flex-1 flex-col space-y-4 sm:space-y-5" aria-busy="true">
@@ -648,12 +741,15 @@ export function AdminChatsPageSkeleton() {
           <Skeleton className="h-4 w-28" />
           <Skeleton className="h-3 w-40" />
         </div>
-        <div className="p-3 flex-1 min-h-0">
+        <div className="min-h-0 flex-1 overflow-y-auto">
           <AdminChatListSkeleton rows={5} />
         </div>
       </div>
-      <div className="hidden md:flex flex-1 min-w-0">
-        <ChatPanelSkeleton className="w-full" />
+      <div className="hidden md:flex ns-card-static h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-ns-border">
+        <div className="flex-1 flex flex-col items-center justify-center gap-3">
+          <Skeleton className="h-12 w-12 rounded-full" />
+          <Skeleton className="h-4 w-28" />
+        </div>
       </div>
     </div>
   );
@@ -701,7 +797,7 @@ export function AdminStatsSkeleton() {
         </div>
         <div className="ns-card-static flex min-h-[220px] flex-col p-4 sm:p-5 xl:p-6 space-y-3">
           <Skeleton className="h-5 w-36" />
-          {Array.from({ length: 4 }).map((_, i) => (
+          {Array.from({ length: 3 }).map((_, i) => (
             <Skeleton key={i} className="h-14 w-full rounded-xl" />
           ))}
         </div>
@@ -742,13 +838,30 @@ export function AdminProductsTableSkeleton({ rows = 6 }: { rows?: number }) {
           <tbody className="divide-y divide-ns-border">
             {Array.from({ length: rows }).map((_, i) => (
               <tr key={i}>
-                {Array.from({ length: 5 }).map((__, col) => (
-                  <td key={col} className="px-4 py-3 xl:px-5 xl:py-3.5">
-                    <Skeleton
-                      className={`h-4 ${col === 0 ? "w-40" : col === 4 ? "h-8 w-8 ml-auto" : "w-16 ml-auto"}`}
-                    />
-                  </td>
-                ))}
+                <td className="px-4 py-3 xl:px-5 xl:py-3.5">
+                  <div className="flex items-center gap-3">
+                    <Skeleton className="h-11 w-11 shrink-0 rounded-xl xl:h-12 xl:w-12" />
+                    <div className="min-w-0 space-y-2">
+                      <Skeleton className="h-4 w-40 max-w-[20vw]" />
+                      <Skeleton className="h-3 w-24" />
+                    </div>
+                  </div>
+                </td>
+                <td className="px-4 py-3 xl:px-5 xl:py-3.5">
+                  <Skeleton className="h-4 w-24" />
+                </td>
+                <td className="px-4 py-3 xl:px-5 xl:py-3.5">
+                  <Skeleton className="ml-auto h-4 w-20" />
+                </td>
+                <td className="px-4 py-3 xl:px-5 xl:py-3.5">
+                  <Skeleton className="ml-auto h-7 w-14 rounded-full" />
+                </td>
+                <td className="px-4 py-3 xl:px-5 xl:py-3.5">
+                  <div className="flex items-center justify-end gap-2">
+                    <Skeleton className="h-8 w-8 rounded-[var(--radius-btn)]" />
+                    <Skeleton className="h-8 w-8 rounded-[var(--radius-btn)]" />
+                  </div>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -756,11 +869,15 @@ export function AdminProductsTableSkeleton({ rows = 6 }: { rows?: number }) {
       </div>
       <div className="md:hidden divide-y divide-ns-border p-3 space-y-3">
         {Array.from({ length: rows }).map((_, i) => (
-          <div key={i} className="flex gap-3 py-2">
-            <Skeleton className="h-12 w-12 shrink-0 rounded-xl" />
-            <div className="flex-1 space-y-2">
+          <div key={i} className="flex items-center gap-3 py-2">
+            <Skeleton className="h-14 w-14 shrink-0 rounded-xl" />
+            <div className="min-w-0 flex-1 space-y-2">
               <Skeleton className="h-4 w-full" />
               <Skeleton className="h-3 w-2/3" />
+            </div>
+            <div className="flex shrink-0 gap-2">
+              <Skeleton className="h-8 w-8 rounded-[var(--radius-btn)]" />
+              <Skeleton className="h-8 w-8 rounded-[var(--radius-btn)]" />
             </div>
           </div>
         ))}
@@ -799,7 +916,7 @@ export function AdminUsersListSkeleton({ rows = 5 }: { rows?: number }) {
                   <Skeleton className="h-9 w-36 rounded-[var(--radius-btn)]" />
                 </td>
                 <td className="px-6 py-4">
-                  <Skeleton className="h-6 w-24 rounded-full" />
+                  <Skeleton className="h-4 w-36" />
                 </td>
                 <td className="px-6 py-4">
                   <Skeleton className="h-4 w-6" />
@@ -820,16 +937,21 @@ export function AdminUsersListSkeleton({ rows = 5 }: { rows?: number }) {
       </div>
       <div className="lg:hidden divide-y divide-ns-border">
         {Array.from({ length: rows }).map((_, i) => (
-          <div
-            key={i}
-            className="flex flex-wrap items-center gap-3 px-4 py-4 sm:px-6 sm:py-5"
-          >
-            <Skeleton className="h-10 w-10 shrink-0 rounded-full" />
-            <div className="min-w-0 flex-1 space-y-2">
-              <Skeleton className="h-4 w-36" />
-              <Skeleton className="h-3 w-48" />
+          <div key={i} className="p-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="min-w-0 flex-1 space-y-2 pr-3">
+                <Skeleton className="h-4 w-36" />
+                <Skeleton className="h-3 w-48 max-w-full" />
+              </div>
+              <div className="flex shrink-0 gap-2">
+                <Skeleton className="h-8 w-8 rounded-[var(--radius-btn)]" />
+                <Skeleton className="h-8 w-8 rounded-[var(--radius-btn)]" />
+              </div>
             </div>
-            <Skeleton className="h-9 w-24 rounded-[var(--radius-btn)]" />
+            <div className="flex flex-wrap items-center gap-2">
+              <Skeleton className="h-9 w-24 rounded-[var(--radius-btn)]" />
+              <Skeleton className="h-4 w-36" />
+            </div>
           </div>
         ))}
       </div>
@@ -865,13 +987,23 @@ export function ChatPanelSkeleton({ className = "" }: { className?: string }) {
 
 export function AdminChatListSkeleton({ rows = 5 }: { rows?: number }) {
   return (
-    <div className="space-y-2" aria-busy="true">
+    <div aria-busy="true">
       {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} className="aurora-card rounded-xl px-4 py-3 flex gap-3">
-          <Skeleton className="h-10 w-10 shrink-0 rounded-full" />
-          <div className="flex-1 space-y-2">
-            <Skeleton className="h-4 w-32" />
-            <Skeleton className="h-3 w-full" />
+        <div
+          key={i}
+          className="flex w-full items-center gap-3 border-b border-ns-border/70 border-l-[3px] border-l-transparent px-5 py-3.5"
+        >
+          <div className="min-w-0 flex-1 space-y-2">
+            <Skeleton className="h-4 w-32 max-w-full" />
+            <Skeleton className="h-3 w-44 max-w-full" />
+          </div>
+          <div className="flex shrink-0 flex-col items-end gap-1">
+            <Skeleton className="h-3 w-10" />
+            {i % 3 === 0 ? (
+              <Skeleton className="h-5 w-7 rounded-full" />
+            ) : (
+              <Skeleton className="h-7 w-7 rounded-[var(--radius-btn)]" />
+            )}
           </div>
         </div>
       ))}

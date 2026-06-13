@@ -385,45 +385,53 @@ export default function ProductPage() {
         </h2>
 
         {canManageOwnReview && (
-          <div className="mb-5 ns-chip rounded-2xl p-5 sm:p-6">
-            <div className="flex items-center justify-between gap-2 mb-3">
-              <p className="text-sm font-semibold text-ns-text">Ваш отзыв</p>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setRating(ownReview.rating);
-                    setComment(ownReview.comment ?? "");
-                    setReviewMode("edit");
-                  }}
-                  className="ns-action-icon text-ns-text"
-                  aria-label="Редактировать отзыв"
-                >
-                  <Pencil size={16} strokeWidth={1.5} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setReviewDeleteId(ownReview.id)}
-                  className="ns-action-icon ns-action-icon--danger"
-                  aria-label="Удалить отзыв"
-                >
-                  <Trash2 size={16} strokeWidth={1.5} />
-                </button>
+          <div className="mb-5 ns-chip rounded-2xl p-4 sm:p-5">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-ns-text">
+                  {ownReview.user?.name ?? "Ваш отзыв"}
+                </p>
+                {ownReview.comment && (
+                  <p className="mt-2 text-sm text-ns-muted leading-relaxed break-words">
+                    {ownReview.comment}
+                  </p>
+                )}
+              </div>
+              <div className="flex shrink-0 items-center justify-between gap-2 sm:justify-end">
+                <div className="flex gap-0.5">
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <Star
+                      key={s}
+                      size={14}
+                      strokeWidth={1.5}
+                      className={ownReview.rating >= s ? "ns-star" : "text-ns-muted"}
+                    />
+                  ))}
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRating(ownReview.rating);
+                      setComment(ownReview.comment ?? "");
+                      setReviewMode("edit");
+                    }}
+                    className="ns-action-icon text-ns-text"
+                    aria-label="Редактировать отзыв"
+                  >
+                    <Pencil size={16} strokeWidth={1.5} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setReviewDeleteId(ownReview.id)}
+                    className="ns-action-icon ns-action-icon--danger"
+                    aria-label="Удалить отзыв"
+                  >
+                    <Trash2 size={16} strokeWidth={1.5} />
+                  </button>
+                </div>
               </div>
             </div>
-            <div className="flex gap-0.5 mb-3">
-              {[1, 2, 3, 4, 5].map((s) => (
-                <Star
-                  key={s}
-                  size={14}
-                  strokeWidth={1.5}
-                  className={ownReview.rating >= s ? "ns-star" : "text-ns-muted"}
-                />
-              ))}
-            </div>
-            {ownReview.comment && (
-              <p className="text-sm text-ns-muted leading-relaxed">{ownReview.comment}</p>
-            )}
           </div>
         )}
 
@@ -486,44 +494,46 @@ export default function ProductPage() {
             {visibleReviews.map((r: any) => (
               <div
                 key={r.id}
-                className="ns-chip rounded-2xl p-5 sm:p-6"
+                className="ns-chip rounded-2xl p-4 sm:p-5"
               >
-                <div className="flex items-center justify-between mb-3">
-                  <span className="font-semibold text-ns-text">
-                    {r.user.name}
-                  </span>
-                  <div className="flex gap-0.5">
-                    {[1, 2, 3, 4, 5].map((s) => (
-                      <Star
-                        key={s}
-                        size={14}
-                        strokeWidth={1.5}
-                        className={
-                          r.rating >= s
-                            ? "ns-star"
-                            : "text-ns-muted"
-                        }
-                      />
-                    ))}
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <span className="font-semibold text-ns-text">
+                      {r.user.name}
+                    </span>
+                    {r.comment && (
+                      <p className="mt-2 text-sm text-ns-muted leading-relaxed break-words">
+                        {r.comment}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex shrink-0 items-center justify-between gap-2 sm:justify-end">
+                    <div className="flex gap-0.5">
+                      {[1, 2, 3, 4, 5].map((s) => (
+                        <Star
+                          key={s}
+                          size={14}
+                          strokeWidth={1.5}
+                          className={
+                            r.rating >= s
+                              ? "ns-star"
+                              : "text-ns-muted"
+                          }
+                        />
+                      ))}
+                    </div>
+                    {(admin || (canShop && user?.id === r.userId)) && (
+                      <button
+                        type="button"
+                        onClick={() => setReviewDeleteId(r.id)}
+                        className="ns-action-icon ns-action-icon--danger"
+                        aria-label="Удалить отзыв"
+                      >
+                        <Trash2 size={16} strokeWidth={1.5} />
+                      </button>
+                    )}
                   </div>
                 </div>
-                {r.comment && (
-                  <p className="text-sm text-ns-muted leading-relaxed">
-                    {r.comment}
-                  </p>
-                )}
-                {(admin || (canShop && user?.id === r.userId)) && (
-                  <div className="mt-3 flex justify-end">
-                    <button
-                      type="button"
-                      onClick={() => setReviewDeleteId(r.id)}
-                      className="ns-action-icon ns-action-icon--danger"
-                      aria-label="Удалить отзыв"
-                    >
-                      <Trash2 size={16} strokeWidth={1.5} />
-                    </button>
-                  </div>
-                )}
               </div>
             ))}
           </div>

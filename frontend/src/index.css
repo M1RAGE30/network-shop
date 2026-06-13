@@ -10,6 +10,14 @@
   unicode-range: U+E901, U+42, U+59, U+4E;
 }
 
+@font-face {
+  font-family: "nbrb-currency";
+  src:
+    url("/fonts/nbrb-currency.woff2") format("woff2"),
+    url("/fonts/nbrb-currency.ttf") format("truetype");
+  unicode-range: U+0183;
+}
+
 .nbrb-icon {
   font-family: "nbrb" !important;
   speak: none;
@@ -30,24 +38,17 @@
   font-variant-ligatures: discretionary-ligatures;
   display: inline-block;
   flex-shrink: 0;
-  font-size: 1.12em;
+  font-size: 0.88em;
+  font-weight: 400;
   line-height: 1;
-  vertical-align: 0.06em;
+  vertical-align: -0.04em;
 }
 
 .ns-price {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.12em;
-  line-height: 1;
-}
-
-.ns-price__amount {
-  line-height: 1;
-}
-
-.ns-price .nbrb-icon {
-  transform: translateY(-0.04em);
+  display: inline;
+  font-family: "nbrb-currency", "Inter Variable", "Inter", ui-sans-serif, system-ui, sans-serif;
+  white-space: nowrap;
+  line-height: inherit;
 }
 
 .ns-price--inline {
@@ -55,18 +56,6 @@
   white-space: nowrap;
   line-height: inherit;
   vertical-align: baseline;
-}
-
-.ns-price--inline .ns-price__amount {
-  line-height: inherit;
-}
-
-.ns-price--inline .nbrb-icon {
-  margin-left: 0.1em;
-  font-size: 1.05em;
-  line-height: 1;
-  vertical-align: baseline;
-  transform: none;
 }
 
 .nbrb-icon-byn::before {
@@ -1260,6 +1249,24 @@
     word-break: break-word;
   }
 
+  .ns-chat-bubble::selection,
+  .ns-chat-bubble *::selection {
+    background: rgba(24, 24, 27, 0.22);
+    color: var(--ns-text);
+  }
+
+  .ns-chat-bubble.bg-ns-accent::selection,
+  .ns-chat-bubble.bg-ns-accent *::selection {
+    background: rgba(255, 255, 255, 0.78);
+    color: #09090b;
+  }
+
+  .dark .ns-chat-bubble.bg-ns-accent::selection,
+  .dark .ns-chat-bubble.bg-ns-accent *::selection {
+    background: rgba(24, 24, 27, 0.22);
+    color: var(--ns-text);
+  }
+
   .ns-unread-badge {
     display: inline-grid;
     min-height: 1.125rem;
@@ -1322,8 +1329,7 @@
 
   @media (min-width: 1400px) {
     .ns-product-grid {
-      grid-template-columns: repeat(3, minmax(0, 22rem));
-      justify-content: start;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 24px;
     }
   }

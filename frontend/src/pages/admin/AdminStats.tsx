@@ -97,7 +97,7 @@ export default function AdminStats() {
     count: data?.ordersByStatus?.[status] ?? 0,
   }));
 
-  const recentOrders = data?.recentOrders ?? [];
+  const recentOrders = (data?.recentOrders ?? []).slice(0, 3);
 
   if (isLoading) {
     return <AdminStatsSkeleton />;

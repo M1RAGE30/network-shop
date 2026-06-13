@@ -3,6 +3,7 @@ import {
   AdminChatsPageSkeleton,
   AdminOrdersPageSkeleton,
   AdminProductsPageSkeleton,
+  AdminShellSkeleton,
   AdminStatsSkeleton,
   AdminUsersPageSkeleton,
   AuthPageSkeleton,
@@ -90,22 +91,26 @@ export function RouteFallback() {
 
 export function AdminRouteFallback() {
   const { pathname } = useLocation();
+  const isChats = pathname.startsWith("/admin/chats");
+  const isOrders = pathname.startsWith("/admin/orders");
+  const isFullHeightView = isChats || isOrders;
+  let content;
 
-  if (pathname.startsWith("/admin/orders")) {
-    return <AdminOrdersPageSkeleton />;
+  if (isOrders) {
+    content = <AdminOrdersPageSkeleton />;
+  } else if (pathname.startsWith("/admin/products")) {
+    content = <AdminProductsPageSkeleton />;
+  } else if (pathname.startsWith("/admin/users")) {
+    content = <AdminUsersPageSkeleton />;
+  } else if (isChats) {
+    content = <AdminChatsPageSkeleton />;
+  } else {
+    content = <AdminStatsSkeleton />;
   }
 
-  if (pathname.startsWith("/admin/products")) {
-    return <AdminProductsPageSkeleton />;
-  }
-
-  if (pathname.startsWith("/admin/users")) {
-    return <AdminUsersPageSkeleton />;
-  }
-
-  if (pathname.startsWith("/admin/chats")) {
-    return <AdminChatsPageSkeleton />;
-  }
-
-  return <AdminStatsSkeleton />;
+  return (
+    <AdminShellSkeleton isChats={isChats} isFullHeightView={isFullHeightView}>
+      {content}
+    </AdminShellSkeleton>
+  );
 }

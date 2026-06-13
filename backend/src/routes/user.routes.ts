@@ -77,8 +77,34 @@ router.delete("/:id", async (req: AuthRequest<{ id: string }>, res) => {
       .status(403)
       .json({ message: "Нельзя удалить свой аккаунт в админ-панели" });
   }
+  if (!Number.isFinite(targetId)) {
+    return res.status(400).json({ message: "Invalid user id" });
+  }
   try {
-    await prisma.user.delete({ where: { id: parseInt(req.params.id) } });
+    await prisma.$transaction(async (tx) => {
+      const chatRooms = await tx.chatRoom.findMany({
+        where: { userId: targetId },
+        select: { id: true },
+      });
+      const chatRoomIds = chatRooms.map((room) => room.id);
+
+      if (chatRoomIds.length > 0) {
+        await tx.message.deleteMany({
+          where: { chatRoomId: { in: chatRoomIds } },
+        });
+      }
+
+      await tx.message.deleteMany({ where: { userId: targetId } });
+      await tx.chatRoom.deleteMany({ where: { userId: targetId } });
+      await tx.review.deleteMany({ where: { userId: targetId } });
+      await tx.favorite.deleteMany({ where: { userId: targetId } });
+      await tx.cartItem.deleteMany({ where: { userId: targetId } });
+      await tx.orderItem.deleteMany({
+        where: { order: { userId: targetId } },
+      });
+      await tx.order.deleteMany({ where: { userId: targetId } });
+      await tx.user.delete({ where: { id: targetId } });
+    });
     return res.status(204).send();
   } catch {
     return res.status(404).json({ message: "User not found" });
