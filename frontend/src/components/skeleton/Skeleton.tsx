@@ -5,6 +5,7 @@ import {
   authForm,
   authHeader,
   authPageWrap,
+  authResendSection,
 } from "../../lib/authFormStyles";
 
 type SkeletonProps = HTMLAttributes<HTMLDivElement>;
@@ -442,31 +443,127 @@ export function ProfilePageSkeleton() {
   );
 }
 
-export function AuthPageSkeleton() {
+type AuthSkeletonVariant =
+  | "login"
+  | "register"
+  | "forgot"
+  | "verify"
+  | "reset"
+  | "bridge";
+
+function AuthFieldSkeleton({
+  labelWidth = "w-20",
+  hasInlineAction = false,
+  hasIcon = false,
+}: {
+  labelWidth?: string;
+  hasInlineAction?: boolean;
+  hasIcon?: boolean;
+}) {
+  return (
+    <div>
+      {hasInlineAction ? (
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <Skeleton className={`h-4 ${labelWidth}`} />
+          <Skeleton className="h-4 w-28" />
+        </div>
+      ) : (
+        <Skeleton className={`h-4 ${labelWidth} mb-2`} />
+      )}
+      <div className="relative">
+        <Skeleton className="h-11 w-full rounded-[var(--radius-btn)]" />
+        {hasIcon && (
+          <Skeleton className="absolute right-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 rounded-full" />
+        )}
+      </div>
+    </div>
+  );
+}
+
+export function AuthPageSkeleton({
+  variant = "login",
+}: {
+  variant?: AuthSkeletonVariant;
+}) {
+  const isRegister = variant === "register";
+  const isForgot = variant === "forgot";
+  const isVerify = variant === "verify";
+  const isReset = variant === "reset";
+  const isBridge = variant === "bridge";
+
+  const titleWidth = isRegister
+    ? "w-56"
+    : isForgot
+      ? "w-64"
+      : isVerify
+        ? "w-72"
+        : isReset
+          ? "w-52"
+          : "w-48";
+  const subtitleWidth = isForgot || isVerify ? "max-w-sm" : "max-w-xs";
+
   return (
     <div className={authPageWrap} aria-busy="true">
       <div className={authCard}>
-        <div className={authHeader}>
-          <Skeleton className="h-9 w-48 mx-auto mb-3" />
-          <Skeleton className="h-4 w-full max-w-xs mx-auto" />
+        <div className={`${authHeader} ${isVerify ? "!mb-6" : ""}`.trim()}>
+          <Skeleton className={`h-9 ${titleWidth} max-w-full mx-auto mb-3`} />
+          <Skeleton className={`h-4 w-full ${subtitleWidth} mx-auto`} />
+          {isVerify && (
+            <>
+              <Skeleton className="h-4 w-48 max-w-full mx-auto mt-2" />
+              <Skeleton className="h-3 w-36 mx-auto mt-1" />
+            </>
+          )}
         </div>
-        <div className={authForm}>
-          <div>
-            <Skeleton className="h-4 w-20 mb-2" />
-            <Skeleton className="h-11 w-full rounded-[var(--radius-btn)]" />
+
+        {isBridge ? (
+          <div className="flex justify-center py-6">
+            <Skeleton className="h-8 w-8 rounded-full" />
           </div>
-          <div>
-            <div className="flex items-center justify-between gap-2 mb-2">
-              <Skeleton className="h-4 w-16" />
-              <Skeleton className="h-4 w-28" />
+        ) : isVerify ? (
+          <div className={`${authForm} !space-y-4`}>
+            <div>
+              <Skeleton className="h-4 w-24 mb-2" />
+              <Skeleton className="h-12 w-full rounded-[var(--radius-btn)]" />
             </div>
-            <Skeleton className="h-11 w-full rounded-[var(--radius-btn)]" />
+            <Skeleton className="h-12 w-full rounded-[var(--radius-btn)]" />
+            <div className={authResendSection}>
+              <Skeleton className="h-4 w-44 mx-auto" />
+            </div>
           </div>
-          <Skeleton className="h-12 w-full rounded-[var(--radius-btn)] mt-3" />
-          <p className={authFooter}>
-            <Skeleton className="h-4 w-56 mx-auto" />
-          </p>
-        </div>
+        ) : (
+          <div className={authForm}>
+            {isRegister ? (
+              <>
+                <AuthFieldSkeleton labelWidth="w-10" />
+                <AuthFieldSkeleton labelWidth="w-20" />
+                <AuthFieldSkeleton labelWidth="w-16" hasIcon />
+                <AuthFieldSkeleton labelWidth="w-40" hasIcon />
+              </>
+            ) : isForgot ? (
+              <AuthFieldSkeleton labelWidth="w-20" />
+            ) : isReset ? (
+              <>
+                <AuthFieldSkeleton labelWidth="w-28" hasIcon />
+                <AuthFieldSkeleton labelWidth="w-40" hasIcon />
+              </>
+            ) : (
+              <>
+                <AuthFieldSkeleton labelWidth="w-20" />
+                <AuthFieldSkeleton labelWidth="w-16" hasInlineAction hasIcon />
+              </>
+            )}
+            <Skeleton className="h-12 w-full rounded-[var(--radius-btn)] mt-3" />
+            <p className={authFooter}>
+              <Skeleton
+                className={[
+                  "h-4 mx-auto",
+                  isForgot || isReset ? "w-36" : isRegister ? "w-40" : "w-56",
+                ].join(" ")}
+              />
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

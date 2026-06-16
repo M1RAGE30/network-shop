@@ -304,6 +304,14 @@ export const changePassword = async (req: AuthRequest, res: Response) => {
     return res.status(400).json({ message: "Неверный текущий пароль" });
   }
 
+  const isSameAsCurrent = await bcrypt.compare(newPassword, user.password);
+  if (isSameAsCurrent) {
+    return res.status(400).json({
+      message: "Новый пароль не должен совпадать с текущим",
+      code: "PASSWORD_SAME_AS_CURRENT",
+    });
+  }
+
   const hashed = await bcrypt.hash(newPassword, 10);
   await prisma.user.update({
     where: { id: userId },

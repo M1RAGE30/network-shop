@@ -20,6 +20,18 @@ import {
   validatePasswordConfirm,
 } from "../lib/passwordValidation";
 
+function getApiErrorMessage(err: any, fallback: string) {
+  const data = err.response?.data;
+  if (typeof data?.message === "string" && data.message.trim()) {
+    return data.message;
+  }
+  const firstError = Array.isArray(data?.errors) ? data.errors[0] : null;
+  if (typeof firstError?.msg === "string" && firstError.msg.trim()) {
+    return firstError.msg;
+  }
+  return fallback;
+}
+
 export default function ProfilePage() {
   const { user, updateUser } = useAuthStore();
   const navigate = useNavigate();
@@ -108,7 +120,7 @@ export default function ProfilePage() {
     },
     onError: (err: any) => {
       setPassSaved("");
-      setPassError(err.response?.data?.message || "Не удалось изменить пароль");
+      setPassError(getApiErrorMessage(err, "Не удалось изменить пароль"));
     },
   });
 

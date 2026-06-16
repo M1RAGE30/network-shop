@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type RequestHandler } from "express";
 import { body } from "express-validator";
 import rateLimit from "express-rate-limit";
 import {
@@ -33,9 +33,12 @@ const resendLimiter = rateLimit({
   message: { message: "Слишком много запросов кода. Подождите минуту." },
 });
 
+const antiSpamMiddlewares = (...middlewares: RequestHandler[]) =>
+  process.env.AUTH_ANTISPAM_ENABLED === "true" ? middlewares : [];
+
 router.post(
   "/register",
-  authLimiter,
+  ...antiSpamMiddlewares(authLimiter),
   [
     body("email")
       .isEmail()
@@ -55,7 +58,7 @@ router.post(
 
 router.post(
   "/login",
-  authLimiter,
+  ...antiSpamMiddlewares(authLimiter),
   [
     body("email").isEmail().isLength({ max: 254 }),
     body("password").notEmpty().isLength({ max: 128 }),
@@ -65,7 +68,7 @@ router.post(
 
 router.post(
   "/verify-email",
-  authLimiter,
+  ...antiSpamMiddlewares(authLimiter),
   [
     body("email").isEmail().isLength({ max: 254 }),
     body("code")
@@ -78,12 +81,13 @@ router.post(
 
 router.post(
   "/resend-verification",
-  resendLimiter,
+  ...antiSpamMiddlewares(resendLimiter),
   [body("email").isEmail().isLength({ max: 254 })],
   resendVerification,
 );
 
-const passwordRules = body("password")
+const passwordRules = (field = "password") =>
+  body(field)
   .isLength({ min: 6, max: 128 })
   .withMessage("Пароль от 6 до 128 символов");
 
@@ -107,17 +111,16 @@ router.put(
 router.put(
   "/me/password",
   authenticate,
-  authLimiter,
   [
     body("currentPassword").notEmpty().isLength({ max: 128 }),
-    passwordRules,
+    passwordRules("newPassword"),
   ],
   changePassword,
 );
 
 router.post(
   "/forgot-password",
-  authLimiter,
+  ...antiSpamMiddlewares(authLimiter),
   [body("email").isEmail().isLength({ max: 254 })],
   forgotPassword,
 );
@@ -126,10 +129,10 @@ router.get("/reset-password/validate", validateResetToken);
 
 router.post(
   "/reset-password",
-  authLimiter,
+  ...antiSpamMiddlewares(authLimiter),
   [
     body("token").trim().isLength({ min: 32, max: 128 }),
-    passwordRules,
+    passwordRules(),
   ],
   resetPassword,
 );

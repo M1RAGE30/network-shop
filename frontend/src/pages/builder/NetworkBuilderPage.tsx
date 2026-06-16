@@ -122,8 +122,8 @@ function computeLanPortBudget(
   const baseLanPorts = lanDevices > 0 ? lanDevices + 1 : 0;
   const portHeadroom =
     spaceType === "office"
-      ? Math.max(1, Math.ceil(baseLanPorts * 0.12))
-      : Math.max(1, Math.ceil(baseLanPorts * 0.12));
+      ? Math.max(1, Math.ceil(baseLanPorts * 0.25))
+      : Math.max(1, Math.ceil(baseLanPorts * 0.2));
   return {
     lanDevices,
     baseLanPorts,
@@ -137,18 +137,20 @@ function prefersDedicatedSwitch(
   router: Product | null,
   scene: SceneState,
   numbers: { wired: number; printers: number },
+  spaceType: "office" | "home",
 ): boolean {
   if (budget.lanDevices < 1) return false;
 
   const wiredEndpoints = numbers.wired + numbers.printers;
   const apCount = scene.apMarkers.length;
 
-  if (wiredEndpoints >= 2) return true;
   if (apCount > 0) return true;
 
   if (!router) return true;
   const routerPorts = getRouterLanPortCount(router);
-  return routerPorts < 2;
+  const directRouterCapacity =
+    spaceType === "office" ? Math.min(2, routerPorts) : routerPorts;
+  return wiredEndpoints > directRouterCapacity;
 }
 
 function fallbackSwitchPlan(
@@ -452,7 +454,9 @@ function planSwitchTopology(
   spaceType: "office" | "home",
   numbers: { width: number; length: number; wired: number; printers: number },
 ): SwitchPlan | null {
-  if (!prefersDedicatedSwitch(budget, router, scene, numbers)) return null;
+  if (!prefersDedicatedSwitch(budget, router, scene, numbers, spaceType)) {
+    return null;
+  }
   if (switches.length === 0 || budget.lanDevices < 1) return null;
 
   const endpoints = collectLanEndpoints(scene);
@@ -843,7 +847,7 @@ const SWITCH_EMOJI = "\u{1F5A7}";
 
 const SCHEME_LEGEND: { mark: string; label: string }[] = [
   { mark: "R", label: "Маршрутизатор" },
-  { mark: "●", label: "Точка доступа" },
+  { mark: "AP", label: "Точка доступа" },
   { mark: SWITCH_EMOJI, label: "Коммутатор" },
   { mark: "💻", label: "Проводные ПК" },
   { mark: "📱", label: "Беспроводные устройства" },
@@ -1057,7 +1061,7 @@ function computeApMarkers(
     );
     const apx = cluster.reduce((s, p) => s + p.x, 0) / Math.max(1, cluster.length);
     const apy = cluster.reduce((s, p) => s + p.y, 0) / Math.max(1, cluster.length);
-    const avoidIcons = clients.filter((c) => c.type !== "📱");
+    const avoidIcons = clients.map((c) => ({ x: c.x, y: c.y }));
     const nudged = nudgeApAway(apx, apy, [...avoidIcons, router]);
     const q = clampToRoom(nudged.x, nudged.y, numbers.width, numbers.length);
     apMarkers.push({ x: q.x, y: q.y });
@@ -1087,10 +1091,7 @@ function computeCableConnections(
   const switchLabel = (index: number, total: number) =>
     total > 1 ? `Коммутатор ${index + 1}` : "Коммутатор";
 
-  const wiredClients = scene.clients.filter((c) => c.type !== "📱").length;
-  const lanEndpoints = wiredClients + scene.apMarkers.length;
-
-  if (scene.switchMarkers.length === 0 && lanEndpoints <= 1) {
+  if (scene.switchMarkers.length === 0) {
     let pcCount = 0;
     let peripheralCount = 0;
     scene.clients.forEach((client) => {
@@ -1290,15 +1291,9 @@ function buildSceneState(
       : 5;
   }
 
-  const needsSwitch =
-    numbers.wired + numbers.printers >= 2 || numbers.wireless > 0;
-  const switchMarkers = needsSwitch
-    ? computeSwitchMarkers(1, numbers, router, [])
-    : [];
-
   return {
     router,
-    switchMarkers,
+    switchMarkers: [],
     clients,
     apMarkers: [],
     apRadiusM,
@@ -1884,8 +1879,13 @@ export default function NetworkBuilderPage() {
         const py = ry + ap.y * pixelsPerMeter;
         ctx.fillStyle = colors.success;
         ctx.beginPath();
-        ctx.arc(px, py, 6, 0, Math.PI * 2);
+        ctx.arc(px, py, 12, 0, Math.PI * 2);
         ctx.fill();
+        ctx.fillStyle = colors.accentFg;
+        ctx.font = "bold 8px Inter, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("AP", px, py + 0.5);
       }
 
       ctx.restore();
@@ -1919,10 +1919,7 @@ export default function NetworkBuilderPage() {
           ctx.restore();
         };
 
-        const wiredOnLan = scene.clients.filter((c) => c.type !== "📱").length;
-        const lanDeviceCount = wiredOnLan + scene.apMarkers.length;
-
-        if (scene.switchMarkers.length === 0 && lanDeviceCount <= 1) {
+        if (scene.switchMarkers.length === 0) {
           scene.clients.forEach((client) => {
             if (client.type === "📱") return;
             drawCable(
@@ -2078,7 +2075,7 @@ export default function NetworkBuilderPage() {
       const px = g.rx + ap.x * g.ppm;
       const py = g.ry + ap.y * g.ppm;
       const d = Math.hypot(ex - px, ey - py);
-      if (d < 16) hits.push({ d, state: { kind: "ap", index: i, grabDx: ex - px, grabDy: ey - py } });
+      if (d < 22) hits.push({ d, state: { kind: "ap", index: i, grabDx: ex - px, grabDy: ey - py } });
     }
 
     if (hits.length === 0) return null;
@@ -2124,7 +2121,6 @@ export default function NetworkBuilderPage() {
   };
 
   const onPointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    const dragKind = dragRef.current?.kind;
     const hadDrag = dragRef.current !== null;
     const canvas = canvasRef.current;
     if (canvas && hadDrag) {
@@ -2133,9 +2129,6 @@ export default function NetworkBuilderPage() {
       } catch {}
     }
     dragRef.current = null;
-    if (hadDrag && showCalculated && dragKind !== "switch") {
-      calculateLayout();
-    }
   };
 
   const update = (key: keyof FormState, value: string) =>

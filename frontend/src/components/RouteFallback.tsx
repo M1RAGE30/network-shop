@@ -21,15 +21,6 @@ import {
   Skeleton,
 } from "./skeleton/Skeleton";
 
-const AUTH_PATHS = new Set([
-  "/login",
-  "/register",
-  "/verify-email",
-  "/forgot-password",
-  "/reset-password",
-  "/auth/admin-bridge",
-]);
-
 export function RouteFallback() {
   const { pathname } = useLocation();
 
@@ -45,8 +36,28 @@ export function RouteFallback() {
     return <ProductPageSkeleton />;
   }
 
-  if (AUTH_PATHS.has(pathname)) {
-    return <AuthPageSkeleton />;
+  if (pathname === "/login") {
+    return <AuthPageSkeleton variant="login" />;
+  }
+
+  if (pathname === "/register") {
+    return <AuthPageSkeleton variant="register" />;
+  }
+
+  if (pathname === "/verify-email") {
+    return <AuthPageSkeleton variant="verify" />;
+  }
+
+  if (pathname === "/forgot-password") {
+    return <AuthPageSkeleton variant="forgot" />;
+  }
+
+  if (pathname === "/reset-password") {
+    return <AuthPageSkeleton variant="reset" />;
+  }
+
+  if (pathname === "/auth/admin-bridge") {
+    return <AuthPageSkeleton variant="bridge" />;
   }
 
   if (pathname.startsWith("/builder/wifi")) {
