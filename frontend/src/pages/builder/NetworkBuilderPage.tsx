@@ -86,6 +86,10 @@ interface SceneState {
   routerRadiusM: number;
 }
 
+const DIRECT_ROUTER_WIRED_MAX = 3;
+const SWITCH_DEVICE_THRESHOLD = 15;
+const AP_PHONE_CLEARANCE_M = 1.5;
+
 type LegacySceneState = Omit<SceneState, "switchMarkers"> & {
   switch?: { x: number; y: number } | null;
 };
@@ -132,25 +136,36 @@ function computeLanPortBudget(
   };
 }
 
-function prefersDedicatedSwitch(
-  budget: LanPortBudget,
-  router: Product | null,
-  scene: SceneState,
+function countTotalDevices(numbers: {
+  wired: number;
+  printers: number;
+  wireless: number;
+}): number {
+  return numbers.wired + numbers.printers + numbers.wireless;
+}
+
+function countWiredLanEndpoints(
   numbers: { wired: number; printers: number },
-  spaceType: "office" | "home",
+  scene: SceneState,
+): number {
+  return numbers.wired + numbers.printers + scene.apMarkers.length;
+}
+
+function prefersDedicatedSwitch(
+  numbers: { wired: number; printers: number },
+  scene: SceneState,
 ): boolean {
-  if (budget.lanDevices < 1) return false;
+  return countWiredLanEndpoints(numbers, scene) > DIRECT_ROUTER_WIRED_MAX;
+}
 
-  const wiredEndpoints = numbers.wired + numbers.printers;
-  const apCount = scene.apMarkers.length;
-
-  if (apCount > 0) return true;
-
-  if (!router) return true;
-  const routerPorts = getRouterLanPortCount(router);
-  const directRouterCapacity =
-    spaceType === "office" ? Math.min(2, routerPorts) : routerPorts;
-  return wiredEndpoints > directRouterCapacity;
+function targetSwitchQuantity(numbers: {
+  wired: number;
+  printers: number;
+  wireless: number;
+}): number {
+  return countTotalDevices(numbers) <= SWITCH_DEVICE_THRESHOLD
+    ? 1
+    : MAX_SWITCH_UNITS;
 }
 
 function fallbackSwitchPlan(
@@ -158,6 +173,7 @@ function fallbackSwitchPlan(
   budget: LanPortBudget,
   scene: SceneState,
   spaceType: "office" | "home",
+  numbers: { wired: number; printers: number; wireless: number },
 ): SwitchPlan | null {
   if (switches.length === 0) return null;
 
@@ -165,16 +181,24 @@ function fallbackSwitchPlan(
   const pool = switchPoolForSpace(switches, spaceType, poeNeeded);
   const endpointCount = collectLanEndpoints(scene).length;
 
-  const sw = pickBalancedKit(pool, (candidate) =>
+  const sw = pickKitProduct(pool, (candidate) =>
     scoreSwitchCandidate(candidate, budget, scene, spaceType),
+    spaceType,
   );
   if (!sw) return null;
 
-  const quantity = singleSwitchFits(sw, endpointCount, poeNeeded)
-    ? 1
-    : dualSwitchFits(sw, endpointCount, poeNeeded)
-      ? 2
-      : MAX_SWITCH_UNITS;
+  const targetQty = targetSwitchQuantity(numbers);
+  let quantity = targetQty;
+  if (targetQty === 1 && !singleSwitchFits(sw, endpointCount, poeNeeded)) {
+    quantity = dualSwitchFits(sw, endpointCount, poeNeeded)
+      ? MAX_SWITCH_UNITS
+      : 1;
+  } else if (
+    targetQty === MAX_SWITCH_UNITS &&
+    !dualSwitchFits(sw, endpointCount, poeNeeded)
+  ) {
+    quantity = singleSwitchFits(sw, endpointCount, poeNeeded) ? 1 : MAX_SWITCH_UNITS;
+  }
   return { product: sw, quantity };
 }
 
@@ -414,7 +438,13 @@ function scoreSwitchTopology(
   scene: SceneState,
   endpoints: LanEndpoint[],
   spaceType: "office" | "home",
-  numbers: { width: number; length: number; wired: number; printers: number },
+  numbers: {
+    width: number;
+    length: number;
+    wired: number;
+    printers: number;
+    wireless: number;
+  },
   router: Product | null,
   avoidIcons: { x: number; y: number }[] = [],
 ): number {
@@ -439,9 +469,19 @@ function scoreSwitchTopology(
   if (router) {
     const routerSpeed = getMaxSpeedMbps(router);
     const switchSpeed = getMaxSpeedMbps(switchProduct);
-    if (switchSpeed > routerSpeed * 2.5) tech -= 5;
-    else if (switchSpeed >= routerSpeed) tech += 4;
+    if (switchSpeed < routerSpeed) tech -= 12;
+    else if (switchSpeed === routerSpeed) tech += 8;
+    else if (switchSpeed <= routerSpeed * 2) tech += 5;
+    else tech -= 4;
+    if (scene.apMarkers.length > 0) {
+      const poeNeeded = scene.apMarkers.length;
+      const poeAvail = getPoePortCount(switchProduct);
+      if (poeAvail >= poeNeeded) tech += 10;
+      else tech -= 22;
+    }
   }
+
+  if (quantity > targetSwitchQuantity(numbers)) tech -= 40;
 
   return valueScore(tech, Number(switchProduct.price) * quantity);
 }
@@ -452,9 +492,15 @@ function planSwitchTopology(
   scene: SceneState,
   budget: LanPortBudget,
   spaceType: "office" | "home",
-  numbers: { width: number; length: number; wired: number; printers: number },
+  numbers: {
+    width: number;
+    length: number;
+    wired: number;
+    printers: number;
+    wireless: number;
+  },
 ): SwitchPlan | null {
-  if (!prefersDedicatedSwitch(budget, router, scene, numbers, spaceType)) {
+  if (!prefersDedicatedSwitch(numbers, scene)) {
     return null;
   }
   if (switches.length === 0 || budget.lanDevices < 1) return null;
@@ -463,6 +509,7 @@ function planSwitchTopology(
   const poeNeeded = scene.apMarkers.length;
   const pool = switchPoolForSpace(switches, spaceType, poeNeeded);
   const avoidIcons = wiredClientPositions(scene);
+  const targetQty = targetSwitchQuantity(numbers);
 
   const considerPlan = (
     current: { product: Product; quantity: number; score: number } | null,
@@ -487,23 +534,23 @@ function planSwitchTopology(
 
   let best: { product: Product; quantity: number; score: number } | null = null;
 
-  for (const sw of pool) {
-    if (!singleSwitchFits(sw, endpoints.length, poeNeeded)) continue;
-    const planScore = scoreSwitchTopology(
-      sw,
-      1,
-      budget,
-      scene,
-      endpoints,
-      spaceType,
-      numbers,
-      router,
-      avoidIcons,
-    );
-    best = considerPlan(best, sw, 1, planScore);
-  }
-
-  if (!best) {
+  if (targetQty === 1) {
+    for (const sw of pool) {
+      if (!singleSwitchFits(sw, endpoints.length, poeNeeded)) continue;
+      const planScore = scoreSwitchTopology(
+        sw,
+        1,
+        budget,
+        scene,
+        endpoints,
+        spaceType,
+        numbers,
+        router,
+        avoidIcons,
+      );
+      best = considerPlan(best, sw, 1, planScore);
+    }
+  } else {
     for (const sw of pool) {
       if (!dualSwitchFits(sw, endpoints.length, poeNeeded)) continue;
       const planScore = scoreSwitchTopology(
@@ -522,7 +569,7 @@ function planSwitchTopology(
   }
 
   if (best) return { product: best.product, quantity: best.quantity };
-  return fallbackSwitchPlan(switches, budget, scene, spaceType);
+  return fallbackSwitchPlan(switches, budget, scene, spaceType, numbers);
 }
 
 function kMeansSwitchCentroids(
@@ -1014,20 +1061,151 @@ function findClearSwitchPosition(
   );
 }
 
-function nudgeApAway(
-  x: number,
-  y: number,
-  avoid: { x: number; y: number }[],
+function wirelessPhonePositions(
+  clients: ClientPlacement[],
+): { x: number; y: number }[] {
+  return clients
+    .filter((client) => client.type === "📱")
+    .map((client) => ({ x: client.x, y: client.y }));
+}
+
+function refineApAwayFromPhones(
+  pos: { x: number; y: number },
+  phones: { x: number; y: number }[],
+  numbers: { width: number; length: number },
 ): { x: number; y: number } {
-  let nx = x;
-  let ny = y;
-  for (let step = 0; step < 12; step++) {
-    const clash = avoid.some((p) => Math.hypot(p.x - nx, p.y - ny) < 1.35);
-    if (!clash) return { x: nx, y: ny };
-    nx += 0.85;
-    ny += step % 2 === 0 ? 0.45 : -0.35;
+  let { x, y } = pos;
+  for (let step = 0; step < 28; step++) {
+    let fx = 0;
+    let fy = 0;
+    for (const phone of phones) {
+      const dx = x - phone.x;
+      const dy = y - phone.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist >= AP_PHONE_CLEARANCE_M) continue;
+      const push = (AP_PHONE_CLEARANCE_M - dist) / Math.max(dist, 0.12);
+      fx += dx * push;
+      fy += dy * push;
+    }
+    if (fx === 0 && fy === 0) break;
+    x += fx;
+    y += fy;
+    ({ x, y } = clampToRoom(x, y, numbers.width, numbers.length));
   }
   return { x, y };
+}
+
+function scoreApCandidatePosition(
+  pos: { x: number; y: number },
+  cluster: ClientPlacement[],
+  phones: { x: number; y: number }[],
+  router: { x: number; y: number },
+  apRadiusM: number,
+  existingAps: ApMarker[],
+): number {
+  let covered = 0;
+  for (const client of cluster) {
+    if (Math.hypot(client.x - pos.x, client.y - pos.y) <= apRadiusM) {
+      covered += 1;
+    }
+  }
+  if (covered === 0) return -Infinity;
+
+  let minPhoneDist = Infinity;
+  for (const phone of phones) {
+    minPhoneDist = Math.min(
+      minPhoneDist,
+      Math.hypot(phone.x - pos.x, phone.y - pos.y),
+    );
+  }
+  if (minPhoneDist < AP_PHONE_CLEARANCE_M) return -Infinity;
+
+  let overlapPenalty = 0;
+  for (const ap of existingAps) {
+    const dist = Math.hypot(ap.x - pos.x, ap.y - pos.y);
+    if (dist < apRadiusM * 0.45) overlapPenalty += 30;
+  }
+
+  const routerDist = Math.hypot(pos.x - router.x, pos.y - router.y);
+  return (
+    covered * 14 +
+    Math.min(minPhoneDist, 3) * 4 -
+    overlapPenalty -
+    routerDist * 0.15
+  );
+}
+
+function findOptimalApPosition(
+  cluster: ClientPlacement[],
+  phones: { x: number; y: number }[],
+  router: { x: number; y: number },
+  apRadiusM: number,
+  numbers: { width: number; length: number },
+  existingAps: ApMarker[],
+): { x: number; y: number } {
+  if (cluster.length === 0) {
+    return clampToRoom(
+      numbers.width / 2,
+      numbers.length / 2,
+      numbers.width,
+      numbers.length,
+    );
+  }
+
+  const cx =
+    cluster.reduce((sum, client) => sum + client.x, 0) / cluster.length;
+  const cy =
+    cluster.reduce((sum, client) => sum + client.y, 0) / cluster.length;
+
+  const candidates: { x: number; y: number }[] = [{ x: cx, y: cy }];
+  for (const client of cluster) {
+    candidates.push({ x: client.x, y: client.y });
+  }
+  for (let ring = 0.6; ring <= apRadiusM * 0.7; ring += 0.45) {
+    for (let angle = 0; angle < 8; angle += 1) {
+      candidates.push({
+        x: cx + ring * Math.cos((angle * Math.PI) / 4),
+        y: cy + ring * Math.sin((angle * Math.PI) / 4),
+      });
+    }
+  }
+
+  let best = clampToRoom(cx, cy, numbers.width, numbers.length);
+  let bestScore = -Infinity;
+  for (const candidate of candidates) {
+    const refined = refineApAwayFromPhones(
+      clampToRoom(candidate.x, candidate.y, numbers.width, numbers.length),
+      phones,
+      numbers,
+    );
+    const score = scoreApCandidatePosition(
+      refined,
+      cluster,
+      phones,
+      router,
+      apRadiusM,
+      existingAps,
+    );
+    if (score > bestScore) {
+      bestScore = score;
+      best = refined;
+    }
+  }
+  return best;
+}
+
+function estimateMaxApCount(
+  wirelessOutsideRouter: number,
+  apRadiusM: number,
+  numbers: { width: number; length: number },
+): number {
+  if (wirelessOutsideRouter <= 0) return 0;
+  const roomArea = Math.max(1, numbers.width * numbers.length);
+  const apCoverageArea = Math.max(1, Math.PI * apRadiusM * apRadiusM);
+  const byArea = Math.ceil(roomArea / (apCoverageArea * 0.85));
+  const clientsPerAp = Math.max(6, Math.round(apCoverageArea / 20));
+  const byClients = Math.ceil(wirelessOutsideRouter / clientsPerAp);
+  return Math.min(6, Math.max(1, Math.min(byArea, byClients)));
 }
 
 function computeApMarkers(
@@ -1037,19 +1215,24 @@ function computeApMarkers(
   apRadiusM: number,
   numbers: { width: number; length: number },
 ): ApMarker[] {
+  const phones = wirelessPhonePositions(clients);
   const apMarkers: ApMarker[] = [];
   let uncovered = clients.filter(
-    (c) =>
-      c.type === "📱" && Math.hypot(c.x - router.x, c.y - router.y) > routerRadiusM,
+    (client) =>
+      client.type === "📱" &&
+      Math.hypot(client.x - router.x, client.y - router.y) > routerRadiusM,
   );
 
-  const MAX_AP = 40;
-  while (uncovered.length > 0 && apMarkers.length < MAX_AP) {
+  const maxApCount = estimateMaxApCount(uncovered.length, apRadiusM, numbers);
+  if (maxApCount === 0) return [];
+
+  while (uncovered.length > 0 && apMarkers.length < maxApCount) {
     let bestCenter = uncovered[0];
     let maxCovered = 0;
     for (const candidate of uncovered) {
       const coveredCount = uncovered.filter(
-        (p) => Math.hypot(p.x - candidate.x, p.y - candidate.y) <= apRadiusM,
+        (phone) =>
+          Math.hypot(phone.x - candidate.x, phone.y - candidate.y) <= apRadiusM,
       ).length;
       if (coveredCount > maxCovered) {
         maxCovered = coveredCount;
@@ -1057,15 +1240,22 @@ function computeApMarkers(
       }
     }
     const cluster = uncovered.filter(
-      (p) => Math.hypot(p.x - bestCenter.x, p.y - bestCenter.y) <= apRadiusM,
+      (phone) =>
+        Math.hypot(phone.x - bestCenter.x, phone.y - bestCenter.y) <= apRadiusM,
     );
-    const apx = cluster.reduce((s, p) => s + p.x, 0) / Math.max(1, cluster.length);
-    const apy = cluster.reduce((s, p) => s + p.y, 0) / Math.max(1, cluster.length);
-    const avoidIcons = clients.map((c) => ({ x: c.x, y: c.y }));
-    const nudged = nudgeApAway(apx, apy, [...avoidIcons, router]);
-    const q = clampToRoom(nudged.x, nudged.y, numbers.width, numbers.length);
-    apMarkers.push({ x: q.x, y: q.y });
-    uncovered = uncovered.filter((p) => Math.hypot(p.x - q.x, p.y - q.y) > apRadiusM);
+    const position = findOptimalApPosition(
+      cluster,
+      phones,
+      router,
+      apRadiusM,
+      numbers,
+      apMarkers,
+    );
+    apMarkers.push(position);
+    uncovered = uncovered.filter(
+      (phone) =>
+        Math.hypot(phone.x - position.x, phone.y - position.y) > apRadiusM,
+    );
   }
 
   return apMarkers;
@@ -1198,6 +1388,55 @@ function pickPatchCordForLength(products: Product[], requiredM: number): Product
   );
 }
 
+function scoreKitCompatibility(
+  router: Product | null,
+  switchProduct: Product | null,
+  ap: Product | null,
+  apCount: number,
+): number {
+  if (!router) return 0;
+  let score = 0;
+  const routerSpeed = getMaxSpeedMbps(router);
+  if (switchProduct) {
+    const switchSpeed = getMaxSpeedMbps(switchProduct);
+    if (switchSpeed < routerSpeed) score -= 18;
+    else if (switchSpeed === routerSpeed) score += 10;
+    else if (switchSpeed <= routerSpeed * 2) score += 6;
+    else score -= 4;
+    if (apCount > 0) {
+      const poeNeeded = apCount;
+      const poeAvail = getPoePortCount(switchProduct);
+      if (poeAvail >= poeNeeded) score += 12;
+      else score -= 22;
+    }
+  } else if (apCount > 0) {
+    const routerPoe = getPoePortCount(router);
+    const routerLan = getRouterLanPortCount(router);
+    if (routerPoe >= apCount) score += 10;
+    else if (apCount + 1 <= routerLan) score += 4;
+    else score -= 10;
+  }
+  if (ap && switchProduct) {
+    const apSpeed = getMaxSpeedMbps(ap);
+    const uplinkSpeed = getMaxSpeedMbps(switchProduct);
+    if (apSpeed > uplinkSpeed * 2) score -= 6;
+    else score += 4;
+  }
+  return score;
+}
+
+function pickKitProduct<T extends Product>(
+  pool: T[],
+  score: (product: T) => number,
+  spaceType: "office" | "home",
+): T | null {
+  if (pool.length === 0) return null;
+  if (spaceType === "office") {
+    return pickBest(pool, score, "prefer_performance");
+  }
+  return pickBalancedKit(pool, score, 2.5);
+}
+
 function pickBalancedKit<T extends Product>(
   pool: T[],
   score: (product: T) => number,
@@ -1255,7 +1494,7 @@ function buildSceneState(
   const totalWired = numbers.wired + numbers.printers;
   const totalClients = totalWired + numbers.wireless;
 
-  const routerProduct = pickBalancedKit(
+  const routerProduct = pickKitProduct(
     routerCandidatesForArea(routers, area),
     (r) =>
       scoreRouter(r, {
@@ -1264,6 +1503,7 @@ function buildSceneState(
         area,
         spaceType,
       }),
+    spaceType,
   );
 
   const routerRadiusM = routerProduct
@@ -1461,7 +1701,7 @@ export default function NetworkBuilderPage() {
         prev ?? buildSceneState(numbers, area, form.spaceType, routers, aps);
       const totalWired = numbers.wired + numbers.printers;
       const totalClients = totalWired + numbers.wireless;
-      const routerProduct = pickBalancedKit(
+      const routerProduct = pickKitProduct(
         routerCandidatesForArea(routers, area),
         (routerCandidate) =>
           scoreWifiConstructorRouter(
@@ -1475,6 +1715,7 @@ export default function NetworkBuilderPage() {
             numbers.width,
             numbers.length,
           ),
+        form.spaceType,
       );
       const nextRouterRadiusM = routerProduct
         ? wifiRadiusM(routerProduct, numbers.width, numbers.length)
@@ -1483,8 +1724,11 @@ export default function NetworkBuilderPage() {
         2,
         Math.ceil(numbers.wireless / Math.max(1, Math.ceil(area / 80))),
       );
-      let bestAp = pickBalancedKit(aps, (apCandidate) =>
-        scoreWifiConstructorAp(apCandidate, area, clientsPerApEst, form.spaceType),
+      let bestAp = pickKitProduct(
+        aps,
+        (apCandidate) =>
+          scoreWifiConstructorAp(apCandidate, area, clientsPerApEst, form.spaceType),
+        form.spaceType,
       );
       let nextApRadiusM = bestAp
         ? wifiRadiusM(bestAp, numbers.width, numbers.length)
@@ -1506,7 +1750,7 @@ export default function NetworkBuilderPage() {
           routerRadiusM: nextRouterRadiusM,
           apRadiusM: nextApRadiusM,
         };
-        bestAp = pickBalancedKit(
+        bestAp = pickKitProduct(
           aps,
           (apCandidate) =>
             scoreWifiConstructorAp(apCandidate, area, clientsPerApEst, form.spaceType) +
@@ -1517,6 +1761,7 @@ export default function NetworkBuilderPage() {
               numbers.width,
               numbers.length,
             ),
+          form.spaceType,
         );
         nextApRadiusM = bestAp
           ? wifiRadiusM(bestAp, numbers.width, numbers.length)
@@ -1579,7 +1824,7 @@ export default function NetworkBuilderPage() {
     const totalWired = numbers.wired + numbers.printers;
     const totalClients = totalWired + numbers.wireless;
 
-    const router = pickBalancedKit(
+    const router = pickKitProduct(
       routerCandidatesForArea(routers, area),
       (routerCandidate) =>
         scoreWifiConstructorRouter(
@@ -1594,6 +1839,7 @@ export default function NetworkBuilderPage() {
           numbers.width,
           numbers.length,
         ),
+      form.spaceType,
     );
 
     const routerRadiusM = router
@@ -1630,7 +1876,7 @@ export default function NetworkBuilderPage() {
 
     if (numbers.wireless > 0 && aps.length > 0) {
       const clientsPerApEst = Math.max(2, Math.ceil(numbers.wireless / 3));
-      const bestAp = pickBalancedKit(
+      const bestAp = pickKitProduct(
         aps,
         (apCandidate) =>
           scoreWifiConstructorAp(apCandidate, area, clientsPerApEst, form.spaceType) +
@@ -1640,7 +1886,14 @@ export default function NetworkBuilderPage() {
             routerRadiusM,
             numbers.width,
             numbers.length,
+          ) +
+          scoreKitCompatibility(
+            router,
+            switchPlan?.product ?? null,
+            apCandidate,
+            apsCount,
           ),
+        form.spaceType,
       );
       if (bestAp && apsCount > 0) {
         items.push({
@@ -1652,8 +1905,10 @@ export default function NetworkBuilderPage() {
     }
 
     if (form.spaceType === "office" && numbers.wireless >= 4) {
-      const adapter = pickBalancedKit(adapters, (adapterCandidate) =>
-        scoreAdapter(adapterCandidate, "office"),
+      const adapter = pickKitProduct(
+        adapters,
+        (adapterCandidate) => scoreAdapter(adapterCandidate, "office"),
+        "office",
       );
       if (adapter) {
         const adapterQty = Math.max(1, Math.floor(numbers.wireless / 4));

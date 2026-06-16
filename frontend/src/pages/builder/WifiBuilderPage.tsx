@@ -40,6 +40,29 @@ interface PlacedPoint {
 const CANVAS_W = 720;
 const CANVAS_H = 480;
 
+function prepareWifiCanvas(
+  canvas: HTMLCanvasElement,
+  ctx: CanvasRenderingContext2D,
+): boolean {
+  const cssWidth = canvas.clientWidth;
+  const cssHeight = canvas.clientHeight;
+  if (cssWidth < 8 || cssHeight < 8) return false;
+
+  const dpr = window.devicePixelRatio || 1;
+  const bufferWidth = Math.round(cssWidth * dpr);
+  const bufferHeight = Math.round(cssHeight * dpr);
+  if (canvas.width !== bufferWidth || canvas.height !== bufferHeight) {
+    canvas.width = bufferWidth;
+    canvas.height = bufferHeight;
+  }
+
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.scale((cssWidth * dpr) / CANVAS_W, (cssHeight * dpr) / CANVAS_H);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  return true;
+}
+
 const ZONE_BOUNDARY_RATIOS = [0.3, 0.55, 0.8, 1] as const;
 
 const WIFI_STORAGE_KEY = "wifi-builder-state-v1";
@@ -179,9 +202,7 @@ export default function WifiBuilderPage() {
       if (!canvas) return;
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
-
-      canvas.width = CANVAS_W;
-      canvas.height = CANVAS_H;
+      if (!prepareWifiCanvas(canvas, ctx)) return;
 
       const colors = themeCanvasColors(dark);
       ctx.fillStyle = colors.fill;
@@ -205,14 +226,16 @@ export default function WifiBuilderPage() {
         ctx.strokeRect(20, 20, CANVAS_W - 40, CANVAS_H - 40);
         if (points.length === 0) {
           ctx.fillStyle = colors.label;
-          ctx.font = "13px Inter, sans-serif";
+          ctx.font = "600 14px Inter, system-ui, sans-serif";
           ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
           ctx.fillText(
             "Загрузите план или разместите маршрутизаторы",
             CANVAS_W / 2,
             CANVAS_H / 2,
           );
           ctx.textAlign = "start";
+          ctx.textBaseline = "alphabetic";
         }
       }
 
@@ -330,9 +353,19 @@ export default function WifiBuilderPage() {
     };
     schedule();
 
+    const canvas = canvasRef.current;
+    const resizeObserver =
+      canvas && typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(schedule)
+        : null;
+    if (canvas && resizeObserver) {
+      resizeObserver.observe(canvas);
+    }
+
     return () => {
       cancelled = true;
       cancelAnimationFrame(raf);
+      resizeObserver?.disconnect();
     };
   }, [points, planImage, dark, deferredTargetArea, routers]);
 

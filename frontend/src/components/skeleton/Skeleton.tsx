@@ -284,12 +284,12 @@ export function HomePageSkeleton() {
           {Array.from({ length: 3 }).map((_, i) => (
             <div
               key={i}
-              className="ns-card flex flex-col ns-card-padding min-h-0 sm:min-h-[220px] lg:min-h-[240px]"
+              className="ns-card flex h-full flex-col ns-card-padding"
             >
               <Skeleton className="h-11 w-11 rounded-xl mb-4" />
               <Skeleton className="h-5 w-36 mb-2" />
               <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-11/12 mt-1 flex-1" />
+              <Skeleton className="h-4 w-11/12 mt-1" />
             </div>
           ))}
         </div>

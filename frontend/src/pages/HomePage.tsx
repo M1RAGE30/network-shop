@@ -63,13 +63,13 @@ export default function HomePage() {
           {WHY.map(({ icon: Icon, title, desc }) => (
             <article
               key={title}
-              className="ns-card flex flex-col ns-card-padding min-h-0 sm:min-h-[220px] lg:min-h-[240px]"
+              className="ns-card flex h-full flex-col ns-card-padding"
             >
               <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-ns-hover text-ns-icon">
                 <Icon size={22} strokeWidth={1.5} />
               </div>
               <h3 className="ns-heading-card mb-2">{title}</h3>
-              <p className="ns-body-secondary flex-1">{desc}</p>
+              <p className="ns-body-secondary">{desc}</p>
             </article>
           ))}
         </div>
