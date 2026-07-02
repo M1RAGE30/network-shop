@@ -28,7 +28,7 @@ interface FieldErrors {
 const validators = {
   name: (v: string) =>
     !v.trim()
-      ? "Имя обязательно"
+      ? "Имя пользователя обязательно"
       : v.trim().length < 2
         ? "Минимум 2 символа"
         : "",
@@ -62,7 +62,6 @@ export default function RegisterPage() {
   const [showPass, setShowPass] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [serverError, setServerError] = useState("");
-  const [nameTakenError, setNameTakenError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const errors: FieldErrors = {
@@ -79,7 +78,6 @@ export default function RegisterPage() {
   const handleChange = (f: keyof typeof form, v: string) => {
     setForm((p) => ({ ...p, [f]: v }));
     setServerError("");
-    if (f === "name") setNameTakenError("");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -103,15 +101,7 @@ export default function RegisterPage() {
         { replace: true, state: { codeSent: true } },
       );
     } catch (err: any) {
-      const msg = err.response?.data?.message || "Ошибка регистрации";
-      if (msg === "Данное имя уже занято") {
-        setNameTakenError(msg);
-        setServerError("");
-        setTouched((p) => ({ ...p, name: true }));
-      } else {
-        setNameTakenError("");
-        setServerError(msg);
-      }
+      setServerError(err.response?.data?.message || "Ошибка регистрации");
     } finally {
       setLoading(false);
     }
@@ -127,19 +117,17 @@ export default function RegisterPage() {
         <form onSubmit={handleSubmit} className={authForm} noValidate>
           {serverError && <div className={authErrorBox}>{serverError}</div>}
           <div>
-            <label className={authLabel}>Имя</label>
+            <label className={authLabel}>Имя пользователя</label>
             <input
               type="text"
-              className={authInputCls(
-                !!(touched.name && errors.name) || !!nameTakenError,
-              )}
+              className={authInputCls(!!touched.name && !!errors.name)}
               value={form.name}
               onChange={(e) => handleChange("name", e.target.value)}
               onBlur={() => touch("name")}
-              placeholder="Иван Иванов"
+              placeholder="username"
             />
-            {((touched.name && errors.name) || nameTakenError) && (
-              <p className={authFieldError}>{errors.name || nameTakenError}</p>
+            {touched.name && errors.name && (
+              <p className={authFieldError}>{errors.name}</p>
             )}
           </div>
           <div>

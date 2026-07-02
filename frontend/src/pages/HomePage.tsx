@@ -1,26 +1,29 @@
-import { Truck, Shield, Headphones } from "lucide-react";
+import { LayoutGrid, Network, MessageSquare } from "lucide-react";
 import NetworkHeroVisual from "../components/NetworkHeroVisual";
 import { ButtonLink } from "../components/ui/Button";
+import { useAuthStore } from "../store/authStore";
 
 const WHY = [
   {
-    icon: Truck,
-    title: "Быстрая доставка",
-    desc: "Отправка в день заказа по Беларуси. Отслеживание статуса в личном кабинете.",
+    icon: LayoutGrid,
+    title: "Технический каталог",
+    desc: "Роутеры, коммутаторы и точки доступа. Фильтры по бренду, цене и характеристикам.",
   },
   {
-    icon: Shield,
-    title: "Гарантия качества",
-    desc: "Оригинальное оборудование с официальной гарантией и проверкой перед отгрузкой.",
+    icon: Network,
+    title: "Конструкторы сети",
+    desc: "Схема LAN и подбор комплекта. Зоны Wi‑Fi на плане помещения.",
   },
   {
-    icon: Headphones,
-    title: "Поддержка 24/7",
-    desc: "Инженеры помогут с подбором, монтажом и настройкой сети в любое время.",
+    icon: MessageSquare,
+    title: "Чат поддержки",
+    desc: "Переписка с администратором магазина в реальном времени.",
   },
 ];
 
 export default function HomePage() {
+  const { user } = useAuthStore();
+
   return (
     <div className="relative ns-reduce-motion">
       <section className="ns-container ns-hero-section ns-home-hero pb-10 sm:pb-16 md:pb-20 lg:pb-24">
@@ -36,17 +39,19 @@ export default function HomePage() {
               <ButtonLink
                 to="/catalog"
                 variant="primary"
-                className="w-full min-[420px]:w-auto px-8 justify-center"
+                className="w-full min-[420px]:w-auto"
               >
                 Каталог
               </ButtonLink>
-              <ButtonLink
-                to="/builder/network"
-                variant="secondary"
-                className="w-full min-[420px]:w-auto px-8 justify-center"
-              >
-                Конструктор сети
-              </ButtonLink>
+              {user && (
+                <ButtonLink
+                  to="/builder/network"
+                  variant="secondary"
+                  className="w-full min-[420px]:w-auto"
+                >
+                  Конструктор сети
+                </ButtonLink>
+              )}
             </div>
           </div>
           <div className="ns-hero-visual ns-home-hero__visual">

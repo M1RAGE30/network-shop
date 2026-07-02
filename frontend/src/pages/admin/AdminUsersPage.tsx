@@ -128,7 +128,7 @@ export default function AdminUsersPage() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className={labelCls}>Имя</label>
+              <label className={labelCls}>Имя пользователя</label>
               <input
                 className={inputCls}
                 value={editForm.name}

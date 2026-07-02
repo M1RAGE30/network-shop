@@ -152,8 +152,12 @@ export const bulkAddToCart = async (req: AuthRequest, res: Response) => {
   const validIds = new Set(existingProducts.map((p) => p.id));
 
   const merged = new Map<number, number>();
+  let skipped = 0;
   for (const item of items) {
-    if (!validIds.has(item.productId)) continue;
+    if (!validIds.has(item.productId)) {
+      skipped += 1;
+      continue;
+    }
     merged.set(
       item.productId,
       (merged.get(item.productId) ?? 0) + item.quantity,
@@ -172,12 +176,15 @@ export const bulkAddToCart = async (req: AuthRequest, res: Response) => {
       quantity,
       "increment",
     );
-    if ("error" in capped) continue;
+    if ("error" in capped) {
+      skipped += 1;
+      continue;
+    }
     cappedItems.push({ productId, quantity: capped.quantity });
   }
 
   if (cappedItems.length === 0) {
-    return res.status(409).json({ message: "Товары отсутствует на складе" });
+    return res.status(409).json({ message: "Товары отсутствуют на складе" });
   }
 
   await prisma.$transaction(
@@ -195,5 +202,5 @@ export const bulkAddToCart = async (req: AuthRequest, res: Response) => {
     include: { product: { include: { brand: true } } },
   });
 
-  return res.json({ added: cappedItems.length, items: cart });
+  return res.json({ added: cappedItems.length, skipped, items: cart });
 };

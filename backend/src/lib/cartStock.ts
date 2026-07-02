@@ -1,6 +1,6 @@
 import prisma from "./prisma";
 
-export async function getProductStock(productId: number) {
+async function getProductStock(productId: number) {
   const product = await prisma.product.findUnique({
     where: { id: productId },
     select: { stock: true },

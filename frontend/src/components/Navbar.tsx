@@ -200,21 +200,23 @@ export default function Navbar() {
             <Link to="/catalog" className={navLinkClass(isActive("/catalog"))}>
               Каталог
             </Link>
-            <div className="relative flex items-center" ref={builderRef}>
-              <button
-                type="button"
-                onClick={() => setBuilderOpen((v) => !v)}
-                className={`inline-flex items-center gap-1 ${navLinkClass(isActive("/builder"))}`}
-              >
-                <span>Конструкторы</span>
-                <ChevronDown
-                  size={16}
-                  strokeWidth={1.5}
-                  className={`shrink-0 transition-transform duration-200 ${builderOpen ? "rotate-180" : ""}`}
-                />
-              </button>
-              {builderOpen && builderDropdown}
-            </div>
+            {user && (
+              <div className="relative flex items-center" ref={builderRef}>
+                <button
+                  type="button"
+                  onClick={() => setBuilderOpen((v) => !v)}
+                  className={`inline-flex items-center gap-1 ${navLinkClass(isActive("/builder"))}`}
+                >
+                  <span>Конструкторы</span>
+                  <ChevronDown
+                    size={16}
+                    strokeWidth={1.5}
+                    className={`shrink-0 transition-transform duration-200 ${builderOpen ? "rotate-180" : ""}`}
+                  />
+                </button>
+                {builderOpen && builderDropdown}
+              </div>
+            )}
           </nav>
 
           <div className="flex items-center gap-6 shrink-0">
@@ -335,6 +337,7 @@ export default function Navbar() {
             </>
           )}
           {!admin &&
+            user &&
             iconLink(
               "/chat",
               "Поддержка",
@@ -396,17 +399,17 @@ export default function Navbar() {
               {!phoneLayout && (
                 <>
                   {menuLink("/catalog", "Каталог", LayoutGrid)}
-                  {menuLink("/builder/network", "Конструктор сети", Network)}
-                  {menuLink("/builder/wifi", "Конструктор Wi‑Fi", Wifi)}
                   {user && (
                     <>
+                      {menuLink("/builder/network", "Конструктор сети", Network)}
+                      {menuLink("/builder/wifi", "Конструктор Wi‑Fi", Wifi)}
                       {menuLink("/favorites", "Избранное", Heart, admin)}
                       {menuLink("/cart", "Корзина", ShoppingCart, admin)}
                       {menuLink("/orders", "Заказы", ShoppingBag, admin)}
                     </>
                   )}
                   {user && menuLink("/profile", "Профиль", User)}
-                  {!admin &&
+                  {user && !admin &&
                     menuLink(
                       "/chat",
                       "Поддержка",

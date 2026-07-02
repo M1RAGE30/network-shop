@@ -269,8 +269,8 @@ export function HomePageSkeleton() {
             <Skeleton className="h-4 w-full max-w-2xl" />
             <Skeleton className="h-4 w-4/5 max-w-xl hidden sm:block" />
             <div className="ns-home-hero__actions pt-1 sm:pt-2 lg:pt-4">
-              <Skeleton className="h-[var(--ns-height-btn)] w-full min-[420px]:w-36 rounded-[var(--radius-btn)]" />
-              <Skeleton className="h-[var(--ns-height-btn)] w-full min-[420px]:w-44 rounded-[var(--radius-btn)]" />
+              <Skeleton className="h-12 w-full min-[420px]:h-[3.25rem] min-[420px]:w-48 lg:h-14 lg:w-52 rounded-[var(--radius-btn)]" />
+              <Skeleton className="hidden min-[420px]:block h-[3.25rem] w-56 lg:h-14 lg:w-60 rounded-[var(--radius-btn)]" />
             </div>
           </div>
           <div className="ns-hero-visual ns-home-hero__visual">
@@ -900,18 +900,6 @@ export function AdminStatsSkeleton() {
         </div>
       </div>
     </div>
-  );
-}
-
-export function AdminTableRowSkeleton({ cols = 5 }: { cols?: number }) {
-  return (
-    <tr>
-      {Array.from({ length: cols }).map((_, i) => (
-        <td key={i} className="px-6 py-4">
-          <Skeleton className={`h-4 ${i === 0 ? "w-40" : "w-16 ml-auto"}`} />
-        </td>
-      ))}
-    </tr>
   );
 }
 

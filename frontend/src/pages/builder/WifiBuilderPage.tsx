@@ -18,7 +18,10 @@ import {
   pickBest,
   scoreWifiConstructorRouter,
   wifiCoverageRadiusM,
-  wifiHeatmapRadiusPx,
+  wifiCoverageRadiusPx,
+  wifiSignalZoneBoundariesM,
+  formatCoverageMeters,
+  WIFI_SIGNAL_ZONE_BOUNDARIES,
 } from "../../lib/networkSelector";
 import { themeCanvasColors } from "../../lib/themeColors";
 import { inputCls } from "../../lib/uiClasses";
@@ -63,7 +66,78 @@ function prepareWifiCanvas(
   return true;
 }
 
-const ZONE_BOUNDARY_RATIOS = [0.3, 0.55, 0.8, 1] as const;
+const ZONE_GRADIENT_STOPS: { stop: number; color: string }[] = [
+  { stop: 0, color: "52, 199, 89" },
+  { stop: WIFI_SIGNAL_ZONE_BOUNDARIES[0], color: "52, 199, 89" },
+  { stop: WIFI_SIGNAL_ZONE_BOUNDARIES[0] + 0.02, color: "255, 214, 10" },
+  { stop: WIFI_SIGNAL_ZONE_BOUNDARIES[1], color: "255, 214, 10" },
+  { stop: WIFI_SIGNAL_ZONE_BOUNDARIES[1] + 0.02, color: "255, 159, 10" },
+  { stop: WIFI_SIGNAL_ZONE_BOUNDARIES[2], color: "255, 159, 10" },
+  { stop: WIFI_SIGNAL_ZONE_BOUNDARIES[2] + 0.02, color: "255, 69, 58" },
+  { stop: 1, color: "255, 69, 58" },
+];
+
+function coverageLabelSign(px: number): number {
+  const margin = 32;
+  const spaceRight = CANVAS_W - margin - px;
+  const spaceLeft = px - margin;
+  return spaceRight >= spaceLeft ? 1 : -1;
+}
+
+function drawCoverageRadiusLabels(
+  ctx: CanvasRenderingContext2D,
+  px: number,
+  py: number,
+  radiusPx: number,
+  radiusM: number,
+  dark: boolean,
+) {
+  const labelSign = coverageLabelSign(px);
+  const labelFont = 12;
+  ctx.font = `700 ${labelFont}px Inter, system-ui, sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  ctx.beginPath();
+  ctx.moveTo(px, py);
+  ctx.lineTo(px + labelSign * radiusPx, py);
+  ctx.strokeStyle = dark
+    ? "rgba(250, 250, 250, 0.45)"
+    : "rgba(9, 9, 11, 0.35)";
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([3, 4]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  wifiSignalZoneBoundariesM(radiusM).forEach((meters, index) => {
+    const ratio = WIFI_SIGNAL_ZONE_BOUNDARIES[index] ?? 1;
+    const dist = radiusPx * ratio;
+    const lx = clamp(px + labelSign * dist, 32, CANVAS_W - 32);
+    const ly = clamp(py, 18, CANVAS_H - 18);
+    const label = formatCoverageMeters(meters);
+    const tw = ctx.measureText(label).width;
+    const padX = 6;
+    const padY = 4;
+    const boxW = tw + padX * 2;
+    const boxH = labelFont + padY * 2;
+    ctx.fillStyle = dark ? "rgba(9, 9, 11, 0.92)" : "rgba(255, 255, 255, 0.96)";
+    ctx.strokeStyle = dark
+      ? "rgba(250, 250, 250, 0.35)"
+      : "rgba(9, 9, 11, 0.2)";
+    ctx.lineWidth = 1;
+    const bx = lx - boxW / 2;
+    const by = ly - boxH / 2;
+    ctx.beginPath();
+    ctx.roundRect(bx, by, boxW, boxH, 4);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = dark ? "#fafafa" : "#09090b";
+    ctx.fillText(label, lx, ly);
+  });
+
+  ctx.textAlign = "start";
+  ctx.textBaseline = "alphabetic";
+}
 
 const WIFI_STORAGE_KEY = "wifi-builder-state-v1";
 
@@ -220,23 +294,21 @@ export default function WifiBuilderPage() {
         ctx.globalAlpha = 0.85;
         ctx.drawImage(planImage, x, y, w, h);
         ctx.globalAlpha = 1;
-      } else {
+      } else if (points.length === 0) {
         ctx.strokeStyle = colors.wall;
         ctx.lineWidth = 2;
         ctx.strokeRect(20, 20, CANVAS_W - 40, CANVAS_H - 40);
-        if (points.length === 0) {
-          ctx.fillStyle = colors.label;
-          ctx.font = "600 14px Inter, system-ui, sans-serif";
-          ctx.textAlign = "center";
-          ctx.textBaseline = "middle";
-          ctx.fillText(
-            "Загрузите план или разместите маршрутизаторы",
-            CANVAS_W / 2,
-            CANVAS_H / 2,
-          );
-          ctx.textAlign = "start";
-          ctx.textBaseline = "alphabetic";
-        }
+        ctx.fillStyle = colors.label;
+        ctx.font = "600 14px Inter, system-ui, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(
+          "Загрузите план или разместите маршрутизаторы",
+          CANVAS_W / 2,
+          CANVAS_H / 2,
+        );
+        ctx.textAlign = "start";
+        ctx.textBaseline = "alphabetic";
       }
 
       if (points.length > 0) {
@@ -244,10 +316,11 @@ export default function WifiBuilderPage() {
           .map((p) => {
             const product = routers.find((d) => d.id === p.productId);
             if (!product) return null;
-            const range = wifiHeatmapRadiusPx(
+            const range = wifiCoverageRadiusPx(
               product,
-              true,
               deferredTargetArea,
+              CANVAS_W,
+              CANVAS_H,
             );
             return { x: p.x, y: p.y, invRange: 1 / Math.max(1, range) };
           })
@@ -262,7 +335,12 @@ export default function WifiBuilderPage() {
         points.forEach((p, idx) => {
           const product = routers.find((d) => d.id === p.productId);
           const radiusPx = product
-            ? wifiHeatmapRadiusPx(product, true, deferredTargetArea)
+            ? wifiCoverageRadiusPx(
+                product,
+                deferredTargetArea,
+                CANVAS_W,
+                CANVAS_H,
+              )
             : 0;
           const radiusM = product ? wifiCoverageRadiusM(product) : 0;
           const px = p.x;
@@ -279,52 +357,7 @@ export default function WifiBuilderPage() {
             ctx.stroke();
             ctx.setLineDash([]);
 
-            const labelFont = 12;
-            ctx.font = `700 ${labelFont}px Inter, system-ui, sans-serif`;
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
-
-            ctx.beginPath();
-            ctx.moveTo(px, py);
-            ctx.lineTo(px + radiusPx, py);
-            ctx.strokeStyle = dark
-              ? "rgba(250, 250, 250, 0.45)"
-              : "rgba(9, 9, 11, 0.35)";
-            ctx.lineWidth = 1.5;
-            ctx.setLineDash([3, 4]);
-            ctx.stroke();
-            ctx.setLineDash([]);
-
-            ZONE_BOUNDARY_RATIOS.forEach((ratio) => {
-              const meters = Math.max(1, Math.round(radiusM * ratio));
-              const dist = radiusPx * ratio;
-              const lx = clamp(px + dist, 32, CANVAS_W - 32);
-              const ly = clamp(py, 18, CANVAS_H - 18);
-              const label = `${meters} м`;
-              const tw = ctx.measureText(label).width;
-              const padX = 6;
-              const padY = 4;
-              const boxW = tw + padX * 2;
-              const boxH = labelFont + padY * 2;
-              ctx.fillStyle = dark
-                ? "rgba(9, 9, 11, 0.92)"
-                : "rgba(255, 255, 255, 0.96)";
-              ctx.strokeStyle = dark
-                ? "rgba(250, 250, 250, 0.35)"
-                : "rgba(9, 9, 11, 0.2)";
-              ctx.lineWidth = 1;
-              const bx = lx - boxW / 2;
-              const by = ly - boxH / 2;
-              ctx.beginPath();
-              ctx.roundRect(bx, by, boxW, boxH, 4);
-              ctx.fill();
-              ctx.stroke();
-              ctx.fillStyle = dark ? "#fafafa" : "#09090b";
-              ctx.fillText(label, lx, ly);
-            });
-
-            ctx.textAlign = "start";
-            ctx.textBaseline = "alphabetic";
+            drawCoverageRadiusLabels(ctx, px, py, radiusPx, radiusM, dark);
           }
 
           ctx.beginPath();
@@ -431,8 +464,12 @@ export default function WifiBuilderPage() {
           quantity: i.quantity,
         })),
       }),
-    onSuccess: () => {
+    onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ["cart"] });
+      const skipped = Number(res.data?.skipped ?? 0);
+      if (skipped > 0) {
+        setError(`Добавлено не всё: ${skipped} поз. нет на складе`);
+      }
       navigate("/cart");
     },
     onError: (err: { response?: { data?: { message?: string } } }) => {
@@ -709,14 +746,10 @@ function drawSmoothHeatmap(
   for (const src of sources) {
     const r = 1 / src.invRange;
     const grad = ctx.createRadialGradient(src.x, src.y, 0, src.x, src.y, r);
-    grad.addColorStop(0, `rgba(52, 199, 89, ${a})`);
-    grad.addColorStop(0.3, `rgba(52, 199, 89, ${a})`);
-    grad.addColorStop(0.32, `rgba(255, 214, 10, ${a})`);
-    grad.addColorStop(0.55, `rgba(255, 214, 10, ${a})`);
-    grad.addColorStop(0.56, `rgba(255, 159, 10, ${a})`);
-    grad.addColorStop(0.8, `rgba(255, 159, 10, ${a})`);
-    grad.addColorStop(0.82, `rgba(255, 69, 58, ${a})`);
-    grad.addColorStop(1, `rgba(255, 69, 58, ${aWeak})`);
+    ZONE_GRADIENT_STOPS.forEach(({ stop, color }, index) => {
+      const alpha = index === ZONE_GRADIENT_STOPS.length - 1 ? aWeak : a;
+      grad.addColorStop(stop, `rgba(${color}, ${alpha})`);
+    });
     ctx.fillStyle = grad;
     ctx.beginPath();
     ctx.arc(src.x, src.y, r, 0, Math.PI * 2);

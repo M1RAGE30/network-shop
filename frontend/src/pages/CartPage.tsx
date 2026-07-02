@@ -5,6 +5,7 @@ import api from "../lib/api";
 import { Price } from "../components/Price";
 import MediaImage from "../components/MediaImage";
 import { CartPageSkeleton } from "../components/skeleton/Skeleton";
+import { useToastStore } from "../store/toastStore";
 
 export default function CartPage() {
   const navigate = useNavigate();
@@ -24,11 +25,27 @@ export default function CartPage() {
       quantity: number;
     }) => api.put(`/cart/${productId}`, { quantity }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["cart"] }),
+    onError: (err: { response?: { data?: { message?: string } } }) => {
+      useToastStore
+        .getState()
+        .show(
+          err.response?.data?.message ?? "Не удалось изменить количество",
+          "error",
+        );
+    },
   });
 
   const removeMutation = useMutation({
     mutationFn: (productId: number) => api.delete(`/cart/${productId}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["cart"] }),
+    onError: (err: { response?: { data?: { message?: string } } }) => {
+      useToastStore
+        .getState()
+        .show(
+          err.response?.data?.message ?? "Не удалось удалить товар",
+          "error",
+        );
+    },
   });
 
   const total = items.reduce(

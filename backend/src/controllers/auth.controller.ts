@@ -44,12 +44,6 @@ export const register = async (req: Request, res: Response) => {
   if (existing)
     return res.status(409).json({ message: "Email уже используется" });
 
-  const existingByName = await prisma.user.findFirst({
-    where: { name: trimmedName },
-  });
-  if (existingByName)
-    return res.status(409).json({ message: "Данное имя уже занято" });
-
   const hashed = await bcrypt.hash(password, 10);
 
   const user = await prisma.user.create({
@@ -257,12 +251,14 @@ export const updateMe = async (req: AuthRequest, res: Response) => {
     avatarUrl?: string | null;
   };
 
-  if (!name?.trim()) return res.status(400).json({ message: "Имя обязательно" });
+  if (!name?.trim()) return res.status(400).json({ message: "Имя пользователя обязательно" });
+
+  const trimmedName = name.trim();
 
   const user = await prisma.user.update({
     where: { id: userId },
     data: {
-      name: name.trim(),
+      name: trimmedName,
       phone: phone?.trim() || null,
       address: address?.trim() || null,
       avatarUrl: avatarUrl?.trim() || null,

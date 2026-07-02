@@ -180,7 +180,7 @@ export default function ProfilePage() {
     setSaved("");
     setError("");
     if (!name.trim()) {
-      setError("Имя обязательно");
+      setError("Имя пользователя обязательно");
       return;
     }
     saveProfile.mutate();
@@ -261,7 +261,7 @@ export default function ProfilePage() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className={authLabel}>Имя</label>
+            <label className={authLabel}>Имя пользователя</label>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}

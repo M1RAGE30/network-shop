@@ -103,22 +103,48 @@ export default function App() {
             </Suspense>
           }
         />
-        <Route
-          path="builder/network"
-          element={
-            <Suspense fallback={<PageLoader />}>
-              <NetworkBuilderPage />
-            </Suspense>
-          }
-        />
-        <Route
-          path="builder/wifi"
-          element={
-            <Suspense fallback={<PageLoader />}>
-              <WifiBuilderPage />
-            </Suspense>
-          }
-        />
+        <Route element={<ProtectedRoute />}>
+          <Route
+            path="builder/network"
+            element={
+              <Suspense fallback={<PageLoader />}>
+                <NetworkBuilderPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="builder/wifi"
+            element={
+              <Suspense fallback={<PageLoader />}>
+                <WifiBuilderPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="profile"
+            element={
+              <Suspense fallback={<PageLoader />}>
+                <ProfilePage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="chat"
+            element={
+              <Suspense fallback={<PageLoader />}>
+                <ChatPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="chat/:token"
+            element={
+              <Suspense fallback={<PageLoader />}>
+                <ChatPage />
+              </Suspense>
+            }
+          />
+        </Route>
         <Route element={<ProtectedRoute customerOnly />}>
           <Route
             path="favorites"
@@ -149,32 +175,6 @@ export default function App() {
             element={
               <Suspense fallback={<PageLoader />}>
                 <CheckoutPage />
-              </Suspense>
-            }
-          />
-        </Route>
-        <Route element={<ProtectedRoute />}>
-          <Route
-            path="profile"
-            element={
-              <Suspense fallback={<PageLoader />}>
-                <ProfilePage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="chat"
-            element={
-              <Suspense fallback={<PageLoader />}>
-                <ChatPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="chat/:token"
-            element={
-              <Suspense fallback={<PageLoader />}>
-                <ChatPage />
               </Suspense>
             }
           />

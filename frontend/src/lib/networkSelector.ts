@@ -7,11 +7,6 @@ export interface ProductSelectorInput {
   specs?: Specs;
 }
 
-export interface SelectionScore {
-  product: ProductSelectorInput;
-  score: number;
-}
-
 function normalized(text: string): string {
   return text.toLowerCase().replace(",", ".");
 }
@@ -369,26 +364,6 @@ export function performanceRank(product: ProductSelectorInput): number {
   );
 }
 
-export function officePerformanceRank(product: ProductSelectorInput): number {
-  const text = allSpecText(product);
-  const switchTier = isManagedSwitch(product)
-    ? 24
-    : isSmartSwitch(product)
-      ? 12
-      : isUnmanagedSwitch(product)
-        ? -16
-        : 0;
-  const apBonus = /точка доступа|access point|\beap[\d-]/i.test(text) ? 16 : 0;
-  return (
-    performanceRank(product) +
-    switchTier +
-    apBonus +
-    scoreOfficeRouterFeatures(product) +
-    scoreOfficeApFeatures(product) +
-    scoreOfficeSwitchFeatures(product)
-  );
-}
-
 export function pickBest<T extends ProductSelectorInput>(
   products: T[],
   scorer: (p: T) => number,
@@ -426,35 +401,56 @@ export function pickBest<T extends ProductSelectorInput>(
   return best;
 }
 
-export function getEstimatedRangePx(
-  product: ProductSelectorInput,
-  fallback: number,
-): number {
-  const coverage = getCoverageM2(product);
-  const wifiGen = getWifiGeneration(product);
-  const bands = getBandCount(product);
-  const radiusFromArea = Math.sqrt(coverage / Math.PI) * 11.5;
-  const techBonus = wifiGen * 4 + bands * 6;
-  return Math.max(90, Math.min(320, fallback + radiusFromArea + techBonus));
+export const WIFI_SIGNAL_ZONE_BOUNDARIES = [0.3, 0.55, 0.8, 1] as const;
+
+export function wifiRoomSideM(targetAreaM2: number): number {
+  return Math.sqrt(Math.max(10, Math.min(1500, targetAreaM2)));
 }
 
-const WIFI_REF_AREA_M2 = 120;
+export function wifiCanvasMetersPerPx(
+  targetAreaM2: number,
+  canvasWidth: number,
+  canvasHeight: number,
+  padding = 40,
+): number {
+  const sideM = wifiRoomSideM(targetAreaM2);
+  const drawablePx = Math.min(canvasWidth - padding, canvasHeight - padding);
+  return sideM / Math.max(1, drawablePx);
+}
 
 export function wifiCoverageRadiusM(product: ProductSelectorInput): number {
   const m2 = getCoverageM2(product);
-  return Math.max(2, Math.round(Math.sqrt(m2 / Math.PI)));
+  return Math.round(Math.sqrt(m2 / Math.PI) * 10) / 10;
 }
 
-export function wifiHeatmapRadiusPx(
+export function wifiSignalZoneBoundariesM(radiusM: number): number[] {
+  if (radiusM <= 0) return [];
+  return WIFI_SIGNAL_ZONE_BOUNDARIES.map(
+    (ratio) => Math.round(radiusM * ratio * 10) / 10,
+  );
+}
+
+export function formatCoverageMeters(meters: number): string {
+  const rounded = Math.round(meters * 10) / 10;
+  const text = Number.isInteger(rounded)
+    ? String(rounded)
+    : rounded.toFixed(1).replace(".", ",");
+  return `${text} м`;
+}
+
+export function wifiCoverageRadiusPx(
   product: ProductSelectorInput,
-  isRouter: boolean,
   targetAreaM2: number,
+  canvasWidth = 720,
+  canvasHeight = 480,
 ): number {
-  const fallback = isRouter ? 220 : 160;
-  const base = getEstimatedRangePx(product, fallback);
-  const area = Math.max(10, Math.min(1500, targetAreaM2));
-  const scale = Math.sqrt(WIFI_REF_AREA_M2 / area);
-  return Math.max(48, Math.min(400, base * scale));
+  const radiusM = wifiCoverageRadiusM(product);
+  const metersPerPx = wifiCanvasMetersPerPx(
+    targetAreaM2,
+    canvasWidth,
+    canvasHeight,
+  );
+  return radiusM / metersPerPx;
 }
 
 function wifiRightSizeScore(

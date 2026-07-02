@@ -15,7 +15,11 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401) clearAuthSession();
+    const url = String(err.config?.url ?? "");
+    const isAuthRequest = /\/auth\/(login|register|forgot|reset|verify|resend)/.test(
+      url,
+    );
+    if (err.response?.status === 401 && !isAuthRequest) clearAuthSession();
     return Promise.reject(err);
   },
 );

@@ -345,7 +345,7 @@ export default function CatalogPage() {
         ))}
       <div>
         <label className={labelCls}>
-          Цена, <BYNSymbol />
+          Цена, <BYNSymbol className="nbrb-icon--filter-label" />
         </label>
         <div className="flex gap-2">
           <input

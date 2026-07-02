@@ -51,7 +51,7 @@ router.post(
       .trim()
       .notEmpty()
       .isLength({ max: 100 })
-      .withMessage("Имя обязательно"),
+      .withMessage("Имя пользователя обязательно"),
   ],
   register,
 );
@@ -100,7 +100,7 @@ router.put(
       .trim()
       .notEmpty()
       .isLength({ max: 100 })
-      .withMessage("Имя обязательно"),
+      .withMessage("Имя пользователя обязательно"),
     body("phone").optional({ values: "null" }).isLength({ max: 30 }),
     body("address").optional({ values: "null" }).isLength({ max: 255 }),
     body("avatarUrl").optional({ values: "null" }).isLength({ max: 500 }),

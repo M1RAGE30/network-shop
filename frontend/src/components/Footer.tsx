@@ -26,7 +26,7 @@ export default function Footer() {
   return (
     <footer className="ns-site-footer hidden md:block">
       <div className="ns-container ns-site-footer__inner">
-        <div className="ns-footer-grid">
+        <div className={`ns-footer-grid${user ? " ns-footer-grid--auth" : ""}`}>
           <div>
             <h3 className="text-sm font-semibold text-ns-text mb-4">Магазин</h3>
             <ul className="space-y-3">
@@ -65,25 +65,27 @@ export default function Footer() {
               <li>{footerLink("/cart", "Корзина", admin)}</li>
             </ul>
           </div>
-          <div>
-            <h3 className="text-sm font-semibold text-ns-text mb-4">Конструкторы</h3>
-            <ul className="space-y-3">
-              <li>
-                <Link to="/builder/network" className={linkClass}>
-                  Конструктор сети
-                </Link>
-              </li>
-              <li>
-                <Link to="/builder/wifi" className={linkClass}>
-                  Конструктор Wi‑Fi
-                </Link>
-              </li>
-            </ul>
-          </div>
+          {user && (
+            <div>
+              <h3 className="text-sm font-semibold text-ns-text mb-4">Конструкторы</h3>
+              <ul className="space-y-3">
+                <li>
+                  <Link to="/builder/network" className={linkClass}>
+                    Конструктор сети
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/builder/wifi" className={linkClass}>
+                    Конструктор Wi‑Fi
+                  </Link>
+                </li>
+              </ul>
+            </div>
+          )}
           <div>
             <h3 className="text-sm font-semibold text-ns-text mb-4">Поддержка</h3>
             <ul className="space-y-3">
-              {!admin && (
+              {user && !admin && (
                 <li>
                   <Link to="/chat" className={linkClass}>
                     Чат поддержки

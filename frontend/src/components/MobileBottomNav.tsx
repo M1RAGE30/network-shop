@@ -19,12 +19,14 @@ const items = [
     key: "builders",
     icon: Wrench,
     label: "Конструкторы",
+    authOnly: true,
     match: (p: string) => p.startsWith("/builder"),
   },
   {
     to: "/cart",
     icon: ShoppingCart,
     label: "Корзина",
+    authOnly: true,
     customerOnly: true,
     match: (p: string) => p.startsWith("/cart"),
   },
@@ -46,9 +48,11 @@ export default function MobileBottomNav() {
   const [buildersVisible, setBuildersVisible] = useState(false);
   const buildersRef = useRef<HTMLDivElement>(null);
 
-  const navItems = items.map((item) =>
-    "to" in item && item.to === "/profile" && !user ? { ...item, to: "/login" } : item,
-  );
+  const navItems = items
+    .filter((item) => !("authOnly" in item && item.authOnly) || !!user)
+    .map((item) =>
+      "to" in item && item.to === "/profile" && !user ? { ...item, to: "/login" } : item,
+    );
 
   useEffect(() => {
     setBuildersOpen(false);

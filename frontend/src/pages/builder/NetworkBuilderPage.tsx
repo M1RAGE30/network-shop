@@ -10,7 +10,6 @@ import MediaImage from "../../components/MediaImage";
 import {
   pickBest,
   scoreAdapter,
-  scoreRouter,
   scoreSwitch,
   scoreWifiConstructorAp,
   scoreWifiConstructorRouter,
@@ -88,7 +87,7 @@ interface SceneState {
 
 const DIRECT_ROUTER_WIRED_MAX = 3;
 const SWITCH_DEVICE_THRESHOLD = 15;
-const AP_PHONE_CLEARANCE_M = 1.5;
+const AP_PHONE_CLEARANCE_M = 0.5;
 
 type LegacySceneState = Omit<SceneState, "switchMarkers"> & {
   switch?: { x: number; y: number } | null;
@@ -763,15 +762,22 @@ function computeSwitchMarkers(
   return markers;
 }
 
-interface SavedModeState {
+interface SavedBuilderState {
+  form: FormState;
+  layoutKey: string;
+  scene: SceneState | null;
+  showCalculated: boolean;
+}
+
+interface LegacySavedModeState {
   sceneKey: string;
   scene: SceneState;
   showCalculated: boolean;
 }
 
-interface SavedBuilderState {
+interface LegacySavedBuilderState {
   form: FormState;
-  modes: Partial<Record<FormState["spaceType"], SavedModeState>>;
+  modes: Partial<Record<FormState["spaceType"], LegacySavedModeState>>;
 }
 
 const DEFAULT_FORM: FormState = {
@@ -783,12 +789,64 @@ const DEFAULT_FORM: FormState = {
   spaceType: "office",
 };
 
-const STORAGE_KEY = "network-builder-state-v2";
+const STORAGE_KEY = "network-builder-state-v3";
+const LEGACY_STORAGE_KEY = "network-builder-state-v2";
+
+function layoutKeyFromNumbers(numbers: {
+  width: number;
+  length: number;
+  wired: number;
+  wireless: number;
+  printers: number;
+}): string {
+  return `${numbers.width}x${numbers.length}x${numbers.wired}x${numbers.wireless}x${numbers.printers}`;
+}
+
+function layoutKeyFromLegacySceneKey(sceneKey: string): string {
+  return sceneKey.replace(/x(?:office|home)$/, "");
+}
+
+function migrateLegacySavedBuilder(
+  legacy: LegacySavedBuilderState,
+): SavedBuilderState | null {
+  const office = legacy.modes?.office;
+  const home = legacy.modes?.home;
+  const picked = office?.scene ? office : home;
+  if (!picked?.scene) {
+    return {
+      form: legacy.form ?? DEFAULT_FORM,
+      layoutKey: "",
+      scene: null,
+      showCalculated: false,
+    };
+  }
+
+  return {
+    form: legacy.form ?? DEFAULT_FORM,
+    layoutKey: layoutKeyFromLegacySceneKey(picked.sceneKey),
+    scene: normalizeScene(picked.scene),
+    showCalculated: Boolean(office?.showCalculated || home?.showCalculated),
+  };
+}
 
 function readSavedBuilder(): SavedBuilderState | null {
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as SavedBuilderState) : null;
+    const rawV3 = window.localStorage.getItem(STORAGE_KEY);
+    if (rawV3) {
+      return JSON.parse(rawV3) as SavedBuilderState;
+    }
+
+    const rawV2 = window.localStorage.getItem(LEGACY_STORAGE_KEY);
+    if (!rawV2) return null;
+
+    const migrated = migrateLegacySavedBuilder(
+      JSON.parse(rawV2) as LegacySavedBuilderState,
+    );
+    if (migrated) {
+      writeSavedBuilder(migrated);
+      window.localStorage.removeItem(LEGACY_STORAGE_KEY);
+    }
+    return migrated;
   } catch {
     return null;
   }
@@ -1061,35 +1119,27 @@ function findClearSwitchPosition(
   );
 }
 
-function wirelessPhonePositions(
-  clients: ClientPlacement[],
-): { x: number; y: number }[] {
-  return clients
-    .filter((client) => client.type === "📱")
-    .map((client) => ({ x: client.x, y: client.y }));
-}
-
 function refineApAwayFromPhones(
   pos: { x: number; y: number },
-  phones: { x: number; y: number }[],
+  clusterPhones: { x: number; y: number }[],
   numbers: { width: number; length: number },
 ): { x: number; y: number } {
   let { x, y } = pos;
-  for (let step = 0; step < 28; step++) {
+  for (let step = 0; step < 10; step++) {
     let fx = 0;
     let fy = 0;
-    for (const phone of phones) {
+    for (const phone of clusterPhones) {
       const dx = x - phone.x;
       const dy = y - phone.y;
       const dist = Math.hypot(dx, dy);
       if (dist >= AP_PHONE_CLEARANCE_M) continue;
-      const push = (AP_PHONE_CLEARANCE_M - dist) / Math.max(dist, 0.12);
+      const push = (AP_PHONE_CLEARANCE_M - dist) / Math.max(dist, 0.08);
       fx += dx * push;
       fy += dy * push;
     }
     if (fx === 0 && fy === 0) break;
-    x += fx;
-    y += fy;
+    x += fx * 0.85;
+    y += fy * 0.85;
     ({ x, y } = clampToRoom(x, y, numbers.width, numbers.length));
   }
   return { x, y };
@@ -1098,27 +1148,23 @@ function refineApAwayFromPhones(
 function scoreApCandidatePosition(
   pos: { x: number; y: number },
   cluster: ClientPlacement[],
-  phones: { x: number; y: number }[],
   router: { x: number; y: number },
   apRadiusM: number,
   existingAps: ApMarker[],
 ): number {
   let covered = 0;
+  let avgClusterDist = 0;
+  let minClusterDist = Infinity;
   for (const client of cluster) {
-    if (Math.hypot(client.x - pos.x, client.y - pos.y) <= apRadiusM) {
-      covered += 1;
-    }
+    const dist = Math.hypot(client.x - pos.x, client.y - pos.y);
+    avgClusterDist += dist;
+    minClusterDist = Math.min(minClusterDist, dist);
+    if (dist <= apRadiusM) covered += 1;
   }
   if (covered === 0) return -Infinity;
+  avgClusterDist /= cluster.length;
 
-  let minPhoneDist = Infinity;
-  for (const phone of phones) {
-    minPhoneDist = Math.min(
-      minPhoneDist,
-      Math.hypot(phone.x - pos.x, phone.y - pos.y),
-    );
-  }
-  if (minPhoneDist < AP_PHONE_CLEARANCE_M) return -Infinity;
+  if (minClusterDist < AP_PHONE_CLEARANCE_M * 0.65) return -Infinity;
 
   let overlapPenalty = 0;
   for (const ap of existingAps) {
@@ -1127,17 +1173,19 @@ function scoreApCandidatePosition(
   }
 
   const routerDist = Math.hypot(pos.x - router.x, pos.y - router.y);
+  const proximityBonus = Math.max(0, 3.2 - avgClusterDist) * 14;
+  const nearBonus = Math.max(0, 1.4 - minClusterDist) * 8;
   return (
-    covered * 14 +
-    Math.min(minPhoneDist, 3) * 4 -
+    covered * 12 +
+    proximityBonus +
+    nearBonus -
     overlapPenalty -
-    routerDist * 0.15
+    routerDist * 0.06
   );
 }
 
 function findOptimalApPosition(
   cluster: ClientPlacement[],
-  phones: { x: number; y: number }[],
   router: { x: number; y: number },
   apRadiusM: number,
   numbers: { width: number; length: number },
@@ -1157,16 +1205,33 @@ function findOptimalApPosition(
   const cy =
     cluster.reduce((sum, client) => sum + client.y, 0) / cluster.length;
 
+  const clusterPhones = cluster.map((client) => ({
+    x: client.x,
+    y: client.y,
+  }));
+
   const candidates: { x: number; y: number }[] = [{ x: cx, y: cy }];
   for (const client of cluster) {
     candidates.push({ x: client.x, y: client.y });
   }
-  for (let ring = 0.6; ring <= apRadiusM * 0.7; ring += 0.45) {
-    for (let angle = 0; angle < 8; angle += 1) {
+  for (let ring = 0.25; ring <= Math.min(apRadiusM * 0.35, 2.5); ring += 0.25) {
+    for (let angle = 0; angle < 12; angle += 1) {
+      const rad = (angle * Math.PI) / 6;
       candidates.push({
-        x: cx + ring * Math.cos((angle * Math.PI) / 4),
-        y: cy + ring * Math.sin((angle * Math.PI) / 4),
+        x: cx + ring * Math.cos(rad),
+        y: cy + ring * Math.sin(rad),
       });
+    }
+  }
+  for (const client of cluster) {
+    for (let ring = 0.35; ring <= 1.2; ring += 0.35) {
+      for (let angle = 0; angle < 8; angle += 1) {
+        const rad = (angle * Math.PI) / 4;
+        candidates.push({
+          x: client.x + ring * Math.cos(rad),
+          y: client.y + ring * Math.sin(rad),
+        });
+      }
     }
   }
 
@@ -1175,13 +1240,12 @@ function findOptimalApPosition(
   for (const candidate of candidates) {
     const refined = refineApAwayFromPhones(
       clampToRoom(candidate.x, candidate.y, numbers.width, numbers.length),
-      phones,
+      clusterPhones,
       numbers,
     );
     const score = scoreApCandidatePosition(
       refined,
       cluster,
-      phones,
       router,
       apRadiusM,
       existingAps,
@@ -1215,7 +1279,6 @@ function computeApMarkers(
   apRadiusM: number,
   numbers: { width: number; length: number },
 ): ApMarker[] {
-  const phones = wirelessPhonePositions(clients);
   const apMarkers: ApMarker[] = [];
   let uncovered = clients.filter(
     (client) =>
@@ -1245,7 +1308,6 @@ function computeApMarkers(
     );
     const position = findOptimalApPosition(
       cluster,
-      phones,
       router,
       apRadiusM,
       numbers,
@@ -1259,6 +1321,13 @@ function computeApMarkers(
   }
 
   return apMarkers;
+}
+
+function estimateClientsPerAp(wireless: number, areaM2: number): number {
+  return Math.max(
+    2,
+    Math.ceil(wireless / Math.max(1, Math.ceil(areaM2 / 80))),
+  );
 }
 
 function getPatchCordLengthM(product: Product): number | null {
@@ -1303,10 +1372,6 @@ function computeCableConnections(
         lengthM: lengthWithSlack(scene.router, ap),
       });
     });
-    return connections;
-  }
-
-  if (scene.switchMarkers.length === 0) {
     return connections;
   }
 
@@ -1485,30 +1550,8 @@ function buildSceneState(
     wireless: number;
     printers: number;
   },
-  area: number,
-  spaceType: "office" | "home",
-  routers: Product[],
-  aps: Product[],
 ): SceneState {
   const clients = buildInitialClientPlacements(numbers);
-  const totalWired = numbers.wired + numbers.printers;
-  const totalClients = totalWired + numbers.wireless;
-
-  const routerProduct = pickKitProduct(
-    routerCandidatesForArea(routers, area),
-    (r) =>
-      scoreRouter(r, {
-        totalClients,
-        wiredClients: totalWired,
-        area,
-        spaceType,
-      }),
-    spaceType,
-  );
-
-  const routerRadiusM = routerProduct
-    ? wifiRadiusM(routerProduct, numbers.width, numbers.length)
-    : 7;
 
   const router = clampToRoom(
     numbers.width * 0.28,
@@ -1517,27 +1560,283 @@ function buildSceneState(
     numbers.length,
   );
 
-  let apRadiusM = 5;
-
-  if (numbers.wireless > 0 && aps.length > 0) {
-    const clientsPerApEst = Math.max(2, Math.ceil(numbers.wireless / 3));
-    const bestAp = pickBest(
-      aps,
-      (apCandidate) =>
-        scoreWifiConstructorAp(apCandidate, area, clientsPerApEst, spaceType),
-    ) as Product | null;
-    apRadiusM = bestAp
-      ? wifiRadiusM(bestAp, numbers.width, numbers.length)
-      : 5;
-  }
-
   return {
     router,
     switchMarkers: [],
     clients,
     apMarkers: [],
-    apRadiusM,
-    routerRadiusM,
+    apRadiusM: 5,
+    routerRadiusM: 7,
+  };
+}
+
+type DragKind = "router" | "switch" | "client" | "ap";
+
+interface DragState {
+  kind: DragKind;
+  index: number;
+  grabDx: number;
+  grabDy: number;
+}
+
+function applySceneDrag(
+  scene: SceneState,
+  kind: DragKind,
+  index: number,
+  position: { x: number; y: number },
+): SceneState {
+  if (kind === "router") {
+    return { ...scene, router: position };
+  }
+  if (kind === "switch" && index >= 0 && index < scene.switchMarkers.length) {
+    const switchMarkers = [...scene.switchMarkers];
+    switchMarkers[index] = position;
+    return { ...scene, switchMarkers };
+  }
+  if (kind === "client" && index >= 0 && index < scene.clients.length) {
+    const clients = [...scene.clients];
+    clients[index] = { ...clients[index], x: position.x, y: position.y };
+    return { ...scene, clients };
+  }
+  if (kind === "ap" && index >= 0 && index < scene.apMarkers.length) {
+    const apMarkers = [...scene.apMarkers];
+    apMarkers[index] = { x: position.x, y: position.y };
+    return { ...scene, apMarkers };
+  }
+  return scene;
+}
+
+function recomputeApMarkersOnly(
+  base: SceneState,
+  numbers: {
+    width: number;
+    length: number;
+    wired: number;
+    wireless: number;
+    printers: number;
+  },
+  area: number,
+  spaceType: "office" | "home",
+  routers: Product[],
+  aps: Product[],
+): SceneState {
+  if (numbers.wireless <= 0 || aps.length === 0) {
+    return { ...base, apMarkers: [] };
+  }
+
+  const totalWired = numbers.wired + numbers.printers;
+  const totalClients = totalWired + numbers.wireless;
+  const routerProduct = pickKitProduct(
+    routerCandidatesForArea(routers, area),
+    (routerCandidate) =>
+      scoreWifiConstructorRouter(
+        routerCandidate,
+        area,
+        totalClients,
+        spaceType,
+      ) +
+      scoreRouterLayoutFit(
+        routerCandidate,
+        base,
+        numbers.width,
+        numbers.length,
+      ),
+    spaceType,
+  );
+  const nextRouterRadiusM = routerProduct
+    ? wifiRadiusM(routerProduct, numbers.width, numbers.length)
+    : base.routerRadiusM;
+  const clientsPerApEst = estimateClientsPerAp(numbers.wireless, area);
+  let bestAp = pickKitProduct(
+    aps,
+    (apCandidate) =>
+      scoreWifiConstructorAp(apCandidate, area, clientsPerApEst, spaceType),
+    spaceType,
+  );
+  let nextApRadiusM = bestAp
+    ? wifiRadiusM(bestAp, numbers.width, numbers.length)
+    : base.apRadiusM;
+  let apMarkers = computeApMarkers(
+    base.clients,
+    base.router,
+    nextRouterRadiusM,
+    nextApRadiusM,
+    numbers,
+  );
+  if (apMarkers.length > 0) {
+    const sceneDraft: SceneState = {
+      ...base,
+      apMarkers,
+      routerRadiusM: nextRouterRadiusM,
+      apRadiusM: nextApRadiusM,
+    };
+    bestAp = pickKitProduct(
+      aps,
+      (apCandidate) =>
+        scoreWifiConstructorAp(apCandidate, area, clientsPerApEst, spaceType) +
+        scoreApLayoutFit(
+          apCandidate,
+          sceneDraft,
+          nextRouterRadiusM,
+          numbers.width,
+          numbers.length,
+        ),
+      spaceType,
+    );
+    nextApRadiusM = bestAp
+      ? wifiRadiusM(bestAp, numbers.width, numbers.length)
+      : nextApRadiusM;
+    apMarkers = computeApMarkers(
+      base.clients,
+      base.router,
+      nextRouterRadiusM,
+      nextApRadiusM,
+      numbers,
+    );
+  }
+  return {
+    ...base,
+    apMarkers,
+    apRadiusM: nextApRadiusM,
+    routerRadiusM: nextRouterRadiusM,
+  };
+}
+
+function refreshSceneRadiiOnly(
+  base: SceneState,
+  numbers: {
+    width: number;
+    length: number;
+    wired: number;
+    wireless: number;
+    printers: number;
+  },
+  area: number,
+  spaceType: "office" | "home",
+  routers: Product[],
+  aps: Product[],
+): SceneState {
+  const totalWired = numbers.wired + numbers.printers;
+  const totalClients = totalWired + numbers.wireless;
+  const routerProduct = pickKitProduct(
+    routerCandidatesForArea(routers, area),
+    (routerCandidate) =>
+      scoreWifiConstructorRouter(
+        routerCandidate,
+        area,
+        totalClients,
+        spaceType,
+      ) +
+      scoreRouterLayoutFit(
+        routerCandidate,
+        base,
+        numbers.width,
+        numbers.length,
+      ),
+    spaceType,
+  );
+  const nextRouterRadiusM = routerProduct
+    ? wifiRadiusM(routerProduct, numbers.width, numbers.length)
+    : base.routerRadiusM;
+
+  let nextApRadiusM = base.apRadiusM;
+  if (numbers.wireless > 0 && aps.length > 0) {
+    const clientsPerApEst = estimateClientsPerAp(numbers.wireless, area);
+    const bestAp = pickKitProduct(
+      aps,
+      (apCandidate) =>
+        scoreWifiConstructorAp(apCandidate, area, clientsPerApEst, spaceType) +
+        (base.apMarkers.length > 0
+          ? scoreApLayoutFit(
+              apCandidate,
+              base,
+              nextRouterRadiusM,
+              numbers.width,
+              numbers.length,
+            )
+          : 0),
+      spaceType,
+    );
+    if (bestAp) {
+      nextApRadiusM = wifiRadiusM(bestAp, numbers.width, numbers.length);
+    }
+  }
+
+  return {
+    ...base,
+    routerRadiusM: nextRouterRadiusM,
+    apRadiusM: nextApRadiusM,
+  };
+}
+
+function recomputeNetworkLayout(
+  base: SceneState,
+  numbers: {
+    width: number;
+    length: number;
+    wired: number;
+    wireless: number;
+    printers: number;
+  },
+  area: number,
+  spaceType: "office" | "home",
+  routers: Product[],
+  aps: Product[],
+  switches: Product[],
+): SceneState {
+  const withAps = recomputeApMarkersOnly(
+    base,
+    numbers,
+    area,
+    spaceType,
+    routers,
+    aps,
+  );
+  const sceneDraft: SceneState = withAps;
+  const totalWired = numbers.wired + numbers.printers;
+  const totalClients = totalWired + numbers.wireless;
+  const routerProduct = pickKitProduct(
+    routerCandidatesForArea(routers, area),
+    (routerCandidate) =>
+      scoreWifiConstructorRouter(
+        routerCandidate,
+        area,
+        totalClients,
+        spaceType,
+      ) +
+      scoreRouterLayoutFit(
+        routerCandidate,
+        base,
+        numbers.width,
+        numbers.length,
+      ),
+    spaceType,
+  );
+  const budget = computeLanPortBudget(sceneDraft, numbers, spaceType);
+  const switchPlan = planSwitchTopology(
+    switches,
+    routerProduct,
+    sceneDraft,
+    budget,
+    spaceType,
+    numbers,
+  );
+  const endpoints = collectLanEndpoints(sceneDraft);
+  const switchMarkers = switchPlan
+    ? base.switchMarkers.length === switchPlan.quantity
+      ? base.switchMarkers
+      : computeSwitchMarkers(
+          switchPlan.quantity,
+          numbers,
+          sceneDraft.router,
+          endpoints,
+          switchPlan.product,
+          wiredClientPositions(sceneDraft),
+        )
+    : [];
+  return {
+    ...sceneDraft,
+    switchMarkers,
   };
 }
 
@@ -1573,15 +1872,6 @@ function getRoomGeometry(
   return { rx, ry, roomW, roomH, ppm: roomW / numbers.width };
 }
 
-type DragKind = "router" | "switch" | "client" | "ap";
-
-interface DragState {
-  kind: DragKind;
-  index: number;
-  grabDx: number;
-  grabDy: number;
-}
-
 export default function NetworkBuilderPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -1589,6 +1879,7 @@ export default function NetworkBuilderPage() {
   const dark = useThemeStore((s) => s.dark);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const dragRef = useRef<DragState | null>(null);
+  const showCalculatedRef = useRef(false);
   const initialSavedRef = useRef<SavedBuilderState | null>(readSavedBuilder());
 
   const [form, setForm] = useState<FormState>(
@@ -1597,14 +1888,12 @@ export default function NetworkBuilderPage() {
 
   const [scene, setScene] = useState<SceneState | null>(() => {
     const saved = initialSavedRef.current;
-    const mode = saved?.form?.spaceType ?? DEFAULT_FORM.spaceType;
-    return normalizeScene(saved?.modes?.[mode]?.scene ?? null);
+    return normalizeScene(saved?.scene ?? null);
   });
-  const [showCalculated, setShowCalculated] = useState(() => {
-    const saved = initialSavedRef.current;
-    const mode = saved?.form?.spaceType ?? DEFAULT_FORM.spaceType;
-    return saved?.modes?.[mode]?.showCalculated ?? false;
-  });
+  const [showCalculated, setShowCalculated] = useState(
+    () => initialSavedRef.current?.showCalculated ?? false,
+  );
+  showCalculatedRef.current = showCalculated;
 
   const { data: routers = [] } = useQuery({
     queryKey: ["builder-routers"],
@@ -1644,169 +1933,77 @@ export default function NetworkBuilderPage() {
 
   const area = numbers.width * numbers.length;
 
-  const sceneKey = useMemo(
-    () =>
-      `${numbers.width}x${numbers.length}x${numbers.wired}x${numbers.wireless}x${numbers.printers}x${form.spaceType}`,
-    [
-      numbers.width,
-      numbers.length,
-      numbers.wired,
-      numbers.wireless,
-      numbers.printers,
-      form.spaceType,
-    ],
-  );
+  const layoutKey = useMemo(() => layoutKeyFromNumbers(numbers), [numbers]);
 
   useEffect(() => {
-    const saved = readSavedBuilder()?.modes?.[form.spaceType];
-    if (saved?.sceneKey === sceneKey) {
-      setScene(saved.scene);
-      setShowCalculated(saved.showCalculated);
-      return;
+    const saved = readSavedBuilder();
+    let next: SceneState | null;
+    let calculated = false;
+    if (saved?.layoutKey === layoutKey && saved.scene) {
+      next = normalizeScene(saved.scene);
+      calculated = saved.showCalculated;
+    } else {
+      next = buildSceneState(numbers);
+      calculated = false;
     }
-    setScene(buildSceneState(numbers, area, form.spaceType, routers, aps));
-    setShowCalculated(false);
-  }, [sceneKey, area, form.spaceType, routers, aps]);
+    if (next && routers.length > 0) {
+      next = refreshSceneRadiiOnly(
+        next,
+        numbers,
+        area,
+        form.spaceType,
+        routers,
+        aps,
+      );
+    }
+    setScene(next);
+    setShowCalculated(calculated);
+  }, [layoutKey, numbers, area, form.spaceType, routers, aps]);
 
   useEffect(() => {
     if (!scene) return;
-    const saved = readSavedBuilder() ?? { form, modes: {} };
     writeSavedBuilder({
       form,
-      modes: {
-        ...saved.modes,
-        [form.spaceType]: {
-          sceneKey,
-          scene,
-          showCalculated,
-        },
-      },
+      layoutKey,
+      scene,
+      showCalculated,
     });
-  }, [form, scene, sceneKey, showCalculated]);
+  }, [form, scene, layoutKey, showCalculated]);
 
   const resetLayout = useCallback(() => {
-    const saved = readSavedBuilder();
-    if (saved) {
-      const modes = { ...saved.modes };
-      delete modes[form.spaceType];
-      writeSavedBuilder({ form, modes });
+    writeSavedBuilder({
+      form,
+      layoutKey: "",
+      scene: null,
+      showCalculated: false,
+    });
+    let next = buildSceneState(numbers);
+    if (routers.length > 0) {
+      next = refreshSceneRadiiOnly(
+        next,
+        numbers,
+        area,
+        form.spaceType,
+        routers,
+        aps,
+      );
     }
-    setScene(buildSceneState(numbers, area, form.spaceType, routers, aps));
+    setScene(next);
     setShowCalculated(false);
-  }, [numbers, area, form.spaceType, routers, aps]);
+  }, [form, numbers, area, form.spaceType, routers, aps]);
 
   const calculateLayout = useCallback(() => {
-    setScene((prev) => {
-      const base =
-        prev ?? buildSceneState(numbers, area, form.spaceType, routers, aps);
-      const totalWired = numbers.wired + numbers.printers;
-      const totalClients = totalWired + numbers.wireless;
-      const routerProduct = pickKitProduct(
-        routerCandidatesForArea(routers, area),
-        (routerCandidate) =>
-          scoreWifiConstructorRouter(
-            routerCandidate,
-            area,
-            totalClients,
-            form.spaceType,
-          ) + scoreRouterLayoutFit(
-            routerCandidate,
-            base,
-            numbers.width,
-            numbers.length,
-          ),
-        form.spaceType,
-      );
-      const nextRouterRadiusM = routerProduct
-        ? wifiRadiusM(routerProduct, numbers.width, numbers.length)
-        : base.routerRadiusM;
-      const clientsPerApEst = Math.max(
-        2,
-        Math.ceil(numbers.wireless / Math.max(1, Math.ceil(area / 80))),
-      );
-      let bestAp = pickKitProduct(
-        aps,
-        (apCandidate) =>
-          scoreWifiConstructorAp(apCandidate, area, clientsPerApEst, form.spaceType),
-        form.spaceType,
-      );
-      let nextApRadiusM = bestAp
-        ? wifiRadiusM(bestAp, numbers.width, numbers.length)
-        : base.apRadiusM;
-      let apMarkers =
-        numbers.wireless > 0 && aps.length > 0
-          ? computeApMarkers(
-              base.clients,
-              base.router,
-              nextRouterRadiusM,
-              nextApRadiusM,
-              numbers,
-            )
-          : [];
-      if (numbers.wireless > 0 && aps.length > 0 && apMarkers.length > 0) {
-        const sceneDraft: SceneState = {
-          ...base,
-          apMarkers,
-          routerRadiusM: nextRouterRadiusM,
-          apRadiusM: nextApRadiusM,
-        };
-        bestAp = pickKitProduct(
-          aps,
-          (apCandidate) =>
-            scoreWifiConstructorAp(apCandidate, area, clientsPerApEst, form.spaceType) +
-            scoreApLayoutFit(
-              apCandidate,
-              sceneDraft,
-              nextRouterRadiusM,
-              numbers.width,
-              numbers.length,
-            ),
-          form.spaceType,
-        );
-        nextApRadiusM = bestAp
-          ? wifiRadiusM(bestAp, numbers.width, numbers.length)
-          : nextApRadiusM;
-        apMarkers = computeApMarkers(
-          base.clients,
-          base.router,
-          nextRouterRadiusM,
-          nextApRadiusM,
-          numbers,
-        );
-      }
-      const sceneDraft: SceneState = {
-        ...base,
-        apMarkers,
-        apRadiusM: nextApRadiusM,
-        routerRadiusM: nextRouterRadiusM,
-      };
-      const budget = computeLanPortBudget(sceneDraft, numbers, form.spaceType);
-      const switchPlan = planSwitchTopology(
-        switches,
-        routerProduct,
-        sceneDraft,
-        budget,
-        form.spaceType,
+    setScene((prev) =>
+      recomputeNetworkLayout(
+        prev ?? buildSceneState(numbers),
         numbers,
-      );
-      const endpoints = collectLanEndpoints(sceneDraft);
-      const switchMarkers = switchPlan
-        ? base.switchMarkers.length === switchPlan.quantity
-          ? base.switchMarkers
-          : computeSwitchMarkers(
-              switchPlan.quantity,
-              numbers,
-              sceneDraft.router,
-              endpoints,
-              switchPlan.product,
-              wiredClientPositions(sceneDraft),
-            )
-        : [];
-      return {
-        ...sceneDraft,
-        switchMarkers,
-      };
-    });
+        area,
+        form.spaceType,
+        routers,
+        aps,
+        switches,
+      ),
+    );
     setShowCalculated(true);
   }, [numbers, area, form.spaceType, routers, aps, switches]);
 
@@ -1875,7 +2072,7 @@ export default function NetworkBuilderPage() {
     }
 
     if (numbers.wireless > 0 && aps.length > 0) {
-      const clientsPerApEst = Math.max(2, Math.ceil(numbers.wireless / 3));
+      const clientsPerApEst = estimateClientsPerAp(numbers.wireless, area);
       const bestAp = pickKitProduct(
         aps,
         (apCandidate) =>
@@ -1975,8 +2172,17 @@ export default function NetworkBuilderPage() {
           quantity: i.quantity,
         })),
       }),
-    onSuccess: () => {
+    onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ["cart"] });
+      const skipped = Number(res.data?.skipped ?? 0);
+      if (skipped > 0) {
+        useToastStore
+          .getState()
+          .show(
+            `Добавлено не всё: ${skipped} поз. нет на складе`,
+            "info",
+          );
+      }
       navigate("/cart");
     },
     onError: (err: { response?: { data?: { message?: string } } }) => {
@@ -1999,32 +2205,35 @@ export default function NetworkBuilderPage() {
       const p = clampToRoom(mx, my, numbers.width, numbers.length);
       setScene((prev) => {
         if (!prev) return prev;
-        if (kind === "router") {
-          return { ...prev, router: p };
-        }
-        if (
-          kind === "switch" &&
-          index >= 0 &&
-          index < prev.switchMarkers.length
-        ) {
-          const switchMarkers = [...prev.switchMarkers];
-          switchMarkers[index] = p;
-          return { ...prev, switchMarkers };
-        }
-        if (kind === "client" && index >= 0 && index < prev.clients.length) {
-          const clients = [...prev.clients];
-          clients[index] = { ...clients[index], x: p.x, y: p.y };
-          return { ...prev, clients };
-        }
-        if (kind === "ap" && index >= 0 && index < prev.apMarkers.length) {
-          const apMarkers = [...prev.apMarkers];
-          apMarkers[index] = { x: p.x, y: p.y };
-          return { ...prev, apMarkers };
-        }
-        return prev;
+        return applySceneDrag(prev, kind, index, p);
       });
     },
-    [numbers.width, numbers.length],
+    [numbers],
+  );
+
+  const finalizeWirelessDragLayout = useCallback(
+    (kind: DragKind, clientIndex: number) => {
+      if (!showCalculatedRef.current) return;
+      if (kind !== "router" && kind !== "client") return;
+      setScene((prev) => {
+        if (!prev) return prev;
+        if (
+          kind === "client" &&
+          (clientIndex < 0 || prev.clients[clientIndex]?.type !== "📱")
+        ) {
+          return prev;
+        }
+        return recomputeApMarkersOnly(
+          prev,
+          numbers,
+          area,
+          form.spaceType,
+          routers,
+          aps,
+        );
+      });
+    },
+    [numbers, area, form.spaceType, routers, aps],
   );
 
   useEffect(() => {
@@ -2376,12 +2585,13 @@ export default function NetworkBuilderPage() {
   };
 
   const onPointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    const hadDrag = dragRef.current !== null;
+    const d = dragRef.current;
     const canvas = canvasRef.current;
-    if (canvas && hadDrag) {
+    if (canvas && d) {
       try {
         canvas.releasePointerCapture(e.pointerId);
       } catch {}
+      finalizeWirelessDragLayout(d.kind, d.index);
     }
     dragRef.current = null;
   };
@@ -2409,7 +2619,7 @@ export default function NetworkBuilderPage() {
             <p className="ns-net-builder__section-label">Параметры</p>
             <div className="grid grid-cols-2 gap-3 sm:gap-4">
               <div>
-                <label className={labelCls}>Длина, м</label>
+                <label className={labelCls}>Ширина, м</label>
                 <input
                   type="number"
                   min={2}
@@ -2420,7 +2630,7 @@ export default function NetworkBuilderPage() {
                 />
               </div>
               <div>
-                <label className={labelCls}>Ширина, м</label>
+                <label className={labelCls}>Длина, м</label>
                 <input
                   type="number"
                   min={2}
@@ -2519,7 +2729,7 @@ export default function NetworkBuilderPage() {
             <p className="ns-net-builder__section-label mb-0">Схема</p>
             {!showCalculated && hasScene && (
               <p className="ns-net-builder__hint -mt-1">
-                Перетаскивайте устройства на схеме
+                Перетаскивайте устройства на схеме. После расчёта схема обновляется в реальном времени
               </p>
             )}
             <div

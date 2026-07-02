@@ -275,7 +275,7 @@ export function buildAdminStatsExcelHtml(payload: AdminStatsExportPayload): stri
       "7. Новые пользователи за день",
       payload.newUsers.length
         ? table(
-            ["ID", "Имя", "Эл. почта", "Роль", "Почта подтверждена", "Регистрация"],
+            ["ID", "Имя пользователя", "Эл. почта", "Роль", "Почта подтверждена", "Регистрация"],
             payload.newUsers.map((u) => [
               u.id,
               u.name,
